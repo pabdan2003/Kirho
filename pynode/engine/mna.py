@@ -71,15 +71,6 @@ def _apply_gmin(G, node_map, gmin: float = _GMIN_DEFAULT):
             G[i, i] += gmin
 
 
-def _sparse_factor(G_lil):
-    """
-    Factoriza G (LIL → CSC → LU).
-    Retorna el objeto SuperLU que expone .solve(b).
-    """
-    G_csc = csc_matrix(G_lil)
-    return splu(G_csc)
-
-
 def _component_fingerprint(c) -> tuple:
     """
     Devuelve una huella estable que identifica unívocamente un componente

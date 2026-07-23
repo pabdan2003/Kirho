@@ -7,10 +7,7 @@ import sys
 import math
 import json
 import os
-import re
-import html
 import numpy as np
-from itertools import combinations
 from typing import Optional, List, Dict, Tuple
 
 from PyQt6.QtWidgets import (
@@ -29,15 +26,13 @@ from PyQt6.QtGui import (
     QAction, QTransform
 )
 from PyQt6.QtCore import (
-    Qt, QPointF, QRectF, QLineF, pyqtSignal, QObject, QSize
+    QEvent, Qt, QPointF, QRectF, QLineF, pyqtSignal, QObject, QSize
 )
 
 # Motor MNA
-from pynode.engine import Resistor, VoltageSource, VoltageSourceAC, CurrentSource, Capacitor, Inductor
-from pynode.engine import Diode, BJT, MOSFET, OpAmp, Impedance, MNASolver
+from pynode.engine import Resistor, VoltageSource, VoltageSourceAC, CurrentSource, MNASolver
 from pynode.circuit_analyzer import (
-    CircuitAnalyzer, ImplicitBridgeDetector,
-    DEFAULT_STANDARD, AnalysisFlags,
+    CircuitAnalyzer, DEFAULT_STANDARD,
 )
 from pynode.ui.component_metadata import (
     COMPONENT_NODE_LABELS,
@@ -81,6 +76,45 @@ from pynode.ui.items.wire_item import WireItem
 from pynode.ui.scene import (
     CircuitScene, build_engine_components_for_item, expand_subcircuits,
 )
+
+
+class CircuitView(QGraphicsView):
+    """Vista del circuito con rueda y trackpad nativos."""
+
+    _MIN_ZOOM = 0.2
+    _MAX_ZOOM = 5.0
+
+    def _zoom_at(self, factor, position):
+        current = self.transform().m11()
+        factor = max(self._MIN_ZOOM / current, min(factor, self._MAX_ZOOM / current))
+        if factor == 1:
+            return
+
+        scene_pos = self.mapToScene(position.toPoint())
+        self.scale(factor, factor)
+        moved_pos = self.mapFromScene(scene_pos)
+        delta = moved_pos - position.toPoint()
+        self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() + delta.x())
+        self.verticalScrollBar().setValue(self.verticalScrollBar().value() + delta.y())
+
+    def wheelEvent(self, event):
+        modifiers = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier
+        if event.pixelDelta().isNull() or event.modifiers() & modifiers:
+            delta = event.angleDelta().y()
+            if delta:
+                self._zoom_at(1.15 ** (delta / 120), event.position())
+                event.accept()
+                return
+        super().wheelEvent(event)
+
+    def viewportEvent(self, event):
+        if (event.type() == QEvent.Type.NativeGesture
+                and event.gestureType() == Qt.NativeGestureType.ZoomNativeGesture):
+            self._zoom_at(1 + event.value(), event.position())
+            event.accept()
+            return True
+        return super().viewportEvent(event)
+
 
 # ══════════════════════════════════════════════════════════════
 # VENTANA PRINCIPAL
@@ -436,12 +470,11 @@ class MainWindow(QMainWindow):
         scene.logic_state_toggled.connect(self._on_logic_state_toggled)
         scene.instrument_changed.connect(self._on_instrument_changed)
 
-        view = QGraphicsView(scene)
+        view = CircuitView(scene)
         view.setRenderHint(QPainter.RenderHint.Antialiasing)
         view.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         view.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        view.wheelEvent = self._wheel_zoom
         return scene, view
 
     def _add_sheet(self, name: str = ''):
@@ -1134,6 +1167,19 @@ class MainWindow(QMainWindow):
         """Compatibilidad: despacha al toggle."""
         self._toggle_simulation(True)
 
+    def _build_analog_components(self, items, pin_node):
+        components, errors = [], []
+        for item in items:
+            if item.comp_type in ComponentItem.DIGITAL_TYPES | {
+                'NET_LABEL_IN', 'NET_LABEL_OUT', 'GND', 'NODE'
+            }:
+                continue
+            try:
+                components.extend(build_engine_components_for_item(item, pin_node))
+            except Exception as error:
+                errors.append(f"{item.name}: {error}")
+        return components, errors
+
     # ── Live transient (Multisim-like) ────────────────────────────────────
     def _start_live_transient(self, flags, pin_node):
         """
@@ -1145,17 +1191,8 @@ class MainWindow(QMainWindow):
         """
         sim_components = self._sim_all_comps or list(self.scene.components)
 
-        # ── Construir componentes del motor analógico ─────────────────
-        analog_comps, build_errors = [], []
-        for item in sim_components:
-            if item.comp_type in ComponentItem.DIGITAL_TYPES:
-                continue
-            if item.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT', 'GND', 'NODE'):
-                continue
-            try:
-                analog_comps.extend(build_engine_components_for_item(item, pin_node))
-            except Exception as e:
-                build_errors.append(f"{item.name}: {e}")
+        analog_comps, build_errors = self._build_analog_components(
+            sim_components, pin_node)
 
         if not analog_comps:
             self.results_text.setPlainText(
@@ -1565,17 +1602,8 @@ class MainWindow(QMainWindow):
         if flags.warnings:
             out.extend([f"  ⚠ {w}" for w in flags.warnings]); out.append("")
 
-        # ── Construir componentes analógicos ─────────────────────────────
-        analog_comps, build_errors = [], []
-        for item in sim_components:
-            if item.comp_type in ComponentItem.DIGITAL_TYPES:
-                continue
-            if item.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT', 'GND', 'NODE'):
-                continue
-            try:
-                analog_comps.extend(build_engine_components_for_item(item, pin_node))
-            except Exception as e:
-                build_errors.append(f"{item.name}: {e}")
+        analog_comps, build_errors = self._build_analog_components(
+            sim_components, pin_node)
 
         # ── DC ────────────────────────────────────────────────────────────
         if flags.has_dc and analog_comps:
@@ -2513,184 +2541,6 @@ class MainWindow(QMainWindow):
         self.btn_power_triangle.setVisible(True)
 
 
-    def _run_simulation_mixed(self):
-        """
-        Simulación mixta analógica-digital.
-        Construye:
-          - Lista de componentes MNA (analógicos)
-          - DigitalSimulator con puertas y flip-flops del canvas
-          - Puentes ADC/DAC desde los bloques ADC_BRIDGE / DAC_BRIDGE
-        Luego lanza MixedSignalInterface.run_iterative() y muestra resultados.
-        """
-        from pynode.engine.digital_engine import (
-            DigitalSimulator, Gate, DFF, JKFF, TFF, SRFF,
-            BinaryCounter, MUX,
-        )
-        from pynode.engine.bridges import ADC, DAC, ComparatorBridge, PWMBridge
-        from pynode.engine.mixed_signal import MixedSignalInterface
-
-        # ── Parámetros de simulación ─────────────────────────────────────
-        t_stop = 1e-3      # 1 ms por defecto
-        dt_chunk = 100e-6  # 100 µs por chunk
-
-        self.results_text.setPlainText("Preparando simulación mixta...")
-        QApplication.processEvents()
-
-        sim_all = getattr(self, '_sim_all_comps', None) or list(self.scene.components)
-        pin_node = getattr(self, '_sim_pin_node', None) or self.scene.extract_netlist()
-        analog_comps = []
-        errors = []
-
-        # ── Construir circuito analógico ─────────────────────────────────
-        for item in sim_all:
-            if item.comp_type in ComponentItem.DIGITAL_TYPES:
-                continue
-            if item.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT', 'GND', 'NODE'):
-                continue
-            auto_n1 = pin_node.get(f"{item.name}__p1", f'iso_{item.name}_p')
-            auto_n2 = pin_node.get(f"{item.name}__p2", '0')
-            n1 = item.node1.strip() if item.node1.strip() else auto_n1
-            n2 = item.node2.strip() if item.node2.strip() else auto_n2
-            try:
-                if item.comp_type in ComponentItem.DIGITAL_TYPES:
-                    continue
-                if item.comp_type == 'VAC':
-                    # En esta ruta DC se ignora la VAC
-                    analog_comps.append(VoltageSource(item.name, n1, n2, 0.0))
-                    continue
-                analog_comps.extend(build_engine_components_for_item(item, pin_node))
-            except Exception as e:
-                errors.append(f"{item.name}: {e}")
-
-        if not analog_comps:
-            self.results_text.setPlainText(
-                "⚠  No hay componentes analógicos en el canvas.\n"
-                "Añade al menos una fuente y una resistencia.")
-            return
-
-        # ── Construir circuito digital ────────────────────────────────────
-        dsim = DigitalSimulator()
-        adc_bridges = []
-        dac_bridges = []
-
-        _gate_map = {'AND':'AND','OR':'OR','NOT':'NOT',
-                     'NAND':'NAND','NOR':'NOR','XOR':'XOR'}
-
-        for item in sim_all:
-            ct = item.comp_type
-            tpd = item.dig_tpd_ns * 1e-9
-            try:
-                if ct in _gate_map:
-                    n_in = max(1, item.dig_inputs)
-                    ins  = [f'{item.name}_I{i}' for i in range(n_in)]
-                    dsim.add(Gate(item.name, _gate_map[ct], ins,
-                                  f'{item.name}_Y', t_pd=tpd,
-                                  input_invert=list(
-                                      getattr(item, 'dig_input_neg', []) or [])))
-                elif ct == 'DFF':
-                    dsim.add(DFF(item.name,
-                                 d=f'{item.name}_D', clk=item.dig_clk,
-                                 q=f'{item.name}_Q', qn=f'{item.name}_Qn',
-                                 t_pd=tpd))
-                elif ct == 'JKFF':
-                    dsim.add(JKFF(item.name,
-                                  j=f'{item.name}_J', k=f'{item.name}_K',
-                                  clk=item.dig_clk,
-                                  q=f'{item.name}_Q', qn=f'{item.name}_Qn',
-                                  t_pd=tpd))
-                elif ct == 'TFF':
-                    dsim.add(TFF(item.name,
-                                 t_in=f'{item.name}_T', clk=item.dig_clk,
-                                 q=f'{item.name}_Q', qn=f'{item.name}_Qn',
-                                 t_pd=tpd))
-                elif ct == 'SRFF':
-                    dsim.add(SRFF(item.name,
-                                  s=f'{item.name}_S', r=f'{item.name}_R',
-                                  q=f'{item.name}_Q', qn=f'{item.name}_Qn',
-                                  t_pd=tpd))
-                elif ct == 'COUNTER':
-                    dsim.add(BinaryCounter(item.name, n=item.dig_bits,
-                                           clk=item.dig_clk,
-                                           q_prefix=f'{item.name}_Q',
-                                           t_pd=tpd))
-                elif ct == 'MUX2':
-                    dsim.add(MUX(item.name,
-                                 inputs=[f'{item.name}_I0', f'{item.name}_I1'],
-                                 sel=[f'{item.name}_SEL'],
-                                 output=f'{item.name}_Y', t_pd=tpd))
-                elif ct == 'ADC_BRIDGE':
-                    node = item.dig_analog_node or pin_node.get(f"{item.name}__p1", '')
-                    adc  = ADC(item.name, node=node,
-                               bits=item.dig_bits_adc,
-                               vref=item.dig_vref,
-                               clk=item.dig_clk if item.dig_clk else None)
-                    adc_bridges.append(adc)
-                elif ct == 'DAC_BRIDGE':
-                    node = item.dig_analog_node or pin_node.get(f"{item.name}__p1", '')
-                    dac  = DAC(item.name, bits=item.dig_bits_adc,
-                               vref=item.dig_vref, out_node=node,
-                               clk=item.dig_clk if item.dig_clk else None)
-                    dac_bridges.append(dac)
-                elif ct == 'COMPARATOR':
-                    node = item.dig_analog_node or pin_node.get(f"{item.name}__p1", '')
-                    cmp  = ComparatorBridge(item.name, node_pos=node)
-                    adc_bridges.append(cmp)
-            except Exception as e:
-                errors.append(f"{item.name} (digital): {e}")
-
-        # ── Lanzar co-simulación ─────────────────────────────────────────
-        iface = MixedSignalInterface(self.solver, dsim, analog_comps)
-        for adc in adc_bridges:
-            iface.add_adc(adc)
-        for dac in dac_bridges:
-            if hasattr(dac, 'pwm_net'):   # PWMBridge
-                iface.add_pwm(dac)
-            elif hasattr(dac, 'input_nets'):  # DAC
-                iface.add_dac(dac)
-            else:
-                iface.add_comparator(dac)
-
-        result = iface.run_iterative(
-            t_stop=t_stop,
-            dt_chunk=dt_chunk,
-            dt_analog=min(dt_chunk / 10, 1e-6),
-        )
-
-        # ── Mostrar resultados ───────────────────────────────────────────
-        out = ["═══ SIMULACIÓN MIXTA ═══", ""]
-        if not result.success:
-            out.append(f"✗ Error: {result.error}")
-        else:
-            out.append(result.summary())
-            out.append("")
-            out.append("── Voltajes analógicos (valor final) ──")
-            if len(result.t):
-                for node, arr in sorted(result.analog_voltages.items()):
-                    if len(arr):
-                        out.append(f"  V({node}) = {arr[-1]:+.4f} V")
-            if result.digital_waveforms:
-                out.append("")
-                out.append("── Señales digitales (valor final) ──")
-                for net, hist in sorted(result.digital_waveforms.items()):
-                    if hist:
-                        out.append(f"  {net} = {hist[-1][1]}")
-            if result.adc_samples:
-                out.append("")
-                out.append("── Muestras ADC (último código) ──")
-                for name, samples in result.adc_samples.items():
-                    if samples:
-                        out.append(f"  {name}: code={samples[-1][1]}")
-            if result.warnings:
-                out.append("")
-                for w in result.warnings:
-                    out.append(f"  ⚠ {w}")
-
-        if errors:
-            out.append("\n── Errores de construcción ──")
-            out.extend([f"  ✗ {e}" for e in errors])
-
-        self.results_text.setPlainText('\n'.join(out))
-
     def _show_power_triangle(self):
         if not self._last_ac_result:
             return
@@ -3253,12 +3103,6 @@ class MainWindow(QMainWindow):
     def _reset_zoom(self):
         self.view.resetTransform()
         self.view.centerOn(0, 0)
-
-    def _wheel_zoom(self, event):
-        factor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
-        self.view.scale(factor, factor)
-
-
 
 # ══════════════════════════════════════════════════════════════
 # ENTRY POINT

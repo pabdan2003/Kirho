@@ -222,8 +222,11 @@ class _PowerTriangleCanvas(QWidget):
 
     def wheelEvent(self, event):
         """Zoom con rueda del ratón centrado en el cursor."""
-        delta = event.angleDelta().y()
-        factor = 1.15 if delta > 0 else 1 / 1.15
+        delta = event.pixelDelta().y() or event.angleDelta().y()
+        if not delta:
+            event.ignore()
+            return
+        factor = 1.15 ** (delta / (120 if event.pixelDelta().isNull() else 240))
         old_zoom = self._zoom
         self._zoom *= factor
         self._zoom = max(0.2, min(self._zoom, 10.0))
