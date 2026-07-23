@@ -15,7 +15,7 @@ PyNode es un entorno de captura de esquemáticos y simulación construido en Pyt
 - **Análisis DC** — lineal y no-lineal (Newton-Raphson) con continuación de fuente para circuitos con diodos, LEDs, BJT, MOSFET y op-amps.
 - **Análisis AC** — barrido en frecuencia con factorización LU cacheada por punto de frecuencia.
 - **Análisis transitorio** — paso adaptativo con control de error LTE y refinamiento automático ante conmutaciones (LED, diodos, comparadores).
-- **Motor digital** — simulación a eventos con propagación de niveles lógicos y estados X/Z.
+- **Motor digital** — simulación binaria a eventos con retardos de propagación.
 - **Señal mixta** — puentes ADC, DAC, comparador, PWM y sample-and-hold acoplan el dominio analógico con el digital sobre un mismo timestep.
 
 ### Componentes soportados
@@ -34,7 +34,7 @@ PyNode es un entorno de captura de esquemáticos y simulación construido en Pyt
 ### Instrumentos virtuales
 
 - **Multímetro** — V DC/AC, corriente, resistencia con sondas posicionables en el esquemático.
-- **Osciloscopio** — 2 canales diferenciales, base de tiempo y escala vertical configurable, cursores.
+- **Osciloscopio** — 2 canales diferenciales, base de tiempo y escala vertical configurable.
 - **Generador de funciones** — senoidal, cuadrada, triangular y diente de sierra con control de amplitud, frecuencia y offset.
 
 ### Herramientas auxiliares
@@ -68,9 +68,9 @@ python main.py
 
 1. Abre PyNode con `python main.py`.
 2. Arrastra componentes desde el panel lateral al canvas.
-3. Conecta pines haciendo clic en un pin y luego en otro (cables ortogonales).
+3. Conecta pines haciendo clic en un pin y luego en otro.
 4. Haz doble clic en un componente para editar su valor.
-5. Pulsa **Simular DC** para el punto de operación, o **Simular en vivo** para ver la evolución temporal con instrumentos conectados.
+5. Pulsa **▶ SIMULAR**; PyNode detecta automáticamente el modo DC, AC, digital o mixto.
 
 ![Demo de simulación en vivo](docs/img/demo-live.gif)
 
@@ -86,7 +86,7 @@ circuit = [
     Resistor("R2", "out", "0", 1000.0),
 ]
 result = solver.solve_dc(circuit)
-print(result["nodes"]["out"])  # 5.0 V
+print(result["voltages"]["out"])  # 5.0 V
 ```
 
 ---
@@ -131,11 +131,12 @@ Cada push y pull request ejecuta la suite contra Python 3.10, 3.11 y 3.12 en Git
 ## Roadmap
 
 - [x] Migración de tests a `pytest` + CI en GitHub Actions.
-- [ ] Diagramas de Bode (magnitud y fase) sobre el análisis AC existente.
+- [x] Diagramas de Bode (magnitud y fase) sobre el análisis AC existente.
 - [ ] FFT en el osciloscopio.
-- [ ] Exportación a netlist SPICE (interoperabilidad con ngspice / LTspice).
-- [ ] Subcircuitos reutilizables (encapsulado de selección).
-- [ ] Undo/Redo con `QUndoStack`.
+- [x] Exportación a netlist SPICE (interoperabilidad con ngspice / LTspice).
+- [x] Subcircuitos reutilizables (encapsulado de selección).
+- [x] Undo de cambios mediante snapshots.
+- [ ] Redo y migración opcional a `QUndoStack`.
 - [ ] Auto-ruteo ortogonal de cables.
 - [ ] Sondas persistentes en el esquemático.
 
