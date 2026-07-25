@@ -1,54 +1,56 @@
 # PyNode
 
-**Simulador de circuitos electrónicos open source — analógico, digital y señal mixta.**
+**Open-source electronic circuit simulator — analog, digital, and mixed-signal.**
 
-PyNode es un entorno de captura de esquemáticos y simulación construido en Python + PyQt6, con un motor MNA (Modified Nodal Analysis) propio que resuelve DC, AC y transitorios sobre el mismo netlist, e instrumentos virtuales (multímetro, osciloscopio de 2 canales y generador de funciones) integrados en el canvas.
+[Leer en español](docs/README.es.md)
 
-![Captura principal](docs/img/screenshot-main.png)
+PyNode is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
+
+![Main interface](docs/img/screenshot-main.png)
 
 ---
 
-## Características
+## Features
 
-### Motor de simulación
+### Simulation engine
 
-- **Análisis DC** — lineal y no-lineal (Newton-Raphson) con continuación de fuente para circuitos con diodos, LEDs, BJT, MOSFET y op-amps.
-- **Análisis AC** — barrido en frecuencia con factorización LU cacheada por punto de frecuencia.
-- **Análisis transitorio** — paso adaptativo con control de error LTE y refinamiento automático ante conmutaciones (LED, diodos, comparadores).
-- **Motor digital** — simulación binaria a eventos con retardos de propagación.
-- **Señal mixta** — puentes ADC, DAC, comparador, PWM y sample-and-hold acoplan el dominio analógico con el digital sobre un mismo timestep.
+- **DC analysis** — linear and nonlinear (Newton–Raphson), with source stepping for circuits containing diodes, LEDs, BJTs, MOSFETs, and op-amps.
+- **AC analysis** — frequency sweeps with cached LU factorization at each frequency point.
+- **Transient analysis** — adaptive time steps with LTE error control and automatic refinement around switching events (LEDs, diodes, comparators).
+- **Digital engine** — event-driven binary simulation with propagation delays.
+- **Mixed signal** — ADC, DAC, comparator, PWM, and sample-and-hold bridges couple analog and digital domains on the same time step.
 
-### Componentes soportados
+### Supported components
 
-| Categoría | Componentes |
+| Category | Components |
 |---|---|
-| Pasivos | Resistor, Potenciómetro, Capacitor, Inductor, Impedancia genérica |
-| Fuentes | Voltaje DC, Voltaje AC, Corriente, Generador de funciones |
-| Semiconductores | Diodo, LED (Vf por color), BJT NPN/PNP, MOSFET N/P, Op-Amp ideal, TL082 dual |
-| Conversores | Transformador ideal, Puente de diodos rectificador |
-| Digital | AND, OR, NOT, NAND, NOR, XOR, XNOR, BUF, buffer tristate |
-| Memoria/secuencial | DFF, JKFF, TFF, SRFF, registros de desplazamiento, contadores binarios |
-| Combinacional | MUX, DEMUX, ROM, RAM |
-| Bridges A/D | ADC, DAC, Comparador, PWM, Sample-and-Hold |
+| Passive | Resistor, potentiometer, capacitor, inductor, generic impedance |
+| Sources | DC voltage, AC voltage, current, function generator |
+| Semiconductors | Diode, LED (color-specific Vf), NPN/PNP BJT, N/P MOSFET, ideal op-amp, dual TL082 |
+| Converters | Ideal transformer, diode bridge rectifier |
+| Digital | AND, OR, NOT, NAND, NOR, XOR, XNOR, BUF, tristate buffer, NE555 timer |
+| Memory/sequential | DFF, JKFF, TFF, SRFF, shift registers, binary counters |
+| Combinational | MUX, DEMUX, ROM, RAM |
+| A/D bridges | ADC, DAC, comparator, PWM, sample-and-hold |
 
-### Instrumentos virtuales
+### Virtual instruments
 
-- **Multímetro** — V DC/AC, corriente, resistencia con sondas posicionables en el esquemático.
-- **Osciloscopio** — 2 canales diferenciales, base de tiempo y escala vertical configurable.
-- **Generador de funciones** — senoidal, cuadrada, triangular y diente de sierra con control de amplitud, frecuencia y offset.
+- **Multimeter** — DC/AC voltage, current, and resistance, with probes that can be placed on the schematic.
+- **Oscilloscope** — two differential channels with configurable time base and vertical scale.
+- **Function generator** — sine, square, triangle, and sawtooth waveforms with amplitude, frequency, and offset controls.
 
-### Herramientas auxiliares
+### Additional tools
 
-- **Analizador de circuito** — detección de puentes implícitos y validación topológica previa a la simulación.
-- **Calculadora de resistencias** — código de colores ↔ valor, serie E12/E24/E96.
-- **Triángulo de potencia** — P, Q, S y factor de potencia para análisis AC.
-- **Temas** — soporte para temas JSON personalizables. Ver [`themes/README.md`](themes/README.md) para crear el tuyo propio.
+- **Circuit analyzer** — detects implicit shorts and validates topology before simulation.
+- **Resistor calculator** — color code ↔ value conversion and E12/E24/E96 series.
+- **Power triangle** — P, Q, S, and power factor for AC analysis.
+- **Themes** — support for customizable JSON themes. See [`themes/README.md`](themes/README.md) to create your own.
 
 ---
 
-## Instalación
+## Installation
 
-**Requisitos:** Python 3.10 o superior, Windows / Linux / macOS.
+**Requirements:** Python 3.10 or later; Windows, Linux, or macOS.
 
 ```bash
 git clone https://github.com/pabdan2003/PyNode.git
@@ -64,17 +66,17 @@ python main.py
 
 ---
 
-## Uso rápido
+## Quick start
 
-1. Abre PyNode con `python main.py`.
-2. Arrastra componentes desde el panel lateral al canvas.
-3. Conecta pines haciendo clic en un pin y luego en otro.
-4. Haz doble clic en un componente para editar su valor.
-5. Pulsa **▶ SIMULAR**; PyNode detecta automáticamente el modo DC, AC, digital o mixto.
+1. Start PyNode with `python main.py`.
+2. Drag components from the side panel onto the canvas.
+3. Connect pins by clicking one pin and then another.
+4. Double-click a component to edit its value.
+5. Click **▶ SIMULATE**; PyNode automatically detects DC, AC, digital, or mixed-signal mode.
 
-![Demo de simulación en vivo](docs/img/demo-live.gif)
+![Live simulation demo](docs/img/demo-live.gif)
 
-### Ejemplo mínimo (motor desde Python)
+### Minimal example (engine from Python)
 
 ```python
 from pynode.engine import Resistor, VoltageSource, MNASolver
@@ -91,75 +93,75 @@ print(result["voltages"]["out"])  # 5.0 V
 
 ---
 
-## Estructura del proyecto
+## Project structure
 
 ```
 PyNode/
-├── main.py                  # Entrypoint (lanza la ventana principal)
-├── pynode/                  # Paquete principal
-│   ├── circuit_analyzer.py  # Validación topológica y detección de puentes
-│   ├── theme_manager.py     # Carga y persistencia de temas
+├── main.py                  # Entrypoint (opens the main window)
+├── pynode/                  # Main package
+│   ├── circuit_analyzer.py  # Topology validation and short detection
+│   ├── theme_manager.py     # Theme loading and persistence
 │   ├── engine/
-│   │   ├── mna.py           # Solver MNA (DC, AC, transitorio)
-│   │   ├── components.py    # Modelos de componentes analógicos
-│   │   ├── digital_engine.py# Simulador digital a eventos
-│   │   ├── bridges.py       # Conversores analógico ↔ digital
-│   │   └── mixed_signal.py  # Coordinador de simulación mixta
+│   │   ├── mna.py           # MNA solver (DC, AC, transient)
+│   │   ├── components.py    # Analog component models
+│   │   ├── digital_engine.py# Event-driven digital simulator
+│   │   ├── bridges.py       # Analog ↔ digital converters
+│   │   └── mixed_signal.py  # Mixed-signal simulation coordinator
 │   └── ui/
-│       ├── scene.py         # Escena QGraphics y construcción del netlist
+│       ├── scene.py         # QGraphics scene and netlist construction
 │       ├── items/           # ComponentItem, WireItem
-│       ├── dialogs/         # Instrumentos y diálogos de configuración
-│       └── style.py         # Tema, fuentes y constantes visuales
-├── themes/                  # Temas JSON (datos)
-├── firmware/                # Firmware de referencia para sonda física
-└── tests/                   # Suite pytest (motor + digital + mixto)
+│       ├── dialogs/         # Instruments and configuration dialogs
+│       └── style.py         # Theme, fonts, and visual constants
+├── themes/                  # JSON themes (data)
+├── firmware/                # Reference firmware for a physical probe
+└── tests/                   # pytest suite (engine, digital, and mixed signal)
 ```
 
 ---
 
-## Tests
+## Testing
 
 ```bash
 pip install -r requirements-dev.txt
 pytest -v
 ```
 
-Cada push y pull request ejecuta la suite contra Python 3.10, 3.11 y 3.12 en GitHub Actions (ver `.github/workflows/ci.yml`).
+Every push and pull request runs the suite on Python 3.10, 3.11, and 3.12 through GitHub Actions (see `.github/workflows/ci.yml`).
 
 ---
 
 ## Roadmap
 
-- [x] Migración de tests a `pytest` + CI en GitHub Actions.
-- [x] Diagramas de Bode (magnitud y fase) sobre el análisis AC existente.
-- [ ] FFT en el osciloscopio.
-- [x] Exportación a netlist SPICE (interoperabilidad con ngspice / LTspice).
-- [x] Subcircuitos reutilizables (encapsulado de selección).
-- [x] Undo de cambios mediante snapshots.
-- [ ] Redo y migración opcional a `QUndoStack`.
-- [ ] Auto-ruteo ortogonal de cables.
-- [ ] Sondas persistentes en el esquemático.
+- [x] Migrate tests to `pytest` + GitHub Actions CI.
+- [x] Bode plots (magnitude and phase) for the existing AC analysis.
+- [ ] FFT in the oscilloscope.
+- [x] SPICE netlist export (interoperability with ngspice / LTspice).
+- [x] Reusable subcircuits (selection encapsulation).
+- [x] Undo changes using snapshots.
+- [ ] Redo and optional migration to `QUndoStack`.
+- [ ] Orthogonal wire auto-routing.
+- [ ] Persistent probes on the schematic.
 
 ---
 
-## Contribuciones
+## Contributing
 
-Las contribuciones son bienvenidas. Antes de abrir un PR:
+Contributions are welcome. Before opening a pull request:
 
-1. Lee [`docs/architecture.md`](docs/architecture.md) para entender la separación entre motores y las convenciones globales (signos, unidades, nombres de nodos).
-2. Ejecuta los tests existentes y añade los que correspondan al cambio.
-3. Para cambios en el motor, incluye un caso de validación contra una solución analítica conocida.
-4. Para cambios visuales, adjunta una captura antes/después.
+1. Read [`docs/architecture.md`](docs/architecture.md) to understand the separation between engines and global conventions (signs, units, node names).
+2. Run the existing tests and add the ones relevant to your change.
+3. For engine changes, include a validation case against a known analytical solution.
+4. For visual changes, attach before-and-after screenshots.
 
-Mapas rápidos por paquete:
+Quick package maps:
 
-- [`pynode/engine/README.md`](pynode/engine/README.md) — qué hace cada archivo del motor.
-- [`pynode/ui/README.md`](pynode/ui/README.md) — qué hace cada archivo de la UI.
-- [`themes/README.md`](themes/README.md) — formato JSON de los temas y cómo crear el tuyo.
-- [`firmware/README.md`](firmware/README.md) — protocolo binario para la sonda física del osciloscopio.
+- [`pynode/engine/README.md`](pynode/engine/README.md) — purpose of each engine file.
+- [`pynode/ui/README.md`](pynode/ui/README.md) — purpose of each UI file.
+- [`themes/README.md`](themes/README.md) — JSON theme format and how to create one.
+- [`firmware/README.md`](firmware/README.md) — binary protocol for the physical oscilloscope probe.
 
 ---
 
-## Licencia
+## License
 
-Licencia por definir. Hasta entonces, todos los derechos reservados por los autores.
+License to be determined. Until then, all rights are reserved by the authors.

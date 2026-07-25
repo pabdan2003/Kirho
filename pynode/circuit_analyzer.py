@@ -181,7 +181,7 @@ _AC_SOURCE_TYPES: Set[str] = {'VAC', 'FGEN'}
 # modo temporal (live transient) aunque no haya fuentes AC explícitas.
 # Un osciloscopio sin fuentes activas no tendría sentido, pero conectado
 # entre dos nodos DC podría querer ver la traza estática igual.
-_TIME_DOMAIN_HINT_TYPES: Set[str] = {'OSC'}
+_TIME_DOMAIN_HINT_TYPES: Set[str] = {'OSC', 'IC555'}
 
 # Tipos no-lineales
 _NONLINEAR_TYPES: Set[str] = {'D', 'LED', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS'}
@@ -190,7 +190,7 @@ _NONLINEAR_TYPES: Set[str] = {'D', 'LED', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS'}
 _DIGITAL_GATE_TYPES: Set[str] = {
     'AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR',
     'DFF', 'JKFF', 'TFF', 'SRFF',
-    'MUX2', 'COUNTER',
+    'MUX2', 'COUNTER', 'IC555',
 }
 
 # Tipos de puentes explícitos
@@ -275,6 +275,8 @@ class CircuitAnalyzer:
 
             elif ct in _DIGITAL_GATE_TYPES:
                 flags.has_digital = True
+                if ct in _TIME_DOMAIN_HINT_TYPES:
+                    flags.has_ac = True
                 
                 out_pin = f'{item.name}__p1'
                 out_node = (item.node1.strip()

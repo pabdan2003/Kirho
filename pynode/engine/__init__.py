@@ -5,7 +5,7 @@ from .mna import MNASolver
 from .digital_engine import (
     DigitalSimulator, DigitalComponent,
     Gate, AND, OR, NOT, NAND, NOR, XOR, XNOR, BUF,
-    TristateBuffer, DFF, SRFF, JKFF, TFF,
+    TristateBuffer, Timer555, DFF, SRFF, JKFF, TFF,
     ShiftRegister, BinaryCounter, MUX, DEMUX,
     ROM, RAM, Bus, LogicLevel,
 )

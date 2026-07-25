@@ -34,7 +34,7 @@ class ComponentItem(QGraphicsItem):
                   # ── Digital ──
                   'AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR',
                   'DFF', 'JKFF', 'TFF', 'SRFF',
-                  'MUX2', 'COUNTER',
+                  'MUX2', 'COUNTER', 'IC555',
                   'ADC_BRIDGE', 'DAC_BRIDGE', 'COMPARATOR', 'PWM',
                   'CLK',
                   # ── Inter-hoja ──
@@ -53,12 +53,13 @@ class ComponentItem(QGraphicsItem):
 
     # Tipos de flip-flop con SET/RESET (4 inputs lógicos + Q,Qn)
     FLIPFLOP_TYPES = {'DFF', 'JKFF', 'TFF', 'SRFF'}
+    TIMER_TYPES = {'IC555'}
 
     # Tipos que pertenecen al dominio digital (no se pasan al MNA)
     DIGITAL_TYPES = {
         'AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR',
         'DFF', 'JKFF', 'TFF', 'SRFF',
-        'MUX2', 'COUNTER',
+        'MUX2', 'COUNTER', 'IC555',
         'ADC_BRIDGE', 'DAC_BRIDGE', 'COMPARATOR', 'PWM',
         'LOGIC_STATE', 'CLK',
     }
@@ -256,6 +257,8 @@ class ComponentItem(QGraphicsItem):
             m = 22
             return QRectF(-w / 2 - 12 - m, -h / 2 - m,
                           w + 24 + 2 * m, h + 2 * m)
+        if self.comp_type in self.TIMER_TYPES:
+            return QRectF(-65, -55, 130, 110)
         # Flip-flops: cuerpo + cables horizontales + pines SET/RESET arriba/abajo
         if self.comp_type in self.FLIPFLOP_TYPES:
             hw_f = COMP_W // 2
@@ -337,6 +340,8 @@ class ComponentItem(QGraphicsItem):
             gw, gh, step, _ = self._gate_geometry()
             ys = self._gate_pin_ys()
             return QPointF(gw + 10, 0), QPointF(-gw - 10, ys[0])
+        if self.comp_type in self.TIMER_TYPES:
+            return QPointF(-50, 30), QPointF(-50, 10)  # p1 GND, p2 TRIG
         if self.comp_type == 'LOGIC_STATE':
             hw2 = COMP_W // 2
             return QPointF(hw2 + 10, 0), QPointF(hw2 + 10, 0)  # p1=salida, p2=dummy
@@ -509,6 +514,12 @@ class ComponentItem(QGraphicsItem):
             return QPointF(hw_f + 10, hh_f // 2)
         return QPointF(0, 0)
 
+    def _timer_pin_positions(self) -> list:
+        """DIP-8 visto desde arriba: 1–4 izquierda abajo→arriba, 5–8 derecha."""
+        return [QPointF(-50, 30), QPointF(-50, 10), QPointF(-50, -10),
+                QPointF(-50, -30), QPointF(50, -30), QPointF(50, -10),
+                QPointF(50, 10), QPointF(50, 30)]
+
     def pin6_position_scene(self) -> QPointF:
         return self.mapToScene(self.pin6_position())
 
@@ -520,6 +531,8 @@ class ComponentItem(QGraphicsItem):
         if self.comp_type == 'PORT':
             p1, _ = self.pin_positions_scene()
             return [p1]
+        if self.comp_type in self.TIMER_TYPES:
+            return [self.mapToScene(p) for p in self._timer_pin_positions()]
         p1, p2 = self.pin_positions_scene()
         pins = [p1, p2]
         # Pines adicionales según tipo
@@ -624,6 +637,8 @@ class ComponentItem(QGraphicsItem):
             self._draw_counter(painter, pen_body, pen_wire, body_color)
         elif self.comp_type == 'MUX2':
             self._draw_mux(painter, pen_body, pen_wire, body_color)
+        elif self.comp_type in self.TIMER_TYPES:
+            self._draw_timer555(painter, pen_body, pen_wire, body_color)
         elif self.comp_type == 'LOGIC_STATE':
             self._draw_logic_state(painter, pen_body, pen_wire, body_color)
         elif self.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT'):
@@ -641,6 +656,7 @@ class ComponentItem(QGraphicsItem):
         three_terminal = ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP', 'TL082',
                           'NET_LABEL_IN', 'NET_LABEL_OUT',
                           'DFF', 'JKFF', 'TFF', 'SRFF',
+                          'IC555',
                           'PORT', 'SUBCKT',   # dibujan sus propios pines
                           'MULTIMETER')   # _draw_multimeter pinta sus pines
         if self.comp_type not in three_terminal:
@@ -1762,6 +1778,28 @@ class ComponentItem(QGraphicsItem):
                        (hw + 10, -hh // 2), (hw + 10, hh // 2),
                        (0, -hh - 10), (0, hh + 10)]:
             painter.drawEllipse(QPointF(px, py), PIN_RADIUS, PIN_RADIUS)
+
+    def _draw_timer555(self, painter, pen_body, pen_wire, body_color):
+        """Encapsulado DIP-8 del NE555 con el pinout físico estándar."""
+        painter.setPen(pen_body)
+        painter.setBrush(QBrush(body_color))
+        painter.drawRoundedRect(QRectF(-40, -42, 80, 84), 4, 4)
+        painter.setPen(QPen(QColor(COLORS['component']), 2))
+        painter.setFont(_qfont('Consolas', 11, QFont.Weight.Bold))
+        painter.drawText(QRectF(-36, -13, 72, 20), Qt.AlignmentFlag.AlignCenter, 'NE555')
+        painter.setFont(_qfont('Consolas', 6))
+        labels = ('1 GND', '2 TRIG', '3 OUT', '4 RESET',
+                  '5 CTRL', '6 THRESH', '7 DISCH', '8 VCC')
+        for pin, label in zip(self._timer_pin_positions(), labels):
+            inner = QPointF(-40 if pin.x() < 0 else 40, pin.y())
+            painter.setPen(pen_wire)
+            painter.drawLine(pin, inner)
+            painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
+            rect = QRectF(-38, pin.y() - 6, 30, 12) if pin.x() < 0 else QRectF(8, pin.y() - 6, 30, 12)
+            painter.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, label)
+            painter.setPen(QPen(QColor(COLORS['pin']), 2))
+            painter.setBrush(QBrush(QColor(COLORS['pin'])))
+            painter.drawEllipse(pin, PIN_RADIUS, PIN_RADIUS)
 
     def _draw_clk(self, painter, pen_body, pen_wire, body_color):
         """Reloj digital: cuadrado con onda cuadrada y dígito 0/1 grande.

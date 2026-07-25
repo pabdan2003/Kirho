@@ -2,13 +2,15 @@
 Tests del motor digital, puentes A/D y simulación mixta.
 """
 import pytest
+import numpy as np
 
 from pynode.engine import (
     MNASolver, Resistor, VoltageSource, Capacitor,
-    DigitalSimulator, AND, DFF, BinaryCounter, ShiftRegister, Bus,
+    DigitalSimulator, AND, DFF, Timer555, BinaryCounter, ShiftRegister, Bus,
     ADC, DAC, ComparatorBridge, PWMBridge,
     MixedSignalInterface, TimingAnalyzer,
 )
+from pynode.engine.components import Timer555Analog
 
 
 # ──────────────────────────────────────────────
@@ -34,6 +36,37 @@ def test_dff_captures_on_rising_edge(d_value):
     dsim.set_input("CLK", 1, at=5e-9)
     dsim.run(until=20e-9)
     assert dsim.final_value("Q") == d_value
+
+
+def test_555_pinout_and_latch_behavior():
+    """El 555 fija OUT con TRIG bajo y lo borra con THRESH o RESET."""
+    dsim = DigitalSimulator()
+    dsim.add(Timer555("U1", "GND", "TRIG", "OUT", "RESET", "CTRL",
+                      "THRESH", "DISCH", "VCC"))
+    dsim.set_input("RESET", 1, at=0)
+    dsim.set_input("TRIG", 1, at=0)
+    dsim.set_input("THRESH", 0, at=0)
+    dsim.set_input("TRIG", 0, at=2e-9)
+    dsim.set_input("TRIG", 1, at=4e-9)
+    dsim.run(until=6e-9)
+    assert dsim.final_value("OUT") == 1
+    assert dsim.final_value("DISCH") == 0
+    dsim.set_input("THRESH", 1, at=7e-9)
+    dsim.run(until=10e-9)
+    assert dsim.final_value("OUT") == 0
+    assert dsim.final_value("DISCH") == 1
+
+
+def test_555_holds_state_during_newton_iterations():
+    timer = Timer555Analog("U1", "0", "CAP", "OUT", "RESET", "CTRL",
+                           "CAP", "DISCH", "VCC")
+    nodes = {"CAP": 0, "OUT": 1, "RESET": 2, "CTRL": 3,
+             "DISCH": 4, "VCC": 5}
+    timer.prepare_transient_step(np.array([0, 0, 5, 0, 0, 5.0]), nodes)
+    assert timer.q == 1
+    G, I = np.zeros((6, 6)), np.zeros(6)
+    timer.stamp_linear(G, I, nodes, np.array([5, 0, 5, 0, 0, 5.0]))
+    assert timer.q == 1  # no conmuta dentro de Newton-Raphson
 
 
 def test_binary_counter_overflow():

@@ -46,6 +46,7 @@ class CircuitScene(QGraphicsScene):
         'DFF': 'DFF', 'JKFF': 'JKFF',
         'TFF': 'TFF', 'SRFF': 'SRFF',
         'COUNTER': 'CNT', 'MUX2': 'MUX',
+        'IC555': 'U555',
         'CLK': 'CLK',
         'NET_LABEL_IN': 'NL', 'NET_LABEL_OUT': 'NL',
         'FGEN': 'FGEN', 'OSC': 'XSC',
@@ -970,6 +971,10 @@ class CircuitScene(QGraphicsScene):
                 for i, pt in enumerate(comp.subckt_pin_positions_scene()):
                     pins[f"{comp.name}__p{i + 1}"] = pt
                 continue
+            if comp.comp_type in ComponentItem.TIMER_TYPES:
+                for i, pt in enumerate(comp.all_pin_positions_scene(), 1):
+                    pins[f"{comp.name}__p{i}"] = pt
+                continue
             # Registrar pin3 para dispositivos de 3 terminales
             if comp.comp_type in ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP'):
                 pins[f"{comp.name}__p3"] = comp.pin3_position_scene()
@@ -1597,5 +1602,4 @@ def build_engine_components_for_item(item, pin_node):
     except Exception:
         pass
     return []
-
 

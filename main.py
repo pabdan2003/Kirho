@@ -718,6 +718,7 @@ class MainWindow(QMainWindow):
                 ('SRFF',      'Flip-flop SR',   '▣SR'),
                 ('COUNTER',   'Contador binario','#'),
                 ('MUX2',      'Multiplexor 2:1','⊞'),
+                ('IC555',     'Temporizador NE555', '⌛'),
                 ('ADC_BRIDGE','Puente ADC',     'A→D'),
                 ('DAC_BRIDGE','Puente DAC',     'D→A'),
                 ('COMPARATOR','Comparador',     'CMP'),
@@ -1168,8 +1169,16 @@ class MainWindow(QMainWindow):
         self._toggle_simulation(True)
 
     def _build_analog_components(self, items, pin_node):
+        from pynode.engine.components import Timer555Analog
         components, errors = [], []
         for item in items:
+            if item.comp_type == 'IC555':
+                p = lambda n: pin_node.get(f"{item.name}__p{n}", '0')
+                timer = Timer555Analog(item.name, p(1), p(2), p(3), p(4),
+                                       p(5), p(6), p(7), p(8))
+                timer.item = item
+                components.append(timer)
+                continue
             if item.comp_type in ComponentItem.DIGITAL_TYPES | {
                 'NET_LABEL_IN', 'NET_LABEL_OUT', 'GND', 'NODE'
             }:
@@ -1387,6 +1396,11 @@ class MainWindow(QMainWindow):
         sim_components = self._sim_all_comps or list(self.scene.components)
         pin_node = self._live_pin_node or {}
 
+        for timer in (c for c in self._live_components or []
+                      if c.__class__.__name__ == 'Timer555Analog'):
+            timer.item.dig_q_state = int(timer.q)
+            timer.item.update()
+
         def _last(node):
             arr = v_dict.get(node)
             if arr is None or len(arr) == 0:
@@ -1572,7 +1586,7 @@ class MainWindow(QMainWindow):
         """Corre DC + AC + mixto según flags y muestra todo en un panel."""
         from PyQt6.QtWidgets import QApplication
         from pynode.engine.digital_engine import (
-            DigitalSimulator, Gate, DFF, JKFF, TFF, SRFF, BinaryCounter, MUX,
+            DigitalSimulator, Gate, Timer555, DFF, JKFF, TFF, SRFF, BinaryCounter, MUX,
         )
         from pynode.engine.bridges import ADC, DAC, ComparatorBridge, PWMBridge
         from pynode.engine.mixed_signal import MixedSignalInterface
@@ -1755,6 +1769,10 @@ class MainWindow(QMainWindow):
                     elif ct == "DFF":
                         dsim.add(DFF(item.name, d=f"{item.name}_D", clk=item.dig_clk,
                                      q=f"{item.name}_Q", qn=f"{item.name}_Qn", t_pd=tpd))
+                    elif ct == "IC555":
+                        p = lambda n: pin_node.get(f"{item.name}__p{n}", f"{item.name}_P{n}")
+                        dsim.add(Timer555(item.name, p(1), p(2), p(3), p(4),
+                                           p(5), p(6), p(7), p(8), t_pd=tpd))
                     elif ct == "ADC_BRIDGE":
                         nd = item.dig_analog_node or pin_node.get(f"{item.name}__p1","")
                         adc_list.append(ADC(item.name, node=nd, bits=item.dig_bits_adc, vref=item.dig_vref))
@@ -1879,13 +1897,16 @@ class MainWindow(QMainWindow):
         # Esos componentes no tienen driver analógico → matriz singular.
         # Se evalúan luego con _evaluate_digital_gates.
         _gate_types_dc = {'AND','OR','NOT','NAND','NOR','XOR','NAND','NOR',
-                          'DFF','JKFF','TFF','SRFF','MUX2','COUNTER'}
+                          'DFF','JKFF','TFF','SRFF','MUX2','COUNTER','IC555'}
         _dig_out_nodes = set()
         for _item in sim_comps:
             if _item.comp_type in _gate_types_dc:
-                _on = _item.node1.strip() or pin_node.get(f"{_item.name}__p1", "")
-                if _on and _on not in ('0','gnd','GND'):
-                    _dig_out_nodes.add(_on)
+                _pins = (3, 7) if _item.comp_type == 'IC555' else (1,)
+                for _pin in _pins:
+                    _on = (_item.node1.strip() if _pin == 1 else '') or pin_node.get(
+                        f"{_item.name}__p{_pin}", "")
+                    if _on and _on not in ('0','gnd','GND'):
+                        _dig_out_nodes.add(_on)
         # Reunir todos los nodos que tienen driver analógico activo
         # (fuentes de voltaje/corriente, BJT/MOSFET/OpAmp). Los pasivos
         # como R, L, C, Diode NO se cuentan como drivers — sólo aportan
@@ -2139,6 +2160,31 @@ class MainWindow(QMainWindow):
                         led.update()
             if out is not None and not silent:
                 out.append(f"  {item.name}_Y = {y}  ({'HIGH' if y else 'LOW'})")
+
+        # ── NE555 ────────────────────────────────────────────────────────
+        # Modelo digital del biestable interno: RESET bajo domina, THRESH
+        # alto borra y TRIG bajo fija. Pin 7 (DISCH) es el complemento de OUT.
+        timer_items = [it for it in _all if it.comp_type == 'IC555']
+        if timer_items and out is not None and not silent:
+            out.append('\n── Temporizadores 555 ──')
+        for item in timer_items:
+            def _bit(pin):
+                node = pin_node.get(f'{item.name}__p{pin}', '')
+                return 0 if node in ('', '0', 'gnd', 'GND') else int(
+                    dc_voltages.get(node, 0.0) >= std.Vih)
+            reset, trig, thresh = _bit(4), _bit(2), _bit(6)
+            if not reset or thresh:
+                item.dig_q_state = 0
+            elif not trig:
+                item.dig_q_state = 1
+            q = int(item.dig_q_state)
+            for pin, value in ((3, q), (7, 1 - q)):
+                node = pin_node.get(f'{item.name}__p{pin}', '')
+                if node and node not in ('0', 'gnd', 'GND'):
+                    dc_voltages[node] = std.Voh if value else std.Vol
+            item.update()
+            if out is not None and not silent:
+                out.append(f"  {item.name}: OUT={q}, DISCH={1-q}")
 
         # ── Multiplexores 2:1 ────────────────────────────────────────────
         # p1=salida, p2=I0, p3=I1, p4=SEL.  Y = I1 si SEL=1, si no I0.

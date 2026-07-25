@@ -15,6 +15,7 @@ Componentes disponibles:
     Contadores:    BinaryCounter (síncrono, n bits)
     Multiplexores: MUX2, MUX4, MUX8, DEMUX2
     Codificadores: Encoder4to2, Decoder2to4
+    Temporizador:  Timer555 (modelo funcional de los comparadores y biestable)
     Memorias:      ROM (tabla verdad), RAM (lectura/escritura)
     Buses:         Bus (agrupación de señales)
     Nodo de señal: SignalNode (fuente/sumidero externo, útil para test bench)
@@ -309,6 +310,40 @@ def XNOR(name, inputs, output, t_pd=1e-9):
     return Gate(name, 'XNOR', inputs, output, t_pd)
 def BUF(name, inp, output, t_pd=1e-9):
     return Gate(name, 'BUF',  [inp],  output, t_pd)
+
+
+class Timer555(DigitalComponent):
+    """NE555 digital: TRIG bajo fija OUT; THRESH alto lo borra.
+
+    El orden de argumentos conserva el pinout DIP-8 real: 1 GND, 2 TRIG,
+    3 OUT, 4 RESET, 5 CTRL, 6 THRESH, 7 DISCH, 8 VCC. CTRL, GND y VCC se
+    incluyen como terminales eléctricos; el modelo lógico usa los dos
+    comparadores internos y el biestable SR.
+    """
+
+    def __init__(self, name: str, gnd: str, trigger: str, output: str,
+                 reset: str, control: str, threshold: str, discharge: str,
+                 vcc: str, t_pd: float = 1e-9):
+        super().__init__(name, [gnd, trigger, reset, control, threshold, vcc],
+                         [output, discharge], t_pd)
+        self.gnd, self.trigger, self.output = gnd, trigger, output
+        self.reset, self.control, self.threshold = reset, control, threshold
+        self.discharge, self.vcc = discharge, vcc
+        self.q = 0
+
+    def evaluate(self, t, nets):
+        # RESET (pin 4) es activo bajo y domina ambos comparadores.
+        if not self._get(nets, self.reset, 1):
+            self.q = 0
+        elif self._get(nets, self.threshold):
+            self.q = 0
+        elif not self._get(nets, self.trigger, 1):
+            self.q = 1
+        return [self._emit(t, self.output, self.q),
+                self._emit(t, self.discharge, 1 - self.q)]
+
+    def reset(self):
+        self.q = 0
 
 
 class TristateBuffer(DigitalComponent):

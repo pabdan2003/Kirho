@@ -241,6 +241,64 @@ class Capacitor(Component):
         pass
 
 
+class Timer555Analog(Component):
+    """Modelo conductual transitorio del NE555 para astable y monoestable.
+
+    OUT se modela con una salida de 50 Ω y DISCH con un interruptor a GND.
+    Los comparadores internos conmutan a 1/3 y 2/3 de VCC (o CTRL y CTRL/2).
+    """
+    def __init__(self, name, gnd, trig, out, reset, ctrl, thresh, disch, vcc):
+        super().__init__(name)
+        self.gnd, self.trig, self.out, self.reset = gnd, trig, out, reset
+        self.ctrl, self.thresh, self.disch, self.vcc = ctrl, thresh, disch, vcc
+        self.q = 0
+
+    @staticmethod
+    def _v(node, voltages, node_map):
+        idx = node_map.get(node)
+        return float(voltages[idx]) if idx is not None else 0.0
+
+    def stamp(self, G, I, node_map, branch_idx=None):
+        # Estado inicial DC: descarga activada, hasta que el transitorio arranca.
+        self._stamp(G, I, node_map, {}, self.q)
+
+    def prepare_transient_step(self, voltages, node_map):
+        """Actualiza el biestable una vez antes del paso; NR ve un estado fijo."""
+        vg = self._v(self.gnd, voltages, node_map)
+        vcc = self._v(self.vcc, voltages, node_map)
+        span = max(vcc - vg, 0.0)
+        vctrl = self._v(self.ctrl, voltages, node_map)
+        threshold = vctrl if vctrl > vg + 0.1 else vg + 2.0 * span / 3.0
+        trigger = vg + (threshold - vg) / 2.0
+        if self._v(self.reset, voltages, node_map) < vg + 0.7:
+            self.q = 0
+        elif self._v(self.thresh, voltages, node_map) >= threshold:
+            self.q = 0
+        elif self._v(self.trig, voltages, node_map) <= trigger:
+            self.q = 1
+
+    def stamp_linear(self, G, I, node_map, voltages):
+        self._stamp(G, I, node_map, voltages, self.q)
+
+    def _stamp(self, G, I, node_map, voltages, q):
+        ng, no, nd = node_map.get(self.gnd), node_map.get(self.out), node_map.get(self.disch)
+        nv = node_map.get(self.vcc)
+        # OUT: equivalente de Thévenin entre GND y VCC.
+        g_out = 1.0 / 50.0
+        target = self._v(self.vcc, voltages, node_map) if q else self._v(self.gnd, voltages, node_map)
+        if no is not None:
+            G[no, no] += g_out
+            I[no] += g_out * target
+        # DISCH: transistor interno a GND; 10 Ω cuando OUT está bajo.
+        g_dis = 1.0 / (10.0 if not q else 1e12)
+        if nd is not None:
+            G[nd, nd] += g_dis
+        if ng is not None and nd is not None:
+            G[ng, ng] += g_dis
+            G[nd, ng] -= g_dis
+            G[ng, nd] -= g_dis
+
+
 # ──────────────────────────────────────────────
 # Inductor (para AC y transitorio)
 # ──────────────────────────────────────────────

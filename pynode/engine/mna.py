@@ -25,7 +25,7 @@ from scipy.sparse.linalg import splu, spsolve, MatrixRankWarning
 from scipy.linalg import lu_factor, lu_solve
 
 from .components import (
-    Component, VoltageSource, VoltageSourceAC, CurrentSource,
+    Component, VoltageSource, VoltageSourceAC, CurrentSource, Timer555Analog,
     Capacitor, Inductor, Diode, BJT, MOSFET, OpAmp, Impedance,
 )
 from .components import Resistor as Resistor_cls
@@ -137,7 +137,7 @@ class MNASolver:
         Detecta automáticamente si el circuito tiene componentes no-lineales
         y usa Newton-Raphson en ese caso.
         """
-        _nonlinear_types = (Diode, BJT, MOSFET)
+        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog)
         has_nonlinear = any(isinstance(c, _nonlinear_types) for c in components)
 
         if has_nonlinear:
@@ -163,7 +163,7 @@ class MNASolver:
           2. Newton-Raphson con damping adaptativo: si la norma crece,
              reducir el paso a la mitad hasta 8 veces antes de continuar
         """
-        _nonlinear_types = (Diode, BJT, MOSFET)
+        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog)
 
         try:
             node_map, branch_map, size = self._build_maps(components)
@@ -659,7 +659,7 @@ class MNASolver:
               'final_state': dict   # para reanudar
             }
         """
-        _nonlinear_types = (Diode, BJT, MOSFET)
+        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog)
         has_nonlinear = any(isinstance(c, _nonlinear_types) for c in components)
 
         try:
@@ -734,6 +734,13 @@ class MNASolver:
                 if dt_cur < dt_min:
                     dt_cur = dt_min
                 t_new_abs = t_abs + dt_cur
+
+                # Componentes con estado discontinuo (p. ej. el biestable
+                # del 555) conmutan entre pasos, nunca dentro de Newton-Raphson.
+                for c in components:
+                    prepare = getattr(c, 'prepare_transient_step', None)
+                    if prepare is not None:
+                        prepare(x[:n_nodes], node_map)
 
                 # ── Newton-Raphson dentro del paso ────────────────────────
                 # Para circuitos lineales basta una iteración (NR converge
@@ -1083,6 +1090,7 @@ class MNASolver:
             'n_base', 'n_collector', 'n_emitter',
             'n_gate', 'n_drain', 'n_source',
             'n_p', 'n_n', 'n_out',
+            'gnd', 'trig', 'out', 'reset', 'ctrl', 'thresh', 'disch', 'vcc',
         ]
         for c in components:
             for attr in all_node_attrs:
