@@ -233,8 +233,10 @@ class CircuitAnalyzer:
         flags = AnalysisFlags()
 
         # ── Paso 1: clasificar cada componente ───────────────────────────
-        analog_nodes:  Dict[str, List[str]] = {}  # nodo → [comp_names]
-        digital_nodes: Dict[str, List[str]] = {}  # nodo → [comp_names]
+        analog_nodes: Dict[str, List[str]] = {}
+        analog_driver_nodes: Dict[str, List[str]] = {}
+        digital_outputs: Dict[str, List[str]] = {}
+        digital_inputs: Dict[str, List[str]] = {}
 
         for item in scene_components:
             ct = item.comp_type
@@ -266,12 +268,11 @@ class CircuitAnalyzer:
                     flags.has_ac = True
                 if ct in _NONLINEAR_TYPES:
                     flags.has_nonlinear = True
-                # Solo drivers activos crean fronteras implícitas.
-                # LED/Diodo en salida de puerta digital se manejan con
-                # _evaluate_digital_gates, sin necesitar co-simulación.
+                for n in comp_nodes:
+                    analog_nodes.setdefault(n, []).append(item.name)
                 if ct in _ANALOG_DRIVER_TYPES:
                     for n in comp_nodes:
-                        analog_nodes.setdefault(n, []).append(item.name)
+                        analog_driver_nodes.setdefault(n, []).append(item.name)
 
             elif ct in _DIGITAL_GATE_TYPES:
                 flags.has_digital = True
@@ -283,7 +284,10 @@ class CircuitAnalyzer:
                             or pin_node_map.get(out_pin, ''))
                 
                 if out_node and out_node not in _GND_NAMES:
-                    digital_nodes.setdefault(out_node, []).append(item.name)
+                    digital_outputs.setdefault(out_node, []).append(item.name)
+                for node in (n2, n3):
+                    if node and node not in _GND_NAMES:
+                        digital_inputs.setdefault(node, []).append(item.name)
                     
             elif ct in _BRIDGE_TYPES:
                 flags.has_bridges = True
@@ -294,12 +298,16 @@ class CircuitAnalyzer:
                 flags.has_gnd = True
 
         # ── Paso 2: detectar nodos frontera implícitos ───────────────────
-        shared = set(analog_nodes.keys()) & set(digital_nodes.keys())
-        for node in sorted(shared):
+        analog_to_digital = set(analog_driver_nodes) & set(digital_inputs)
+        digital_to_analog = set(analog_nodes) & set(digital_outputs)
+        for node in sorted(analog_to_digital | digital_to_analog):
             flags.implicit_boundary_nodes.append(node)
             flags.boundary_detail[node] = {
-                'analog_comps':  analog_nodes[node],
-                'digital_comps': digital_nodes[node],
+                'analog_comps': analog_nodes[node],
+                'digital_comps': sorted(set(
+                    digital_inputs.get(node, []) + digital_outputs.get(node, []))),
+                'analog_to_digital': node in analog_to_digital,
+                'digital_to_analog': node in digital_to_analog,
                 'standard':      self.std.name,
             }
 

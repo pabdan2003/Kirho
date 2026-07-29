@@ -719,9 +719,6 @@ class MainWindow(QMainWindow):
                 ('COUNTER',   'Contador binario','#'),
                 ('MUX2',      'Multiplexor 2:1','⊞'),
                 ('IC555',     'Temporizador NE555', '⌛'),
-                ('ADC_BRIDGE','Puente ADC',     'A→D'),
-                ('DAC_BRIDGE','Puente DAC',     'D→A'),
-                ('COMPARATOR','Comparador',     'CMP'),
                 ('LOGIC_STATE','Estado Lógico',  '0/1'),
                 ('CLK',       'Reloj (CLK)',    '⏲'),
             ]),
@@ -1754,21 +1751,36 @@ class MainWindow(QMainWindow):
             t_stop = 1e-3   # 1 ms por defecto
             dt_chunk = max(t_stop / 100, 1e-6)
             dsim = DigitalSimulator()
-            adc_list, dac_list = [], []
+            adc_list, dac_list, comparator_list = [], [], []
             _gmap = {"AND":"AND","OR":"OR","NOT":"NOT","NAND":"NAND","NOR":"NOR","XOR":"XOR"}
+
+            def net(item, pin, attr=None):
+                manual = getattr(item, attr, '').strip() if attr else ''
+                return manual or pin_node.get(f"{item.name}__p{pin}", "")
+
             for item in sim_components:
                 ct = item.comp_type; tpd = item.dig_tpd_ns * 1e-9
                 try:
                     if ct in _gmap:
                         n_in = max(1, item.dig_inputs)
+                        inputs = [net(item, 2, 'node2')]
+                        if n_in > 1:
+                            inputs.append(net(item, 3, 'node3'))
+                        inputs.extend(
+                            (item.dig_input_nodes[i - 2].strip()
+                             if len(item.dig_input_nodes) > i - 2
+                             and item.dig_input_nodes[i - 2].strip()
+                             else net(item, i + 2))
+                            for i in range(2, n_in))
                         dsim.add(Gate(item.name, _gmap[ct],
-                                      [f"{item.name}_I{i}" for i in range(n_in)],
-                                      f"{item.name}_Y", t_pd=tpd,
+                                      inputs, net(item, 1, 'node1'), t_pd=tpd,
                                       input_invert=list(
                                           getattr(item, 'dig_input_neg', []) or [])))
                     elif ct == "DFF":
-                        dsim.add(DFF(item.name, d=f"{item.name}_D", clk=item.dig_clk,
-                                     q=f"{item.name}_Q", qn=f"{item.name}_Qn", t_pd=tpd))
+                        dsim.add(DFF(item.name, d=net(item, 2, 'node2'),
+                                     clk=net(item, 3, 'node3') or item.dig_clk,
+                                     q=net(item, 1, 'node1'),
+                                     qn=net(item, 6), t_pd=tpd))
                     elif ct == "IC555":
                         p = lambda n: pin_node.get(f"{item.name}__p{n}", f"{item.name}_P{n}")
                         dsim.add(Timer555(item.name, p(1), p(2), p(3), p(4),
@@ -1781,19 +1793,39 @@ class MainWindow(QMainWindow):
                         dac_list.append(DAC(item.name, bits=item.dig_bits_adc, vref=item.dig_vref, out_node=nd))
                     elif ct == "COMPARATOR":
                         nd = item.dig_analog_node or pin_node.get(f"{item.name}__p1","")
-                        adc_list.append(ComparatorBridge(item.name, node_pos=nd))
+                        comparator_list.append(ComparatorBridge(item.name, node_pos=nd))
+                    elif ct in ('LOGIC_STATE', 'CLK'):
+                        out_net = net(item, 1, 'node1')
+                        if out_net:
+                            dsim.set_input(out_net, int(bool(item.value)), at=0.0)
                 except Exception as e:
                     build_errors.append(f"{item.name}: {e}")
             if flags.implicit_boundary_nodes:
                 std = DEFAULT_STANDARD
                 out.append(f"── Fronteras implícitas ({std.name}) ──")
-                for node in flags.implicit_boundary_nodes:
+                logic_drivers = []
+                for index, node in enumerate(flags.implicit_boundary_nodes):
+                    detail = flags.boundary_detail[node]
                     out.append(f"  Nodo '{node}'")
-                    adc_list.append(ADC(f"__impl_{node}", node=node, bits=1, vref=std.Vdd))
+                    if detail['analog_to_digital']:
+                        comparator_list.append(ComparatorBridge(
+                            f"__impl_{node}", node_pos=node, output_net=node,
+                            vref=(std.Vil + std.Vih) / 2,
+                            hysteresis=std.Vih - std.Vil))
+                    if detail['digital_to_analog']:
+                        source_name = f"__logic_driver_{index}"
+                        analog_comps.append(VoltageSource(source_name, node, '0', std.Vol))
+                        logic_drivers.append((node, source_name, std.Vol, std.Voh))
                 out.append("")
+            else:
+                logic_drivers = []
             if analog_comps:
                 iface = MixedSignalInterface(self.solver, dsim, analog_comps)
                 for a in adc_list: iface.add_adc(a)
+                for comparator in comparator_list:
+                    iface.add_comparator(comparator)
+                for driver in logic_drivers:
+                    iface.add_logic_driver(*driver)
                 for d in dac_list:
                     if hasattr(d,"pwm_net"): iface.add_pwm(d)
                     elif hasattr(d,"input_nets"): iface.add_dac(d)
@@ -2889,6 +2921,16 @@ class MainWindow(QMainWindow):
             if item.comp_type == 'MULTIMETER':
                 entry['meter_quantity'] = item.meter_quantity
                 entry['meter_coupling'] = item.meter_coupling
+            if item.comp_type == 'OSC':
+                for attr in (
+                    'osc_time_div', 'osc_v_div_a', 'osc_v_div_b',
+                    'osc_pos_a', 'osc_pos_b', 'osc_trig_level',
+                    'osc_trig_source', 'osc_trig_edge', 'osc_trig_mode',
+                    'osc_hw_config',
+                ):
+                    if hasattr(item, attr):
+                        value = getattr(item, attr)
+                        entry[attr] = dict(value) if isinstance(value, dict) else value
             if item.comp_type in ComponentItem.DIGITAL_TYPES:
                 neg = list(getattr(item, 'dig_input_neg', []) or [])
                 if any(neg):
@@ -2987,8 +3029,28 @@ class MainWindow(QMainWindow):
                 item.meter_reading_unit_hint = {
                     'V': 'V', 'A': 'A', 'OHM': 'Ω'
                 }.get(item.meter_quantity, 'V')
-            if c['type'] in ComponentItem.DIGITAL_TYPES and 'dig_input_neg' in c:
-                item.dig_input_neg = list(c['dig_input_neg'])
+            if c['type'] == 'OSC':
+                for attr in (
+                    'osc_time_div', 'osc_v_div_a', 'osc_v_div_b',
+                    'osc_pos_a', 'osc_pos_b', 'osc_trig_level',
+                    'osc_trig_source', 'osc_trig_edge', 'osc_trig_mode',
+                    'osc_hw_config',
+                ):
+                    if attr in c:
+                        value = c[attr]
+                        setattr(item, attr, dict(value) if isinstance(value, dict) else value)
+            if c['type'] in ComponentItem.DIGITAL_TYPES:
+                item.dig_inputs = int(c.get('dig_inputs', item.dig_inputs))
+                if c['type'] == 'NOT':
+                    item.dig_inputs = 1
+                item.dig_bits = int(c.get('dig_bits', item.dig_bits))
+                item.dig_bits_adc = int(c.get('dig_bits_adc', item.dig_bits_adc))
+                item.dig_vref = float(c.get('dig_vref', item.dig_vref))
+                item.dig_clk = c.get('dig_clk', item.dig_clk)
+                item.dig_tpd_ns = float(c.get('dig_tpd_ns', item.dig_tpd_ns))
+                item.dig_analog_node = c.get('dig_analog_node', item.dig_analog_node)
+                item.dig_input_nodes = list(c.get('dig_input_nodes', []) or [])
+                item.dig_input_neg = list(c.get('dig_input_neg', []) or [])
 
         for w in sheet_data.get('wires', []):
             wire = WireItem(QPointF(w['x1'], w['y1']), QPointF(w['x2'], w['y2']))

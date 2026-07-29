@@ -197,11 +197,12 @@ class DigitalSimulator:
                 break
         return v
 
-    def reset(self):
-        """Reinicia el simulador para una nueva simulación."""
+    def reset(self, preserve_events: bool = False):
+        """Reinicia el estado; conserva estímulos programados si se solicita."""
         self.nets.clear()
         self.history.clear()
-        self._queue.clear()
+        if not preserve_events:
+            self._queue.clear()
         self._time = 0.0
         for comp in self.components:
             comp.reset()

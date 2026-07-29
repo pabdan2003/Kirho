@@ -41,13 +41,13 @@ Toda la capa gráfica (PyQt6). Para la arquitectura completa ver
 | `dialogs/oscilloscope_dialog.py` | Osciloscopio 2-canales: base de tiempo, cursores, trigger, soporte de fuente HW. | Mejorar el scope. |
 | `dialogs/multimeter_dialog.py` | Multímetro V/I/Ω. | |
 | `dialogs/function_generator_dialog.py` | Generador de senoidal/cuadrada/triangular. | |
-| `dialogs/bode_dialog.py` | Diagrama de Bode sobre `solve_ac`. En construcción. | |
+| `dialogs/bode_dialog.py` | Diagrama de Bode sobre `solve_ac`: magnitud, fase y cursor de lectura. | |
 | `dialogs/power_triangle_dialog.py` | P, Q, S y factor de potencia desde un análisis AC. | |
 | `dialogs/resistor_calc_dialog.py` | Conversor código de colores ↔ valor, series E12/E24/E96. | |
-| `dialogs/circuit_analyzer_dialog.py` | UI sobre `pynode.circuit_analyzer` — validación topológica y detección de puentes implícitos. | |
+| `dialogs/circuit_analyzer_dialog.py` | Analizador digital: tabla de verdad, minimización SOP/POS y construcción automática de circuitos. | |
 | `dialogs/tl082_unit_dialog.py` | Selector de "unidad A/B" del TL082 dual. | |
 | `dialogs/hardware_source_dialog.py` | Configuración del puerto serie para la sonda física. Ver `firmware/README.md`. | |
-| `dialogs/settings_dialog.py` | Ajustes generales (tema, estándares lógicos, etc.). | |
+| `dialogs/settings_dialog.py` | Ajustes de apariencia y administración de temas. | |
 
 ## Convenciones
 

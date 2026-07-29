@@ -11,6 +11,8 @@ from pynode.engine import (
     MixedSignalInterface, TimingAnalyzer,
 )
 from pynode.engine.components import Timer555Analog
+from pynode.circuit_analyzer import CircuitAnalyzer
+from types import SimpleNamespace
 
 
 # ──────────────────────────────────────────────
@@ -142,6 +144,57 @@ def test_comparator_bridge(vin, expected):
     comp = ComparatorBridge("CMP", node_pos="Vin", vref=2.5, hysteresis=0.1)
     out = comp.evaluate({"Vin": vin})
     assert out[comp.output_net] == expected
+
+
+def test_mixed_simulation_preserves_scheduled_digital_inputs():
+    """Los estímulos previos sobreviven al arranque de la co-simulación."""
+    dsim = DigitalSimulator()
+    dsim.add(AND("U1", inputs=["A", "B"], output="Y"))
+    dsim.set_input("A", 1, at=0.0)
+    dsim.set_input("B", 1, at=0.0)
+    iface = MixedSignalInterface(MNASolver(), dsim, [
+        VoltageSource("V1", "in", "0", 5.0),
+        Resistor("R1", "in", "0", 1000.0),
+    ])
+
+    result = iface.run_iterative(t_stop=1e-6, dt_chunk=1e-6, dt_analog=1e-7)
+
+    assert result.success, result.error
+    assert result.digital_waveforms["Y"][-1][1] == 1
+
+
+def test_internal_logic_driver_updates_analog_source():
+    """Una salida digital puede alimentar el dominio MNA sin un bloque DAC UI."""
+    dsim = DigitalSimulator()
+    dsim.add(AND("U1", inputs=["A", "B"], output="Y"))
+    dsim.set_input("A", 1, at=0.0)
+    dsim.set_input("B", 1, at=0.0)
+    logic_source = VoltageSource("__logic", "out", "0", 0.1)
+    iface = MixedSignalInterface(MNASolver(), dsim, [
+        logic_source,
+        Resistor("R1", "out", "0", 1000.0),
+    ])
+    iface.add_logic_driver("Y", "__logic", low=0.1, high=4.9)
+
+    result = iface.run_iterative(t_stop=2e-6, dt_chunk=1e-6, dt_analog=1e-7)
+
+    assert result.success, result.error
+    assert logic_source.V == pytest.approx(4.9)
+    assert result.analog_voltages["out"][-1] == pytest.approx(4.9, abs=1e-3)
+
+
+def test_implicit_bridges_detect_each_direction():
+    """Las fronteras internas distinguen entrada y salida digital."""
+    items = [
+        SimpleNamespace(comp_type="V", name="V1", node1="0", node2="sense", node3=""),
+        SimpleNamespace(comp_type="AND", name="U1", node1="drive", node2="sense", node3="1"),
+        SimpleNamespace(comp_type="R", name="R1", node1="drive", node2="0", node3=""),
+    ]
+    flags = CircuitAnalyzer().analyze(items, {})
+
+    assert flags.boundary_detail["sense"]["analog_to_digital"]
+    assert not flags.boundary_detail["sense"]["digital_to_analog"]
+    assert flags.boundary_detail["drive"]["digital_to_analog"]
 
 
 def test_pwm_bridge_duty_cycle():

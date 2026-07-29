@@ -16,11 +16,11 @@ PyNode es un entorno de captura de esquemáticos y simulación construido en Pyt
 
 - **Análisis DC** — lineal y no-lineal (Newton-Raphson) con continuación de fuente para circuitos con diodos, LEDs, BJT, MOSFET y op-amps.
 - **Análisis AC** — barrido en frecuencia con factorización LU cacheada por punto de frecuencia.
-- **Análisis transitorio** — paso adaptativo con control de error LTE y refinamiento automático ante conmutaciones (LED, diodos, comparadores).
+- **Análisis transitorio** — paso adaptativo con control de error LTE para circuitos analógicos lineales y no lineales.
 - **Motor digital** — simulación binaria a eventos con retardos de propagación.
-- **Señal mixta** — puentes ADC, DAC, comparador, PWM y sample-and-hold acoplan el dominio analógico con el digital sobre un mismo timestep.
+- **Señal mixta** — puentes internos acoplan nodos analógicos y digitales compartidos durante la co-simulación.
 
-### Componentes soportados
+### Componentes disponibles desde el editor
 
 | Categoría | Componentes |
 |---|---|
@@ -28,20 +28,21 @@ PyNode es un entorno de captura de esquemáticos y simulación construido en Pyt
 | Fuentes | Voltaje DC, Voltaje AC, Corriente, Generador de funciones |
 | Semiconductores | Diodo, LED (Vf por color), BJT NPN/PNP, MOSFET N/P, Op-Amp ideal, TL082 dual |
 | Conversores | Transformador ideal, Puente de diodos rectificador |
-| Digital | AND, OR, NOT, NAND, NOR, XOR, XNOR, BUF, buffer tristate, temporizador NE555 |
-| Memoria/secuencial | DFF, JKFF, TFF, SRFF, registros de desplazamiento, contadores binarios |
-| Combinacional | MUX, DEMUX, ROM, RAM |
-| Bridges A/D | ADC, DAC, Comparador, PWM, Sample-and-Hold |
+| Digital | AND, OR, NOT, NAND, NOR, XOR, DFF, JKFF, TFF, SRFF, contador binario, MUX 2:1, NE555, estado lógico y reloj |
+| Señal mixta | Puentes CMOS internos automáticos; ADC/DAC no son componentes del canvas |
+
+La API del motor expone además XNOR, buffers, registros, memorias y clases de
+puentes A/D. No todos están conectados al editor de esquemáticos.
 
 ### Instrumentos virtuales
 
-- **Multímetro** — V DC/AC, corriente, resistencia con sondas posicionables en el esquemático.
-- **Osciloscopio** — 2 canales diferenciales, base de tiempo y escala vertical configurable.
-- **Generador de funciones** — senoidal, cuadrada, triangular y diente de sierra con control de amplitud, frecuencia y offset.
+- **Multímetro** — lecturas de voltaje DC/AC, corriente y resistencia entre dos pines del esquemático.
+- **Osciloscopio** — 2 canales diferenciales, base de tiempo y escala vertical configurables; puede leer el stream serie opcional de hardware.
+- **Generador de funciones** — senoidal, cuadrada y triangular con control de amplitud, frecuencia y offset.
 
 ### Herramientas auxiliares
 
-- **Analizador de circuito** — detección de puentes implícitos y validación topológica previa a la simulación.
+- **Analizador de circuitos digitales** — tablas de verdad, minimización SOP/POS y construcción automática de un circuito de compuertas.
 - **Calculadora de resistencias** — código de colores ↔ valor, serie E12/E24/E96.
 - **Triángulo de potencia** — P, Q, S y factor de potencia para análisis AC.
 - **Temas** — soporte para temas JSON personalizables. Ver [`themes/README.md`](../themes/README.md) para crear el tuyo propio.
@@ -74,8 +75,6 @@ python main.py
 4. Haz doble clic en un componente para editar su valor.
 5. Pulsa **▶ SIMULAR**; PyNode detecta automáticamente el modo DC, AC, digital o mixto.
 
-![Demo de simulación en vivo](img/demo-live.gif)
-
 ### Ejemplo mínimo (motor desde Python)
 
 ```python
@@ -99,7 +98,7 @@ print(result["voltages"]["out"])  # 5.0 V
 PyNode/
 ├── main.py                  # Entrypoint (lanza la ventana principal)
 ├── pynode/                  # Paquete principal
-│   ├── circuit_analyzer.py  # Validación topológica y detección de puentes
+│   ├── circuit_analyzer.py  # Clasificación del modo y detección de fronteras mixtas
 │   ├── theme_manager.py     # Carga y persistencia de temas
 │   ├── engine/
 │   │   ├── mna.py           # Solver MNA (DC, AC, transitorio)
@@ -113,8 +112,8 @@ PyNode/
 │       ├── dialogs/         # Instrumentos y diálogos de configuración
 │       └── style.py         # Tema, fuentes y constantes visuales
 ├── themes/                  # Temas JSON (datos)
-├── firmware/                # Firmware de referencia para sonda física
-└── tests/                   # Suite pytest (motor + digital + mixto)
+├── firmware/                # Protocolo y ejemplos de firmware para sonda física
+└── tests/                   # Suite pytest (motor, señal mixta y E/S de proyectos)
 ```
 
 ---
@@ -126,7 +125,7 @@ pip install -r requirements-dev.txt
 pytest -v
 ```
 
-Cada push y pull request ejecuta la suite contra Python 3.10, 3.11 y 3.12 en GitHub Actions (ver `.github/workflows/ci.yml`).
+Los pushes a `main` y los pull requests ejecutan la suite contra Python 3.10, 3.11 y 3.12 en GitHub Actions (ver `.github/workflows/ci.yml`).
 
 ---
 
@@ -135,7 +134,8 @@ Cada push y pull request ejecuta la suite contra Python 3.10, 3.11 y 3.12 en Git
 - [x] Migración de tests a `pytest` + CI en GitHub Actions.
 - [x] Diagramas de Bode (magnitud y fase) sobre el análisis AC existente.
 - [ ] FFT en el osciloscopio.
-- [x] Exportación a netlist SPICE (interoperabilidad con ngspice / LTspice).
+- [x] Exportación limitada tipo SPICE a `.net` para componentes básicos de dos terminales.
+- [ ] Importación de netlists SPICE y validación de compatibilidad con simuladores externos.
 - [x] Subcircuitos reutilizables (encapsulado de selección).
 - [x] Undo de cambios mediante snapshots.
 - [ ] Redo y migración opcional a `QUndoStack`.
@@ -164,4 +164,4 @@ Mapas rápidos por paquete:
 
 ## Licencia
 
-Licencia por definir. Hasta entonces, todos los derechos reservados por los autores.
+Distribuido bajo la [licencia MIT](../LICENSE).

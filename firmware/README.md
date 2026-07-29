@@ -2,19 +2,20 @@
 
 El osciloscopio del simulador (`OSC`) puede mostrar muestras de un
 microcontrolador conectado por **USB-CDC serial**. Este directorio
-contiene el protocolo binario que tu firmware debe implementar y
-ejemplos de referencia para los micros soportados.
+documenta el protocolo binario que el firmware debe implementar e
+incluye ejemplos de referencia para adaptar a una placa.
 
-## Hardware probado / recomendado
+## Hardware de referencia
 
-| MCU                  | ADC   | Sample rate / canal | Coste aprox. |
-|----------------------|-------|---------------------|--------------|
-| Raspberry Pi Pico (RP2040) | 12-bit | ~250 kSps (2 ch) | ~$4 |
-| Raspberry Pi Pico 2 (RP2350) | 12-bit | ~250 kSps (2 ch) | ~$5 |
-| STM32 Black Pill (F411) | 12-bit | ~2 Msps por ADC | ~$10 |
+| MCU | ADC | Nota |
+|-----|-----|------|
+| Raspberry Pi Pico (RP2040) | 12-bit | Compatible con el ejemplo C y el de MicroPython de este documento. |
+| Raspberry Pi Pico 2 (RP2350) | 12-bit | Requiere adaptar el proyecto al SDK y placa seleccionados. |
+| STM32 Black Pill (F411) | 12-bit | Requiere implementar el protocolo en su entorno de desarrollo. |
 
-Para señales de audio / op-amps (≤100 kHz) cualquiera de los tres
-sirve sobrado. Para >500 kHz usar STM32 con ADCs interleaved.
+La tasa de muestreo real depende del firmware, reloj, configuración del
+ADC y transporte USB. Valida el rendimiento en el hardware elegido antes
+de usarlo para medir señales concretas.
 
 ## Frontend analógico (importante)
 
@@ -63,11 +64,12 @@ Offset  Bytes  Campo
 Si solo usas un canal manda el otro en `0` — el PC siempre espera
 pares. Mantener bloques pareados simplifica el lector.
 
-## Firmware mínimo — Raspberry Pi Pico (C, Pico SDK)
+## Ejemplo C — Raspberry Pi Pico (Pico SDK)
 
-`pico_scope.c` — proyecto autocontenido que muestrea GP26 (CH A) y
-GP27 (CH B) a 100 kSps cada uno y los envía por USB CDC en bloques de
-128 pares.
+Este fragmento ilustra un firmware que muestrea GP26 (CH A) y GP27 (CH B)
+y envía bloques por USB CDC. Debe integrarse en un proyecto Pico SDK; el
+repositorio no incluye un proyecto CMake ni un archivo `pico_scope.c` listo
+para compilar.
 
 ```c
 #include <stdio.h>
@@ -120,19 +122,10 @@ int main(void) {
 }
 ```
 
-Compilar con CMake estándar del Pico SDK:
+## Ejemplo MicroPython (más simple, ligeramente más lento)
 
-```bash
-mkdir build && cd build
-cmake -DPICO_BOARD=pico ..      # o "pico2" para Pico 2 (RP2350)
-make
-# Arrastrar el .uf2 al USB del Pico (en modo BOOTSEL).
-```
-
-## Firmware mínimo — MicroPython (más simple, ligeramente más lento)
-
-`pico_scope.py` — para empezar rápido sin SDK, aunque limitado a
-~30 kSps porque cada `read_u16()` lleva varios µs.
+Un punto de partida sin SDK. El rendimiento depende de la versión de
+MicroPython y de la placa; mide la tasa alcanzable en tu equipo.
 
 ```python
 import struct, sys, time
@@ -166,8 +159,8 @@ while True:
     ts_us += BLOCK_N * DT_US
 ```
 
-Guarda como `main.py` en el Pico con `mpremote cp main.py :main.py` y
-resetea.
+Guarda el fragmento como `main.py` y súbelo al Pico, por ejemplo con
+`mpremote cp main.py :main.py`; después reinicia la placa.
 
 ## Cómo conectarlo desde el simulador
 

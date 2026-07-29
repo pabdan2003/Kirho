@@ -16,11 +16,11 @@ PyNode is a schematic-capture and simulation environment built with Python + PyQ
 
 - **DC analysis** — linear and nonlinear (Newton–Raphson), with source stepping for circuits containing diodes, LEDs, BJTs, MOSFETs, and op-amps.
 - **AC analysis** — frequency sweeps with cached LU factorization at each frequency point.
-- **Transient analysis** — adaptive time steps with LTE error control and automatic refinement around switching events (LEDs, diodes, comparators).
+- **Transient analysis** — adaptive time steps with LTE error control for linear and nonlinear analog circuits.
 - **Digital engine** — event-driven binary simulation with propagation delays.
-- **Mixed signal** — ADC, DAC, comparator, PWM, and sample-and-hold bridges couple analog and digital domains on the same time step.
+- **Mixed signal** — internal bridges couple shared analog and digital nodes during co-simulation.
 
-### Supported components
+### Components available from the editor
 
 | Category | Components |
 |---|---|
@@ -28,20 +28,22 @@ PyNode is a schematic-capture and simulation environment built with Python + PyQ
 | Sources | DC voltage, AC voltage, current, function generator |
 | Semiconductors | Diode, LED (color-specific Vf), NPN/PNP BJT, N/P MOSFET, ideal op-amp, dual TL082 |
 | Converters | Ideal transformer, diode bridge rectifier |
-| Digital | AND, OR, NOT, NAND, NOR, XOR, XNOR, BUF, tristate buffer, NE555 timer |
-| Memory/sequential | DFF, JKFF, TFF, SRFF, shift registers, binary counters |
-| Combinational | MUX, DEMUX, ROM, RAM |
-| A/D bridges | ADC, DAC, comparator, PWM, sample-and-hold |
+| Digital | AND, OR, NOT, NAND, NOR, XOR, DFF, JKFF, TFF, SRFF, binary counter, 2:1 MUX, NE555, logic state and clock |
+| Mixed signal | Automatic internal CMOS-level bridges; ADC/DAC are not canvas components |
+
+The engine API additionally exposes digital models such as XNOR, buffers,
+registers, memories and standalone A/D bridge classes. They are not all wired
+into the schematic editor.
 
 ### Virtual instruments
 
-- **Multimeter** — DC/AC voltage, current, and resistance, with probes that can be placed on the schematic.
-- **Oscilloscope** — two differential channels with configurable time base and vertical scale.
-- **Function generator** — sine, square, triangle, and sawtooth waveforms with amplitude, frequency, and offset controls.
+- **Multimeter** — DC/AC voltage, current and resistance readings between two schematic pins.
+- **Oscilloscope** — two differential channels with configurable time base and vertical scale; it can also read the optional serial hardware stream.
+- **Function generator** — sine, square and triangle waveforms with amplitude, frequency and offset controls.
 
 ### Additional tools
 
-- **Circuit analyzer** — detects implicit shorts and validates topology before simulation.
+- **Digital circuit analyzer** — truth tables, SOP/POS minimization and automatic construction of a gate circuit.
 - **Resistor calculator** — color code ↔ value conversion and E12/E24/E96 series.
 - **Power triangle** — P, Q, S, and power factor for AC analysis.
 - **Themes** — support for customizable JSON themes. See [`themes/README.md`](themes/README.md) to create your own.
@@ -74,8 +76,6 @@ python main.py
 4. Double-click a component to edit its value.
 5. Click **▶ SIMULATE**; PyNode automatically detects DC, AC, digital, or mixed-signal mode.
 
-![Live simulation demo](docs/img/demo-live.gif)
-
 ### Minimal example (engine from Python)
 
 ```python
@@ -99,7 +99,7 @@ print(result["voltages"]["out"])  # 5.0 V
 PyNode/
 ├── main.py                  # Entrypoint (opens the main window)
 ├── pynode/                  # Main package
-│   ├── circuit_analyzer.py  # Topology validation and short detection
+│   ├── circuit_analyzer.py  # Simulation-mode classification and mixed-boundary detection
 │   ├── theme_manager.py     # Theme loading and persistence
 │   ├── engine/
 │   │   ├── mna.py           # MNA solver (DC, AC, transient)
@@ -113,8 +113,8 @@ PyNode/
 │       ├── dialogs/         # Instruments and configuration dialogs
 │       └── style.py         # Theme, fonts, and visual constants
 ├── themes/                  # JSON themes (data)
-├── firmware/                # Reference firmware for a physical probe
-└── tests/                   # pytest suite (engine, digital, and mixed signal)
+├── firmware/                # Protocol and firmware examples for a physical probe
+└── tests/                   # pytest suite (engine, mixed signal, and project I/O)
 ```
 
 ---
@@ -126,7 +126,7 @@ pip install -r requirements-dev.txt
 pytest -v
 ```
 
-Every push and pull request runs the suite on Python 3.10, 3.11, and 3.12 through GitHub Actions (see `.github/workflows/ci.yml`).
+Pushes to `main` and pull requests run the suite on Python 3.10, 3.11 and 3.12 through GitHub Actions (see `.github/workflows/ci.yml`).
 
 ---
 
@@ -135,7 +135,8 @@ Every push and pull request runs the suite on Python 3.10, 3.11, and 3.12 throug
 - [x] Migrate tests to `pytest` + GitHub Actions CI.
 - [x] Bode plots (magnitude and phase) for the existing AC analysis.
 - [ ] FFT in the oscilloscope.
-- [x] SPICE netlist export (interoperability with ngspice / LTspice).
+- [x] Limited SPICE-like `.net` export for basic two-terminal components.
+- [ ] SPICE netlist import and compatibility validation with external simulators.
 - [x] Reusable subcircuits (selection encapsulation).
 - [x] Undo changes using snapshots.
 - [ ] Redo and optional migration to `QUndoStack`.
@@ -164,4 +165,4 @@ Quick package maps:
 
 ## License
 
-License to be determined. Until then, all rights are reserved by the authors.
+Distributed under the [MIT License](LICENSE).

@@ -11,10 +11,9 @@ Para detalles de cada clase o método, ir directo al docstring del código.
 
 ## 1. Tres motores, una UI
 
-PyNode tiene **tres motores de simulación independientes** que se
-comunican por interfaces explícitas. No comparten matrices ni estado
-interno. Esto es deliberado: cada uno se puede testear, ajustar o
-reemplazar sin tocar los otros dos.
+PyNode tiene tres subsistemas de simulación separados: MNA analógico,
+eventos digitales y coordinación mixta. No comparten matrices; el
+coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
 
 ```
        ┌────────────────────────────────────────────────────────────┐
@@ -46,8 +45,8 @@ reemplazar sin tocar los otros dos.
 - **El motor analógico (MNA)** resuelve ecuaciones algebraicas en
   variables continuas (voltajes nodales y corrientes de rama).
 - **El motor digital** es a eventos discretos sobre niveles `0/1/X/Z`.
-- **El coordinador mixto** los hace avanzar en lock-step y traduce
-  voltajes ↔ niveles lógicos en los puntos de cruce.
+- **El coordinador mixto** avanza ambos dominios por ventanas de tiempo y
+  traduce voltajes ↔ niveles lógicos en los puntos de cruce.
 
 ---
 
@@ -147,26 +146,25 @@ sim.waveform("Y")        # [(t, valor), ...]
 
 ### Algoritmo
 
-Co-simulación por partición relajada (relaxation-based co-simulation).
-En cada ventana `[t, t + dt_analog]`:
+Co-simulación por ventanas de tiempo. En cada ventana `[t, t + dt_analog]`:
 
 1. MNA avanza el dominio analógico con `solve_transient`.
 2. ADCs / comparadores leen los voltajes finales y publican señales
    digitales (eventos).
 3. DigitalSimulator avanza hasta `t + dt_analog`.
-4. DACs / PWM leen el estado digital final y actualizan las fuentes
-   del MNA para la siguiente ventana.
+4. Los drivers lógicos internos y los DAC/PWM registrados actualizan las
+   fuentes del MNA para la siguiente ventana.
 
-No hay iteración entre dominios dentro de una ventana — el `dt_analog`
-debe elegirse suficientemente chico como para que esto sea correcto
-(regla práctica: 10× menor que el menor retardo digital).
+La UI crea comparadores CMOS y fuentes lógicas internas cuando un nodo
+conecta ambos dominios; ADC y DAC no son símbolos del canvas. No hay
+iteración entre dominios dentro de una ventana.
 
 ### Puentes disponibles
 
 | Puente | Dirección | Para qué |
 |---|---|---|
-| `ADC` | analógico → digital | Sample-and-hold + quantización n-bit |
-| `DAC` | digital → analógico | Decodificación R-2R conceptual |
+| `ADC` | analógico → digital | Sample-and-hold + cuantización n-bit para uso desde la API |
+| `DAC` | digital → analógico | Conversión de código a fuente MNA para uso desde la API |
 | `ComparatorBridge` | analógico → digital (1 bit) | Histéresis configurable |
 | `PWMBridge` | digital → analógico | Filtra señal PWM a su nivel DC promedio |
 | `SampleAndHold` | analógico → analógico congelado | Para cadenas ADC |
@@ -181,7 +179,7 @@ debe elegirse suficientemente chico como para que esto sea correcto
 |---|---|---|
 | Ítems gráficos | `pynode/ui/items/` | `ComponentItem`, `WireItem` — dibujo y picking |
 | Escena | `pynode/ui/scene.py` | `CircuitScene` — grid, snapping, conexión de pines, ruteo, construcción del netlist (`build_engine_components_for_item`) |
-| Diálogos | `pynode/ui/dialogs/` | Editor de valores, instrumentos (multímetro, osciloscopio, generador), calculadora, ajustes |
+| Diálogos | `pynode/ui/dialogs/` | Editor de valores, instrumentos (multímetro, osciloscopio, generador), análisis digital, calculadoras y ajustes |
 | Estilo | `pynode/ui/style.py` | Colores del tema activo, fuentes, constantes geométricas, parseo SI |
 | Metadata | `pynode/ui/component_metadata.py` | Etiquetas de pines, prefijos, listas de tipos digitales |
 | Ventana | `main.py` | `MainWindow`, toolbar, loop de simulación live, persistencia de circuitos |
@@ -195,7 +193,7 @@ nombres de nodo.
 
 ### Live simulation
 
-`MainWindow._tick_live` corre cada `_LIVE_TICK_MS` (50 ms = 20 Hz).
+`MainWindow._tick_live_transient` corre cada `_LIVE_TICK_MS` (50 ms = 20 Hz).
 Las constantes `_LIVE_*` documentadas en `main.py` controlan el
 trade-off CPU/precisión en tiempo real (tolerancias relajadas, muestras
 por período, cota de pasos por tick).
@@ -218,9 +216,10 @@ se actualizan transparentemente.
 
 ## 7. Firmware (`firmware/`)
 
-Independiente del resto: protocolo binario para alimentar el
-osciloscopio con muestras reales desde un microcontrolador (Pico,
-STM32) por USB-CDC. Especificación completa en `firmware/README.md`.
+Opcional e independiente del simulador: protocolo binario para alimentar
+el osciloscopio con muestras reales desde un microcontrolador por USB-CDC.
+El directorio contiene la especificación y ejemplos de referencia;
+`firmware/README.md` explica cómo adaptarlos.
 
 El receptor vive en `pynode/engine/hw_stream.py` (decoder del frame
 `0xAA 0x55 …`) y la integración con el dialogo del osciloscopio en
@@ -230,13 +229,14 @@ El receptor vive en `pynode/engine/hw_stream.py` (decoder del frame
 
 ## 8. Tests (`tests/`)
 
-Suite pytest. Dos archivos hoy:
+Suite pytest. Los archivos principales son:
 
-- `test_engine.py` — divisores, paralelos, mallas, filtro RC en frecuencia,
-  impedancia compleja, factor de potencia.
+- `test_engine.py` — divisores, paralelos, mallas, filtro RC en frecuencia
+  e impedancia compleja.
 - `test_mixed.py` — compuertas, flip-flops, contador con overflow, registro
-  de desplazamiento, bus, ADC/DAC/comparador/PWM, integración RC + ADC,
-  análisis de timing (setup/hold).
+  de desplazamiento, bus, puentes y drivers internos de señal mixta.
+- `test_project_io.py` — guarda y restauración de ajustes de proyectos desde
+  la interfaz.
 
 Convención: cada caso compara contra una solución analítica conocida
 con tolerancia explícita (`pytest.approx`). Tests que dependen de una

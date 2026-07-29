@@ -187,6 +187,7 @@ class MixedSignalInterface:
         self._comparators: List[Any] = []   # ComparatorBridge
         self._pwms:        List[Any] = []   # PWMBridge
         self._sh:          List[Any] = []   # SampleAndHold
+        self._logic_drivers: List[Tuple[str, str, float, float]] = []
 
         # Estado analógico actual
         self._analog_state: Dict[str, float] = {}
@@ -224,6 +225,12 @@ class MixedSignalInterface:
         self._sh.append(sh)
         return self
 
+    def add_logic_driver(self, net: str, source_name: str,
+                         low: float, high: float) -> 'MixedSignalInterface':
+        """Vincula una red digital a una fuente MNA interna."""
+        self._logic_drivers.append((net, source_name, low, high))
+        return self
+
     # ── Simulación principal ──────────────────────────────────────────────
 
     def run(self, t_stop: float,
@@ -249,7 +256,7 @@ class MixedSignalInterface:
 
         try:
             # ── Inicialización ─────────────────────────────────────────
-            self._digital.reset()
+            self._digital.reset(preserve_events=True)
 
             # Inyectar relojes y estímulos del simulador digital
             # (los set_clock y set_input ya habrán sido llamados por el usuario)
@@ -386,7 +393,7 @@ class MixedSignalInterface:
         result = MixedSimResult()
 
         try:
-            self._digital.reset()
+            self._digital.reset(preserve_events=True)
             t_curr = 0.0
 
             # Acumuladores
@@ -397,6 +404,7 @@ class MixedSignalInterface:
             # Inicializar fuentes con valores por defecto
             d_state: Dict[str, int] = {}
             self._update_dacs_in_mna(d_state, 0.0)
+            self._update_logic_drivers(d_state)
 
             chunk_idx = 0
             while t_curr < t_stop:
@@ -464,6 +472,7 @@ class MixedSignalInterface:
                     pwm.update(d_state, t_end)
 
                 self._update_dacs_in_mna(d_state, t_end)
+                self._update_logic_drivers(d_state)
 
                 t_curr    = t_end
                 chunk_idx += 1
@@ -503,6 +512,15 @@ class MixedSignalInterface:
             v_out = dac.convert(d_state, t)
             if v_out is not None:
                 dac.voltage_to_component(self._comps, src_name)
+
+    def _update_logic_drivers(self, d_state: Dict[str, int]):
+        """Actualiza las fuentes internas que representan salidas lógicas."""
+        from pynode.engine.components import VoltageSource
+        sources = {c.name: c for c in self._comps if isinstance(c, VoltageSource)}
+        for net, source_name, low, high in self._logic_drivers:
+            source = sources.get(source_name)
+            if source is not None:
+                source.V = high if d_state.get(net, 0) else low
 
 
 # ──────────────────────────────────────────────────────────────────────────────
