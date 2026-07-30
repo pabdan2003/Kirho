@@ -690,6 +690,7 @@ class CircuitScene(QGraphicsScene):
         'z_real', 'z_imag', 'z_mag', 'z_phase', 'z_mode',
         'xfmr_ratio', 'xfmr_imax', 'bridge_vf',
         'node4', 'node5', 'tl082_unit', 'clk_running',
+        'timer_nodes',
         'dig_inputs', 'dig_tpd_ns', 'dig_clk', 'dig_analog_node',
         'dig_bits', 'dig_bits_adc', 'dig_vref',
         # Instrumentos
@@ -1042,6 +1043,26 @@ class CircuitScene(QGraphicsScene):
         for idx in range(len(self.wires)):
             union(f"__wire{idx}__p1", f"__wire{idx}__p2")
 
+        # Un pin puede quedar sobre un tramo ya dibujado (uniones en T), no
+        # solamente en uno de sus extremos. Sin esta unión el esquema se ve
+        # conectado, pero el netlist deja el pin flotante.
+        def pin_on_wire(pin: QPointF, a: QPointF, b: QPointF) -> bool:
+            dx, dy = b.x() - a.x(), b.y() - a.y()
+            length_sq = dx * dx + dy * dy
+            if length_sq == 0:
+                return pts_near(pin, a)
+            t = max(0.0, min(1.0, ((pin.x() - a.x()) * dx + (pin.y() - a.y()) * dy)
+                                 / length_sq))
+            x, y = a.x() + t * dx, a.y() + t * dy
+            return (pin.x() - x) ** 2 + (pin.y() - y) ** 2 < SNAP ** 2
+
+        for pin_id, pin in pins.items():
+            for idx in range(len(self.wires)):
+                a = all_nodes[f"__wire{idx}__p1"]
+                b = all_nodes[f"__wire{idx}__p2"]
+                if pin_on_wire(pin, a, b):
+                    union(pin_id, f"__wire{idx}__p1")
+
         # ── 3a. Unir pines de net labels con el mismo sheet_label ───────
         # Esta es la lógica central de los nodos inalámbricos:
         # todos los net labels (IN u OUT) que comparten sheet_label
@@ -1189,6 +1210,8 @@ class CircuitScene(QGraphicsScene):
             if item.comp_type in ComponentItem.FIVE_PIN_TYPES:
                 if 'node4' in data: item.node4 = data['node4']
                 if 'node5' in data: item.node5 = data['node5']
+            if item.comp_type == 'IC555' and 'timer_nodes' in data:
+                item.timer_nodes = (list(data['timer_nodes']) + [''] * 8)[:8]
             # Etiqueta inter-hoja
             if item.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT') and 'sheet_label' in data:
                 item.sheet_label = data['sheet_label']
@@ -1602,4 +1625,3 @@ def build_engine_components_for_item(item, pin_node):
     except Exception:
         pass
     return []
-

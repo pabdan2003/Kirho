@@ -1,10 +1,10 @@
-# PyNode
+# OhmPy
 
 **Simulador de circuitos electrónicos open source — analógico, digital y señal mixta.**
 
 [Read in English](../README.md)
 
-PyNode es un entorno de captura de esquemáticos y simulación construido en Python + PyQt6, con un motor MNA (Modified Nodal Analysis) propio que resuelve DC, AC y transitorios sobre el mismo netlist, e instrumentos virtuales (multímetro, osciloscopio de 2 canales y generador de funciones) integrados en el canvas.
+OhmPy es un entorno de captura de esquemáticos y simulación construido en Python + PyQt6, con un motor MNA (Modified Nodal Analysis) propio que resuelve DC, AC y transitorios sobre el mismo netlist, e instrumentos virtuales (multímetro, osciloscopio de 2 canales y generador de funciones) integrados en el canvas.
 
 ![Captura principal](img/screenshot-main.png)
 
@@ -54,8 +54,8 @@ puentes A/D. No todos están conectados al editor de esquemáticos.
 **Requisitos:** Python 3.10 o superior, Windows / Linux / macOS.
 
 ```bash
-git clone https://github.com/pabdan2003/PyNode.git
-cd PyNode
+git clone https://github.com/pabdan2003/PyNode.git OhmPy
+cd OhmPy
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
@@ -69,11 +69,11 @@ python main.py
 
 ## Uso rápido
 
-1. Abre PyNode con `python main.py`.
+1. Abre OhmPy con `python main.py`.
 2. Arrastra componentes desde el panel lateral al canvas.
 3. Conecta pines haciendo clic en un pin y luego en otro.
 4. Haz doble clic en un componente para editar su valor.
-5. Pulsa **▶ SIMULAR**; PyNode detecta automáticamente el modo DC, AC, digital o mixto.
+5. Pulsa **▶ SIMULAR**; OhmPy detecta automáticamente el modo DC, AC, digital o mixto.
 
 ### Ejemplo mínimo (motor desde Python)
 
@@ -95,7 +95,7 @@ print(result["voltages"]["out"])  # 5.0 V
 ## Estructura del proyecto
 
 ```
-PyNode/
+OhmPy/
 ├── main.py                  # Entrypoint (lanza la ventana principal)
 ├── pynode/                  # Paquete principal
 │   ├── circuit_analyzer.py  # Clasificación del modo y detección de fronteras mixtas

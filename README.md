@@ -1,10 +1,10 @@
-# PyNode
+# OhmPy
 
 **Open-source electronic circuit simulator — analog, digital, and mixed-signal.**
 
 [Leer en español](docs/README.es.md)
 
-PyNode is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
+OhmPy is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
 
 ![Main interface](docs/img/screenshot-main.png)
 
@@ -55,8 +55,8 @@ into the schematic editor.
 **Requirements:** Python 3.10 or later; Windows, Linux, or macOS.
 
 ```bash
-git clone https://github.com/pabdan2003/PyNode.git
-cd PyNode
+git clone https://github.com/pabdan2003/PyNode.git OhmPy
+cd OhmPy
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
@@ -70,11 +70,11 @@ python main.py
 
 ## Quick start
 
-1. Start PyNode with `python main.py`.
+1. Start OhmPy with `python main.py`.
 2. Drag components from the side panel onto the canvas.
 3. Connect pins by clicking one pin and then another.
 4. Double-click a component to edit its value.
-5. Click **▶ SIMULATE**; PyNode automatically detects DC, AC, digital, or mixed-signal mode.
+5. Click **▶ SIMULATE**; OhmPy automatically detects DC, AC, digital, or mixed-signal mode.
 
 ### Minimal example (engine from Python)
 
@@ -96,7 +96,7 @@ print(result["voltages"]["out"])  # 5.0 V
 ## Project structure
 
 ```
-PyNode/
+OhmPy/
 ├── main.py                  # Entrypoint (opens the main window)
 ├── pynode/                  # Main package
 │   ├── circuit_analyzer.py  # Simulation-mode classification and mixed-boundary detection

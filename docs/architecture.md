@@ -1,4 +1,4 @@
-# Arquitectura de PyNode
+# Arquitectura de OhmPy
 
 Este documento explica cómo encajan las piezas del proyecto. Está pensado
 para alguien que clona el repositorio por primera vez y quiere saber:
@@ -11,7 +11,7 @@ Para detalles de cada clase o método, ir directo al docstring del código.
 
 ## 1. Tres motores, una UI
 
-PyNode tiene tres subsistemas de simulación separados: MNA analógico,
+OhmPy tiene tres subsistemas de simulación separados: MNA analógico,
 eventos digitales y coordinación mixta. No comparten matrices; el
 coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
 

@@ -241,6 +241,26 @@ class CircuitAnalyzer:
         for item in scene_components:
             ct = item.comp_type
 
+            # El NE555 se dibuja junto a los bloques digitales, pero su
+            # simulación real es analógica y transitoria (Timer555Analog).
+            # Clasificarlo como puerta digital crea fronteras ficticias y
+            # fuerza una co-simulación estática que no muestra la oscilación.
+            if ct == 'IC555':
+                timer_nodes = list(getattr(item, 'timer_nodes', []) or [])
+                timer_nodes.extend([''] * (8 - len(timer_nodes)))
+                nodes = [timer_nodes[i - 1].strip()
+                         or pin_node_map.get(f'{item.name}__p{i}', '')
+                         for i in range(1, 9)]
+                flags.has_dc = True
+                flags.has_ac = True
+                flags.has_nonlinear = True
+                if set(nodes) & _GND_NAMES:
+                    flags.has_gnd = True
+                for node in nodes:
+                    if node and node not in _GND_NAMES:
+                        analog_nodes.setdefault(node, []).append(item.name)
+                continue
+
             # Nodos del componente
             n1 = (item.node1.strip()
                   or pin_node_map.get(f'{item.name}__p1', ''))

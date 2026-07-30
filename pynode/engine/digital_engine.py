@@ -328,13 +328,15 @@ class Timer555(DigitalComponent):
         super().__init__(name, [gnd, trigger, reset, control, threshold, vcc],
                          [output, discharge], t_pd)
         self.gnd, self.trigger, self.output = gnd, trigger, output
-        self.reset, self.control, self.threshold = reset, control, threshold
+        # No usar ``self.reset``: ocultaría el método reset() que el
+        # simulador invoca al arrancar una co-simulación.
+        self.reset_net, self.control, self.threshold = reset, control, threshold
         self.discharge, self.vcc = discharge, vcc
         self.q = 0
 
     def evaluate(self, t, nets):
         # RESET (pin 4) es activo bajo y domina ambos comparadores.
-        if not self._get(nets, self.reset, 1):
+        if not self._get(nets, self.reset_net, 1):
             self.q = 0
         elif self._get(nets, self.threshold):
             self.q = 0

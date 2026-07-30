@@ -59,6 +59,15 @@ def test_555_pinout_and_latch_behavior():
     assert dsim.final_value("DISCH") == 1
 
 
+def test_555_can_reset_before_mixed_simulation():
+    """El pin RESET no debe ocultar el hook reset() del componente."""
+    dsim = DigitalSimulator()
+    dsim.add(Timer555("U1", "GND", "TRIG", "OUT", "RESET", "CTRL",
+                      "THRESH", "DISCH", "VCC"))
+
+    dsim.reset()
+
+
 def test_555_holds_state_during_newton_iterations():
     timer = Timer555Analog("U1", "0", "CAP", "OUT", "RESET", "CTRL",
                            "CAP", "DISCH", "VCC")
@@ -69,6 +78,25 @@ def test_555_holds_state_during_newton_iterations():
     G, I = np.zeros((6, 6)), np.zeros(6)
     timer.stamp_linear(G, I, nodes, np.array([5, 0, 5, 0, 0, 5.0]))
     assert timer.q == 1  # no conmuta dentro de Newton-Raphson
+
+
+def test_555_astable_oscillates_over_multiple_periods():
+    """R=1k/15k y C=1µF debe producir más de un flanco en 100 ms."""
+    comps = [
+        VoltageSource("V1", "vcc", "0", 5.0),
+        Resistor("R1", "vcc", "disch", 1000.0),
+        Resistor("R2", "disch", "cap", 15000.0),
+        Capacitor("C1", "cap", "0", 1e-6),
+        Timer555Analog("U1", "0", "cap", "out", "vcc", "0",
+                       "cap", "disch", "vcc"),
+        Resistor("load", "out", "0", 1e6),
+    ]
+
+    result = MNASolver().solve_transient(comps, t_stop=0.1, dt=1e-5)
+    out_high = result["voltages"]["out"] > 2.5
+
+    assert result["success"]
+    assert np.count_nonzero(np.diff(out_high.astype(int))) >= 4
 
 
 def test_binary_counter_overflow():
@@ -195,6 +223,18 @@ def test_implicit_bridges_detect_each_direction():
     assert flags.boundary_detail["sense"]["analog_to_digital"]
     assert not flags.boundary_detail["sense"]["digital_to_analog"]
     assert flags.boundary_detail["drive"]["digital_to_analog"]
+
+
+def test_555_uses_analog_transient_without_implicit_bridge():
+    timer = SimpleNamespace(comp_type='IC555', name='U1', timer_nodes=[''] * 8)
+    pin_nodes = {f'U1__p{i}': node for i, node in enumerate(
+        ('0', 'cap', 'out', 'vcc', 'ctrl', 'cap', 'disch', 'vcc'), 1)}
+
+    flags = CircuitAnalyzer().analyze([timer], pin_nodes)
+
+    assert flags.has_dc and flags.has_ac
+    assert not flags.has_digital
+    assert not flags.implicit_boundary_nodes
 
 
 def test_pwm_bridge_duty_cycle():

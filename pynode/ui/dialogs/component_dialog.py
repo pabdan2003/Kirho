@@ -126,6 +126,7 @@ class ComponentDialog(QDialog):
         self._xfmr_ratio_spin = self._xfmr_imax_spin = None
         self._node4_edit = None
         self._node5_edit = None
+        self._timer_node_edits = []
         self._dig_inputs_spin = self._dig_bits_spin = self._dig_vref_spin = None
         self._dig_tpd_spin = self._dig_clk_edit = self._dig_anode_edit = None
 
@@ -198,6 +199,16 @@ class ComponentDialog(QDialog):
             self.node3_edit = QLineEdit(self.item.node3 if hasattr(self.item, 'node3') else '')
             layout.addRow('CLK:', self.node3_edit)
             self._extra_node_edits = []
+        elif self.item.comp_type == 'IC555':
+            labels = ('1 GND', '2 TRIG', '3 OUT', '4 RESET',
+                      '5 CTRL', '6 THRESH', '7 DISCH', '8 VCC')
+            values = list(getattr(self.item, 'timer_nodes', []) or [])
+            values.extend([''] * (8 - len(values)))
+            for label, value in zip(labels, values):
+                edit = QLineEdit(value)
+                edit.setPlaceholderText('Cableado automático')
+                layout.addRow(label + ':', edit)
+                self._timer_node_edits.append(edit)
         elif self.item.comp_type in FIVE_PIN_NODE_LABELS:
             lbls = FIVE_PIN_NODE_LABELS[self.item.comp_type]
             self.node1_edit = QLineEdit(self.item.node1)
@@ -437,6 +448,8 @@ class ComponentDialog(QDialog):
             data['node4'] = self._node4_edit.text()
         if hasattr(self, '_node5_edit') and self._node5_edit is not None:
             data['node5'] = self._node5_edit.text()
+        if self._timer_node_edits:
+            data['timer_nodes'] = [edit.text() for edit in self._timer_node_edits]
         if self._pot_wiper_spin is not None:
             data['pot_wiper'] = self._pot_wiper_spin.value()
         if self._xfmr_ratio_spin is not None:

@@ -1170,7 +1170,8 @@ class MainWindow(QMainWindow):
         components, errors = [], []
         for item in items:
             if item.comp_type == 'IC555':
-                p = lambda n: pin_node.get(f"{item.name}__p{n}", '0')
+                p = lambda n: (item.timer_nodes[n - 1].strip()
+                               or pin_node.get(f"{item.name}__p{n}", '0'))
                 timer = Timer555Analog(item.name, p(1), p(2), p(3), p(4),
                                        p(5), p(6), p(7), p(8))
                 timer.item = item
@@ -1748,7 +1749,9 @@ class MainWindow(QMainWindow):
                 self.results_text.setPlainText("\n".join(out))
                 self.scene.update()
                 return
-            t_stop = 1e-3   # 1 ms por defecto
+            # Un astable 555 común con R/C del orden de kΩ/µF tarda decenas
+            # de ms por ciclo; 1 ms sólo muestra el arranque.
+            t_stop = 0.1 if any(it.comp_type == 'IC555' for it in sim_components) else 1e-3
             dt_chunk = max(t_stop / 100, 1e-6)
             dsim = DigitalSimulator()
             adc_list, dac_list, comparator_list = [], [], []
@@ -1782,7 +1785,8 @@ class MainWindow(QMainWindow):
                                      q=net(item, 1, 'node1'),
                                      qn=net(item, 6), t_pd=tpd))
                     elif ct == "IC555":
-                        p = lambda n: pin_node.get(f"{item.name}__p{n}", f"{item.name}_P{n}")
+                        p = lambda n: (item.timer_nodes[n - 1].strip()
+                                       or pin_node.get(f"{item.name}__p{n}", f"{item.name}_P{n}"))
                         dsim.add(Timer555(item.name, p(1), p(2), p(3), p(4),
                                            p(5), p(6), p(7), p(8), t_pd=tpd))
                     elif ct == "ADC_BRIDGE":
@@ -2201,7 +2205,8 @@ class MainWindow(QMainWindow):
             out.append('\n── Temporizadores 555 ──')
         for item in timer_items:
             def _bit(pin):
-                node = pin_node.get(f'{item.name}__p{pin}', '')
+                node = (item.timer_nodes[pin - 1].strip()
+                        or pin_node.get(f'{item.name}__p{pin}', ''))
                 return 0 if node in ('', '0', 'gnd', 'GND') else int(
                     dc_voltages.get(node, 0.0) >= std.Vih)
             reset, trig, thresh = _bit(4), _bit(2), _bit(6)
@@ -2211,7 +2216,8 @@ class MainWindow(QMainWindow):
                 item.dig_q_state = 1
             q = int(item.dig_q_state)
             for pin, value in ((3, q), (7, 1 - q)):
-                node = pin_node.get(f'{item.name}__p{pin}', '')
+                node = (item.timer_nodes[pin - 1].strip()
+                        or pin_node.get(f'{item.name}__p{pin}', ''))
                 if node and node not in ('0', 'gnd', 'GND'):
                     dc_voltages[node] = std.Voh if value else std.Vol
             item.update()
@@ -2946,6 +2952,8 @@ class MainWindow(QMainWindow):
                 entry['dig_analog_node'] = item.dig_analog_node
                 entry['dig_input_nodes'] = list(
                     getattr(item, 'dig_input_nodes', []) or [])
+            if item.comp_type == 'IC555':
+                entry['timer_nodes'] = list(getattr(item, 'timer_nodes', []) or [])
             sheet_data['components'].append(entry)
 
         for wire in scene.wires:
@@ -2957,6 +2965,10 @@ class MainWindow(QMainWindow):
         return sheet_data
 
     def _load_sheet_data(self, scene: CircuitScene, sheet_data: dict):
+        # Los NE555 guardados antes de la cuadrícula actual tenían pines a
+        # ±50/±30 px. Conservamos sus cables al abrirlos y los llevamos a los
+        # nuevos pines, todos múltiplos de GRID_SIZE.
+        legacy_555_pins = []
         for c in sheet_data.get('components', []):
             item = scene.place_component(
                 c['type'], QPointF(c['x'], c['y']),
@@ -2974,6 +2986,11 @@ class MainWindow(QMainWindow):
                 item._flip_x = flip_x
                 item._flip_y = flip_y
                 item._apply_transform()
+            if c['type'] == 'IC555':
+                old_local = ((-50, 30), (-50, 10), (-50, -10), (-50, -30),
+                             (50, -30), (50, -10), (50, 10), (50, 30))
+                old_pins = [item.mapToScene(QPointF(x, y)) for x, y in old_local]
+                legacy_555_pins.extend(zip(old_pins, item.all_pin_positions_scene()))
             if c['type'] == 'VAC':
                 item.frequency = c.get('frequency', 60.0)
                 item.phase_deg = c.get('phase_deg', 0.0)
@@ -3051,9 +3068,18 @@ class MainWindow(QMainWindow):
                 item.dig_analog_node = c.get('dig_analog_node', item.dig_analog_node)
                 item.dig_input_nodes = list(c.get('dig_input_nodes', []) or [])
                 item.dig_input_neg = list(c.get('dig_input_neg', []) or [])
+            if c['type'] == 'IC555':
+                item.timer_nodes = (list(c.get('timer_nodes', [])) + [''] * 8)[:8]
 
         for w in sheet_data.get('wires', []):
-            wire = WireItem(QPointF(w['x1'], w['y1']), QPointF(w['x2'], w['y2']))
+            def migrate_555_pin(point):
+                for old, new in legacy_555_pins:
+                    if abs(point.x() - old.x()) < 12 and abs(point.y() - old.y()) < 12:
+                        return QPointF(new)
+                return point
+
+            wire = WireItem(migrate_555_pin(QPointF(w['x1'], w['y1'])),
+                            migrate_555_pin(QPointF(w['x2'], w['y2'])))
             scene.addItem(wire)
             scene.wires.append(wire)
 

@@ -1,4 +1,4 @@
-# Temas externos de PyNode
+# Temas externos de OhmPy
 
 Esta carpeta contiene **temas instalables por separado**.  Cada archivo
 `*.json` que dejes aquí aparecerá automáticamente en el menú
@@ -44,5 +44,5 @@ tema se ignora silenciosamente.
 
 ## Carpetas alternativas
 
-PyNode también lee temas desde `~/.pynode/themes/`
+OhmPy también lee temas desde `~/.pynode/themes/`
 (útil si quieres compartir un tema entre instalaciones).

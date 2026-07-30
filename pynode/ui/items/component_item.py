@@ -74,6 +74,9 @@ class ComponentItem(QGraphicsItem):
         self.node1 = node1
         self.node2 = node2
         self.node3 = node3
+        # Nombres opcionales de red para los ocho pines del NE555. Los cables
+        # siguen teniendo prioridad; estos campos sirven para editar el CI.
+        self.timer_nodes: list = ['', '', '', '', '', '', '', '']
         # Atributos extra para fuente AC
         self.frequency: float = 60.0    # Hz
         self.phase_deg: float = 0.0     # grados
@@ -258,7 +261,7 @@ class ComponentItem(QGraphicsItem):
             return QRectF(-w / 2 - 12 - m, -h / 2 - m,
                           w + 24 + 2 * m, h + 2 * m)
         if self.comp_type in self.TIMER_TYPES:
-            return QRectF(-65, -55, 130, 110)
+            return QRectF(-95, -85, 190, 170)
         # Flip-flops: cuerpo + cables horizontales + pines SET/RESET arriba/abajo
         if self.comp_type in self.FLIPFLOP_TYPES:
             hw_f = COMP_W // 2
@@ -341,7 +344,7 @@ class ComponentItem(QGraphicsItem):
             ys = self._gate_pin_ys()
             return QPointF(gw + 10, 0), QPointF(-gw - 10, ys[0])
         if self.comp_type in self.TIMER_TYPES:
-            return QPointF(-50, 30), QPointF(-50, 10)  # p1 GND, p2 TRIG
+            return QPointF(-80, 60), QPointF(-80, 20)  # p1 GND, p2 TRIG
         if self.comp_type == 'LOGIC_STATE':
             hw2 = COMP_W // 2
             return QPointF(hw2 + 10, 0), QPointF(hw2 + 10, 0)  # p1=salida, p2=dummy
@@ -515,10 +518,10 @@ class ComponentItem(QGraphicsItem):
         return QPointF(0, 0)
 
     def _timer_pin_positions(self) -> list:
-        """DIP-8 visto desde arriba: 1–4 izquierda abajo→arriba, 5–8 derecha."""
-        return [QPointF(-50, 30), QPointF(-50, 10), QPointF(-50, -10),
-                QPointF(-50, -30), QPointF(50, -30), QPointF(50, -10),
-                QPointF(50, 10), QPointF(50, 30)]
+        """DIP-8 con todos los pines alineados a la cuadrícula de 20 px."""
+        return [QPointF(-80, 60), QPointF(-80, 20), QPointF(-80, -20),
+                QPointF(-80, -60), QPointF(80, -60), QPointF(80, -20),
+                QPointF(80, 20), QPointF(80, 60)]
 
     def pin6_position_scene(self) -> QPointF:
         return self.mapToScene(self.pin6_position())
@@ -1783,19 +1786,19 @@ class ComponentItem(QGraphicsItem):
         """Encapsulado DIP-8 del NE555 con el pinout físico estándar."""
         painter.setPen(pen_body)
         painter.setBrush(QBrush(body_color))
-        painter.drawRoundedRect(QRectF(-40, -42, 80, 84), 4, 4)
+        painter.drawRoundedRect(QRectF(-60, -72, 120, 144), 4, 4)
         painter.setPen(QPen(QColor(COLORS['component']), 2))
         painter.setFont(_qfont('Consolas', 11, QFont.Weight.Bold))
-        painter.drawText(QRectF(-36, -13, 72, 20), Qt.AlignmentFlag.AlignCenter, 'NE555')
+        painter.drawText(QRectF(-56, -13, 112, 20), Qt.AlignmentFlag.AlignCenter, 'NE555')
         painter.setFont(_qfont('Consolas', 6))
         labels = ('1 GND', '2 TRIG', '3 OUT', '4 RESET',
                   '5 CTRL', '6 THRESH', '7 DISCH', '8 VCC')
         for pin, label in zip(self._timer_pin_positions(), labels):
-            inner = QPointF(-40 if pin.x() < 0 else 40, pin.y())
+            inner = QPointF(-60 if pin.x() < 0 else 60, pin.y())
             painter.setPen(pen_wire)
             painter.drawLine(pin, inner)
             painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
-            rect = QRectF(-38, pin.y() - 6, 30, 12) if pin.x() < 0 else QRectF(8, pin.y() - 6, 30, 12)
+            rect = QRectF(-58, pin.y() - 6, 46, 12) if pin.x() < 0 else QRectF(12, pin.y() - 6, 46, 12)
             painter.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, label)
             painter.setPen(QPen(QColor(COLORS['pin']), 2))
             painter.setBrush(QBrush(QColor(COLORS['pin'])))
