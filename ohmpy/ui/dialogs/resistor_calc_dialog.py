@@ -32,19 +32,19 @@ ColorRow = Tuple[str, str, Optional[str], Optional[int], Optional[float],
 
 COLOR_TABLE: List[ColorRow] = [
     # key       label       hex        digit  mult       tol     tempco
-    ('black',   'Negro',    '#1a1a1a', 0,     1e0,       None,   250),
-    ('brown',   'Marrón',   '#7a3a00', 1,     1e1,       1.0,    100),
-    ('red',     'Rojo',     '#c8222b', 2,     1e2,       2.0,    50),
-    ('orange',  'Naranja',  '#ff8c00', 3,     1e3,       None,   15),
-    ('yellow',  'Amarillo', '#f0d000', 4,     1e4,       None,   25),
-    ('green',   'Verde',    '#1ea71e', 5,     1e5,       0.5,    20),
-    ('blue',    'Azul',     '#1e6cd0', 6,     1e6,       0.25,   10),
-    ('violet',  'Violeta',  '#8c1eff', 7,     1e7,       0.1,    5),
-    ('gray',    'Gris',     '#7a7a7a', 8,     1e8,       0.05,   1),
-    ('white',   'Blanco',   '#f0f0f0', 9,     1e9,       None,   None),
-    ('gold',    'Dorado',   '#cc9c2c', None,  0.1,       5.0,    None),
-    ('silver',  'Plateado', '#c0c0c0', None,  0.01,      10.0,   None),
-    ('none',    '(ninguno)', None,     None,  None,      20.0,   None),
+    ('black',   'Black',    '#1a1a1a', 0,     1e0,       None,   250),
+    ('brown',   'Brown',    '#7a3a00', 1,     1e1,       1.0,    100),
+    ('red',     'Red',      '#c8222b', 2,     1e2,       2.0,    50),
+    ('orange',  'Orange',   '#ff8c00', 3,     1e3,       None,   15),
+    ('yellow',  'Yellow',   '#f0d000', 4,     1e4,       None,   25),
+    ('green',   'Green',    '#1ea71e', 5,     1e5,       0.5,    20),
+    ('blue',    'Blue',     '#1e6cd0', 6,     1e6,       0.25,   10),
+    ('violet',  'Violet',   '#8c1eff', 7,     1e7,       0.1,    5),
+    ('gray',    'Gray',     '#7a7a7a', 8,     1e8,       0.05,   1),
+    ('white',   'White',    '#f0f0f0', 9,     1e9,       None,   None),
+    ('gold',    'Gold',     '#cc9c2c', None,  0.1,       5.0,    None),
+    ('silver',  'Silver',   '#c0c0c0', None,  0.01,      10.0,   None),
+    ('none',    '(none)',   None,      None,  None,      20.0,   None),
 ]
 
 _BY_KEY = {row[0]: row for row in COLOR_TABLE}
@@ -213,7 +213,7 @@ class ResistorCalcDialog(QDialog):
     def __init__(self, colors=None, parent=None):
         super().__init__(parent)
         self.colors = colors or {}
-        self.setWindowTitle("Calculadora de Código de Colores")
+        self.setWindowTitle("Resistor Color Code")
         self.setMinimumSize(580, 540)
         self._n_bands = 4
         self._combos: List[Tuple[QLabel, QComboBox, str]] = []
@@ -266,7 +266,7 @@ class ResistorCalcDialog(QDialog):
 
         # Selector de número de bandas
         sel_row = QHBoxLayout()
-        sel_row.addWidget(QLabel("<b>Número de bandas:</b>"))
+        sel_row.addWidget(QLabel("<b>Number of bands:</b>"))
         self._band_btn_group = QButtonGroup(self)
         for n in (3, 4, 5, 6):
             rb = QRadioButton(str(n))
@@ -308,7 +308,7 @@ class ResistorCalcDialog(QDialog):
         # Cerrar
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
-        btn_close = QPushButton("Cerrar")
+        btn_close = QPushButton("Close")
         btn_close.clicked.connect(self.accept)
         btn_row.addWidget(btn_close)
         main.addLayout(btn_row)
@@ -379,14 +379,14 @@ class ResistorCalcDialog(QDialog):
         if role == 'digit':
             digit_count = roles.count('digit')
             digit_idx = roles[:idx + 1].count('digit')
-            return f"<b>Banda {idx + 1}</b> – Dígito {digit_idx} de {digit_count}"
+            return f"<b>Band {idx + 1}</b> – Digit {digit_idx} of {digit_count}"
         if role == 'mult':
-            return f"<b>Banda {idx + 1}</b> – Multiplicador"
+            return f"<b>Band {idx + 1}</b> – Multiplier"
         if role == 'tol':
-            return f"<b>Banda {idx + 1}</b> – Tolerancia"
+            return f"<b>Band {idx + 1}</b> – Tolerance"
         if role == 'tempco':
-            return f"<b>Banda {idx + 1}</b> – Coef. Temperatura"
-        return f"Banda {idx + 1}"
+            return f"<b>Band {idx + 1}</b> – Temperature coefficient"
+        return f"Band {idx + 1}"
 
     def _populate_combo(self, combo: QComboBox, role: str):
         """Llena el combo con todas las opciones válidas para `role`."""
@@ -477,22 +477,22 @@ class ResistorCalcDialog(QDialog):
         dim    = self._result_dim
         if R is None:
             return (f"<div style='color:{dim}; font-size:14pt;'>"
-                    "Selecciona los colores…</div>")
+                    "Select colors…</div>")
         val_str = _format_resistance(R)
-        tol_str = f"±{tol:g}%" if tol is not None else "(sin especificar)"
+        tol_str = f"±{tol:g}%" if tol is not None else "(unspecified)"
         # Rango por tolerancia
         if tol is not None:
             R_min = R * (1 - tol / 100)
             R_max = R * (1 + tol / 100)
             range_str = (f"<span style='color:{dim}; font-size:9pt;'>"
-                         f"Rango: {_format_resistance(R_min)} … "
+                         f"Range: {_format_resistance(R_min)} … "
                          f"{_format_resistance(R_max)}</span>")
         else:
             range_str = ""
         tc_str = ""
         if tc is not None:
             tc_str = (f"<br><span style='color:{dim}; font-size:9pt;'>"
-                      f"Coef. temperatura: {tc} ppm/°C</span>")
+                      f"Temperature coefficient: {tc} ppm/°C</span>")
         return (
             f"<div style='font-family:Menlo;'>"
             f"<span style='color:{accent}; font-size:20pt; font-weight:bold;'>"

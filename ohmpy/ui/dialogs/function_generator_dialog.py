@@ -121,11 +121,11 @@ class FunctionGeneratorDialog(QDialog):
         root.addWidget(self.preview)
 
         # ── Waveform (radio buttons en fila, estilo botonera Multisim) ──
-        wf_group = QGroupBox("Forma de onda")
+        wf_group = QGroupBox(self.tr("Waveform"))
         wf_row = QHBoxLayout(wf_group)
-        self.btn_sin = QRadioButton("∿  Sinusoidal")
-        self.btn_sq  = QRadioButton("⊓⊔ Cuadrada")
-        self.btn_tri = QRadioButton("△  Triangular")
+        self.btn_sin = QRadioButton(self.tr("∿  Sine"))
+        self.btn_sq  = QRadioButton(self.tr("⊓⊔ Square"))
+        self.btn_tri = QRadioButton(self.tr("△  Triangle"))
         self._wf_group = QButtonGroup(self)
         self._wf_group.addButton(self.btn_sin, 0)
         self._wf_group.addButton(self.btn_sq,  1)
@@ -136,7 +136,7 @@ class FunctionGeneratorDialog(QDialog):
         root.addWidget(wf_group)
 
         # ── Parámetros numéricos ────────────────────────────────────────
-        params = QGroupBox("Parámetros")
+        params = QGroupBox(self.tr("Parameters"))
         form = QFormLayout(params)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
@@ -151,14 +151,14 @@ class FunctionGeneratorDialog(QDialog):
         freq_row.addWidget(self.sb_freq)
         freq_row.addWidget(self.cb_freq_unit)
         freq_w = QWidget(); freq_w.setLayout(freq_row)
-        form.addRow("Frecuencia:", freq_w)
+        form.addRow(self.tr("Frequency:"), freq_w)
 
         # Amplitud (Vp)
         self.sb_amp = QDoubleSpinBox()
         self.sb_amp.setRange(0.0, 1e6)
         self.sb_amp.setDecimals(3)
         self.sb_amp.setSuffix(" V")
-        form.addRow("Amplitud (Vp):", self.sb_amp)
+        form.addRow(self.tr("Amplitude (Vp):"), self.sb_amp)
 
         # Offset DC
         self.sb_offset = QDoubleSpinBox()
@@ -179,14 +179,14 @@ class FunctionGeneratorDialog(QDialog):
         self.sb_phase.setRange(-360.0, 360.0)
         self.sb_phase.setDecimals(1)
         self.sb_phase.setSuffix(" °")
-        form.addRow("Fase inicial:", self.sb_phase)
+        form.addRow(self.tr("Initial phase:"), self.sb_phase)
 
         root.addWidget(params)
 
         # Cerrar
         bottom = QHBoxLayout()
         bottom.addStretch(1)
-        btn_close = QPushButton("Cerrar")
+        btn_close = QPushButton(self.tr("Close"))
         btn_close.clicked.connect(self.close)
         bottom.addWidget(btn_close)
         root.addLayout(bottom)

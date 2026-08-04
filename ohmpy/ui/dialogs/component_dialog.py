@@ -87,7 +87,7 @@ class ComponentDialog(QDialog):
     def __init__(self, item, colors, parent=None):
         super().__init__(parent)
         self.colors = colors
-        self.setWindowTitle(f"Propiedades — {item.comp_type}")
+        self.setWindowTitle(self.tr("Properties — {type}").format(type=item.comp_type))
         self.setStyleSheet(f"""
             QDialog {{ background: {colors['panel']}; color: {colors['text']}; }}
             QLabel  {{ color: {colors['text']}; }}
@@ -131,15 +131,15 @@ class ComponentDialog(QDialog):
         self._dig_tpd_spin = self._dig_clk_edit = self._dig_anode_edit = None
 
         if is_netlabel:
-            kind = 'Entrada' if self.item.comp_type == 'NET_LABEL_IN' else 'Salida'
+            kind = self.tr('Input') if self.item.comp_type == 'NET_LABEL_IN' else self.tr('Output')
             layout.addRow(QLabel(f'<b>Net Label — {kind}</b>'))
             self._sheet_label_edit = QLineEdit(self.item.sheet_label)
-            self._sheet_label_edit.setPlaceholderText('ej: VCC, CLK, RESET…')
-            layout.addRow('Nombre de red:', self._sheet_label_edit)
+            self._sheet_label_edit.setPlaceholderText(self.tr('e.g.: VCC, CLK, RESET…'))
+            layout.addRow(self.tr('Net name:'), self._sheet_label_edit)
             layout.addRow(QLabel(
-                '<small>Todos los net labels con el mismo nombre<br>'
-                'quedan eléctricamente conectados,<br>'
-                'en la misma hoja o en hojas distintas.</small>'
+                self.tr('<small>All net labels with the same name<br>'
+                        'are electrically connected,<br>'
+                        'on the same sheet or across sheets.</small>')
             ))
             buttons = QDialogButtonBox(
                 QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -148,10 +148,10 @@ class ComponentDialog(QDialog):
             layout.addRow(buttons)
             return
 
-        layout.addRow("Nombre:", self.name_edit)
+        layout.addRow(self.tr("Name:"), self.name_edit)
 
         self.value_spin = SIValueEdit(self.item.value)
-        layout.addRow(VALUE_LABELS.get(self.item.comp_type, 'Valor:'), self.value_spin)
+        layout.addRow(VALUE_LABELS.get(self.item.comp_type, self.tr('Value:')), self.value_spin)
 
         if self.item.comp_type in DIGITAL_GATE_TYPES:
             n_in = self.item.dig_inputs if self.item.comp_type != 'NOT' else 1
@@ -165,36 +165,36 @@ class ComponentDialog(QDialog):
                 rl = QHBoxLayout(row)
                 rl.setContentsMargins(0, 0, 0, 0)
                 rl.addWidget(line_edit, 1)
-                cb = QCheckBox('Negar')
+                cb = QCheckBox(self.tr('Invert'))
                 cb.setToolTip(
-                    'Si está marcado, esta entrada se invierte (se dibuja un\n'
-                    'círculo en el pin como en una compuerta NOT) antes de\n'
-                    'evaluar la compuerta.')
+                    self.tr('When checked, this input is inverted (a circle is\n'
+                            'drawn on the pin as in a NOT gate) before the\n'
+                            'gate is evaluated.'))
                 cb.setChecked(bool(neg_existing[idx]))
                 rl.addWidget(cb)
                 self._dig_input_neg_checks.append(cb)
                 layout.addRow(label, row)
 
             self.node1_edit = QLineEdit(self.item.node1)
-            layout.addRow('Salida (Y):', self.node1_edit)
+            layout.addRow(self.tr('Output (Y):'), self.node1_edit)
             self.node2_edit = QLineEdit(self.item.node2)
-            _make_input_row(0, 'Entrada 1 (A):', self.node2_edit)
+            _make_input_row(0, self.tr('Input 1 (A):'), self.node2_edit)
             self.node3_edit = None
             self._extra_node_edits = []
             if n_in >= 2:
                 n3_val = self.item.node3 if hasattr(self.item, 'node3') else ''
                 self.node3_edit = QLineEdit(n3_val)
-                _make_input_row(1, 'Entrada 2 (B):', self.node3_edit)
+                _make_input_row(1, self.tr('Input 2 (B):'), self.node3_edit)
             for i in range(2, n_in):
                 extra_nodes = getattr(self.item, 'dig_input_nodes', [])
                 val = extra_nodes[i - 2] if len(extra_nodes) > i - 2 else ''
                 edit = QLineEdit(val)
-                _make_input_row(i, f'Entrada {i+1}:', edit)
+                _make_input_row(i, self.tr('Input {number}:').format(number=i + 1), edit)
                 self._extra_node_edits.append(edit)
         elif self.item.comp_type in DIGITAL_FLIPFLOP_TYPES:
             self.node1_edit = QLineEdit(self.item.node1)
             self.node2_edit = QLineEdit(self.item.node2)
-            layout.addRow('Salida Q:', self.node1_edit)
+            layout.addRow(self.tr('Output Q:'), self.node1_edit)
             layout.addRow('Dato D / J:', self.node2_edit)
             self.node3_edit = QLineEdit(self.item.node3 if hasattr(self.item, 'node3') else '')
             layout.addRow('CLK:', self.node3_edit)
@@ -206,9 +206,20 @@ class ComponentDialog(QDialog):
             values.extend([''] * (8 - len(values)))
             for label, value in zip(labels, values):
                 edit = QLineEdit(value)
-                edit.setPlaceholderText('Cableado automático')
+                edit.setPlaceholderText(self.tr('Automatic wiring'))
                 layout.addRow(label + ':', edit)
                 self._timer_node_edits.append(edit)
+        elif self.item.comp_type == 'MUX2':
+            # p1=OUT, p2=I0, p3=I1, p4=SEL: no comparte el editor de contador.
+            self.node1_edit = QLineEdit(self.item.node1)
+            self.node2_edit = QLineEdit(self.item.node2)
+            self.node3_edit = QLineEdit(self.item.node3)
+            self._node4_edit = QLineEdit(self.item.node4)
+            layout.addRow('Output (Y):', self.node1_edit)
+            layout.addRow('Input 0 (I0):', self.node2_edit)
+            layout.addRow('Input 1 (I1):', self.node3_edit)
+            layout.addRow('Select (SEL):', self._node4_edit)
+            self._extra_node_edits = []
         elif self.item.comp_type in FIVE_PIN_NODE_LABELS:
             lbls = FIVE_PIN_NODE_LABELS[self.item.comp_type]
             self.node1_edit = QLineEdit(self.item.node1)
@@ -269,10 +280,10 @@ class ComponentDialog(QDialog):
             self._mode_combo = QComboBox()
             self._mode_combo.addItems(['rms', 'peak'])
             self._mode_combo.setCurrentText(self.item.ac_mode)
-            layout.addRow('Modo amplitud:', self._mode_combo)
+            layout.addRow(self.tr('Amplitude mode:'), self._mode_combo)
 
             self._freq_spin = SIValueEdit(self.item.frequency)
-            layout.addRow('Frecuencia (Hz):', self._freq_spin)
+            layout.addRow(self.tr('Frequency (Hz):'), self._freq_spin)
 
             self._phase_spin = QDoubleSpinBox()
             self._phase_spin.setRange(-360.0, 360.0)
@@ -287,7 +298,7 @@ class ComponentDialog(QDialog):
             self._z_mode_combo = QComboBox()
             self._z_mode_combo.addItems(['Rectangular (R + jX)', 'Fasorial |Z|∠θ'])
             self._z_mode_combo.setCurrentIndex(0 if self.item.z_mode == 'rect' else 1)
-            layout.addRow("Modo entrada:", self._z_mode_combo)
+            layout.addRow(self.tr("Input mode:"), self._z_mode_combo)
 
             w_rect = QWidget()
             l_rect = QHBoxLayout(w_rect)
@@ -334,10 +345,10 @@ class ComponentDialog(QDialog):
             self._xfmr_ratio_spin.setRange(0.001, 1000.0)
             self._xfmr_ratio_spin.setDecimals(4)
             self._xfmr_ratio_spin.setValue(self.item.xfmr_ratio)
-            layout.addRow("Relación n = N1/N2:", self._xfmr_ratio_spin)
+            layout.addRow(self.tr("Ratio n = N1/N2:"), self._xfmr_ratio_spin)
 
             self._xfmr_imax_spin = SIValueEdit(self.item.xfmr_imax)
-            layout.addRow("Corriente máx primaria (A):", self._xfmr_imax_spin)
+            layout.addRow(self.tr("Maximum primary current (A):"), self._xfmr_imax_spin)
 
         self._dig_inputs_spin = None
         self._dig_bits_spin = None
@@ -377,7 +388,7 @@ class ComponentDialog(QDialog):
             self._dig_bits_spin.setRange(1, 24)
             self._dig_bits_spin.setDecimals(0)
             self._dig_bits_spin.setValue(self.item.dig_bits_adc)
-            layout.addRow('Resolución (bits):', self._dig_bits_spin)
+            layout.addRow(self.tr('Resolution (bits):'), self._dig_bits_spin)
 
             self._dig_vref_spin = QDoubleSpinBox()
             self._dig_vref_spin.setRange(0.1, 100.0)
@@ -387,12 +398,12 @@ class ComponentDialog(QDialog):
             layout.addRow('Vref:', self._dig_vref_spin)
 
             self._dig_anode_edit = QLineEdit(self.item.dig_analog_node)
-            layout.addRow('Nodo analógico MNA:', self._dig_anode_edit)
+            layout.addRow(self.tr('MNA analog node:'), self._dig_anode_edit)
 
             self._dig_clk_edit = QLineEdit(self.item.dig_clk)
             layout.addRow('Net CLK (opcional):', self._dig_clk_edit)
 
-        elif self.item.comp_type in DIGITAL_COUNT_TYPES:
+        elif self.item.comp_type == 'COUNTER':
             self._dig_bits_spin = QDoubleSpinBox()
             self._dig_bits_spin.setRange(1, 32)
             self._dig_bits_spin.setDecimals(0)

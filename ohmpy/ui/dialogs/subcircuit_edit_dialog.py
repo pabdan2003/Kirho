@@ -17,16 +17,16 @@ class PortEditDialog(QDialog):
     def __init__(self, item, parent=None):
         super().__init__(parent)
         self.item = item
-        self.setWindowTitle("Puerto de subcircuito")
+        self.setWindowTitle(self.tr("Subcircuit Port"))
         lay = QFormLayout(self)
         self.ed_name = QLineEdit(item.port_name or item.name)
         self.cb_dir = QComboBox()
         self.cb_dir.addItems(['in', 'out', 'bidir'])
         self.cb_dir.setCurrentText(item.port_dir or 'in')
-        lay.addRow("Nombre del pin:", self.ed_name)
-        lay.addRow("Dirección:", self.cb_dir)
+        lay.addRow(self.tr("Pin name:"), self.ed_name)
+        lay.addRow(self.tr("Direction:"), self.cb_dir)
         row = QHBoxLayout()
-        ok = QPushButton("Aceptar"); ca = QPushButton("Cancelar")
+        ok = QPushButton(self.tr("OK")); ca = QPushButton(self.tr("Cancel"))
         ok.clicked.connect(self.accept); ca.clicked.connect(self.reject)
         row.addWidget(ok); row.addWidget(ca)
         lay.addRow(row)
@@ -47,12 +47,12 @@ class _ColorButton(QPushButton):
 
     def _refresh(self):
         shown = self.value or self.fallback
-        self.setText(self.value or "(tema)")
+        self.setText(self.value or self.tr("(theme)"))
         self.setStyleSheet(f"background:{shown};")
 
     def _pick(self):
         init = QColor(self.value) if self.value else QColor(self.fallback)
-        c = QColorDialog.getColor(init, self, "Color")
+        c = QColorDialog.getColor(init, self, self.tr("Color"))
         if c.isValid():
             self.value = c.name()
             self._refresh()
@@ -64,20 +64,20 @@ class SubcircuitAppearanceDialog(QDialog):
     def __init__(self, item, parent=None):
         super().__init__(parent)
         self.item = item
-        self.setWindowTitle(f"Apariencia IC — {item.subckt_name or item.name}")
+        self.setWindowTitle(self.tr("IC Appearance — {name}").format(name=item.subckt_name or item.name))
         self.resize(380, 420)
         root = QVBoxLayout(self)
 
         form = QFormLayout()
         self.ed_label = QLineEdit(item.ic_label or item.subckt_name)
-        form.addRow("Texto del IC:", self.ed_label)
+        form.addRow(self.tr("IC text:"), self.ed_label)
         self.btn_body = _ColorButton(item.ic_body_color, "#3776ab")
         self.btn_text = _ColorButton(item.ic_text_color, "#ffd43b")
-        form.addRow("Color cuerpo:", self.btn_body)
-        form.addRow("Color texto:", self.btn_text)
+        form.addRow(self.tr("Body color:"), self.btn_body)
+        form.addRow(self.tr("Text color:"), self.btn_text)
         root.addLayout(form)
 
-        root.addWidget(QLabel("Disposición de pines:"))
+        root.addWidget(QLabel(self.tr("Pin layout:")))
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         inner = QWidget(); self.pin_form = QFormLayout(inner)
         self._pin_combos = []
@@ -90,7 +90,7 @@ class SubcircuitAppearanceDialog(QDialog):
         root.addWidget(scroll)
 
         row = QHBoxLayout()
-        ok = QPushButton("Aceptar"); ca = QPushButton("Cancelar")
+        ok = QPushButton(self.tr("OK")); ca = QPushButton(self.tr("Cancel"))
         ok.clicked.connect(self.accept); ca.clicked.connect(self.reject)
         row.addWidget(ok); row.addWidget(ca)
         root.addLayout(row)

@@ -1,6 +1,6 @@
 {
   "name": "Solarized Dark",
-  "description": "Tema externo de ejemplo basado en la paleta Solarized de Ethan Schoonover. Cópialo y modifícalo para crear el tuyo.",
+  "description": "Example external theme based on Ethan Schoonover's Solarized palette. Copy and modify it to create your own.",
   "colors": {
     "bg":         "#002b36",
     "grid":       "#073642",

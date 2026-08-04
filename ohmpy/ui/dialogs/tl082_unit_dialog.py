@@ -24,7 +24,7 @@ class TL082UnitDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("TL082 — Seleccionar unidad")
+        self.setWindowTitle(self.tr("TL082 — Select Unit"))
         self.setModal(True)
         self.setFixedSize(320, 160)
         self.selected_unit: str = 'A'
@@ -35,8 +35,8 @@ class TL082UnitDialog(QDialog):
 
         # ── Texto informativo ────────────────────────────────────────────
         lbl = QLabel(
-            "El <b>TL082</b> contiene <b>dos op-amps</b> en el mismo CI.<br>"
-            "¿Qué unidad desea colocar en el esquemático?"
+            self.tr("The <b>TL082</b> contains <b>two op-amps</b> in the same IC.<br>"
+                    "Which unit would you like to place on the schematic?")
         )
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setWordWrap(True)
@@ -52,8 +52,8 @@ class TL082UnitDialog(QDialog):
         radio_row.setSpacing(24)
         self._grp = QButtonGroup(self)
 
-        self._ra = QRadioButton("Unidad A  (pines 1 · 2 · 3)")
-        self._rb = QRadioButton("Unidad B  (pines 7 · 6 · 5)")
+        self._ra = QRadioButton(self.tr("Unit A  (pins 1 · 2 · 3)"))
+        self._rb = QRadioButton(self.tr("Unit B  (pins 7 · 6 · 5)"))
         self._ra.setChecked(True)
         self._grp.addButton(self._ra, 0)
         self._grp.addButton(self._rb, 1)
@@ -62,7 +62,7 @@ class TL082UnitDialog(QDialog):
         layout.addLayout(radio_row)
 
         # ── Botón ────────────────────────────────────────────────────────
-        btn_ok = QPushButton("Colocar")
+        btn_ok = QPushButton(self.tr("Place"))
         btn_ok.setDefault(True)
         btn_ok.setFixedHeight(28)
         btn_ok.clicked.connect(self._accept)

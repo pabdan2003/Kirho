@@ -145,7 +145,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("OhmPy — Simulador de Circuitos")
+        self.setWindowTitle(self.tr("OhmPy — Circuit Simulator"))
         self.resize(1280, 800)
         self.solver = MNASolver()
         self._sim_running = False
@@ -204,30 +204,30 @@ class MainWindow(QMainWindow):
         def do_copy():
             sc = self.scene
             if sc is not None and sc.copy_selected():
-                _msg("Selección copiada (Ctrl+C)")
+                _msg(self.tr("Selection copied (Ctrl+C)"))
 
         def do_cut():
             sc = self.scene
             if sc is not None and sc.cut_selected():
-                _msg("Selección cortada (Ctrl+X)")
+                _msg(self.tr("Selection cut (Ctrl+X)"))
 
         def do_paste():
             sc = self.scene
             if sc is None:
                 return
             if sc.paste():
-                _msg("Pegado (Ctrl+V)")
+                _msg(self.tr("Pasted (Ctrl+V)"))
             else:
-                _msg("Portapapeles vacío")
+                _msg(self.tr("Clipboard is empty"))
 
         def do_undo():
             sc = self.scene
             if sc is None:
                 return
             if sc.undo():
-                _msg("Acción deshecha (Ctrl+Z)")
+                _msg(self.tr("Action undone (Ctrl+Z)"))
             else:
-                _msg("Nada que deshacer")
+                _msg(self.tr("Nothing to undo"))
 
         _bind_string("Ctrl+C", do_copy)
         _bind_string("Ctrl+X", do_cut)
@@ -325,7 +325,7 @@ class MainWindow(QMainWindow):
             it for it in self.scene.components if it.comp_type == 'CLK']
         if not targets:
             self.statusBar().showMessage(
-                "No hay componentes CLK en la hoja activa.")
+                self.tr("There are no CLK components on the active sheet."))
             return
         # Si al menos uno está corriendo, los detenemos todos. Si ninguno
         # corre, los iniciamos todos.
@@ -341,24 +341,25 @@ class MainWindow(QMainWindow):
             self._update_clk_timer_interval()
             self._clk_timer.start()
             self.statusBar().showMessage(
-                f"CLK activado a {self._clk_freq_hz:g} Hz "
-                f"({len(targets)} componente{'s' if len(targets)!=1 else ''})")
+                self.tr("CLK enabled at {frequency:g} Hz ({count} component{plural})").format(
+                    frequency=self._clk_freq_hz, count=len(targets),
+                    plural="s" if len(targets) != 1 else ""))
         else:
             self._clk_timer.stop()
-            self.statusBar().showMessage("CLK detenido.")
+            self.statusBar().showMessage(self.tr("CLK stopped."))
 
     def _set_clk_frequency(self):
         """Diálogo Herramientas → Frecuencia CLK."""
         from PyQt6.QtWidgets import QInputDialog
         f, ok = QInputDialog.getDouble(
-            self, "Frecuencia CLK",
-            "Frecuencia de oscilación del componente CLK (Hz):",
+            self, self.tr("CLK Frequency"),
+            self.tr("CLK component oscillation frequency (Hz):"),
             self._clk_freq_hz, 0.01, 100000.0, 3)
         if not ok:
             return
         self._clk_freq_hz = f
         self._update_clk_timer_interval()
-        self.statusBar().showMessage(f"Frecuencia CLK = {f:g} Hz")
+        self.statusBar().showMessage(self.tr("CLK Frequency = {frequency:g} Hz").format(frequency=f))
 
     def _open_circuit_analyzer(self):
         """Abre el analizador de circuitos digitales preservando el estado previo."""
@@ -389,20 +390,20 @@ class MainWindow(QMainWindow):
         """
         from PyQt6.QtWidgets import QToolButton, QMenu
         btn = QToolButton(self)
-        btn.setText("Herramientas")
+        btn.setText(self.tr("Tools"))
         btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         menu = QMenu(btn)
-        act_freq = QAction("Frecuencia CLK…", self)
+        act_freq = QAction(self.tr("CLK Frequency…"), self)
         act_freq.triggered.connect(self._set_clk_frequency)
         menu.addAction(act_freq)
-        act_analyze = QAction("Analizar Circuito…", self)
+        act_analyze = QAction(self.tr("Analyze Circuit…"), self)
         act_analyze.triggered.connect(self._open_circuit_analyzer)
         menu.addAction(act_analyze)
-        act_bode = QAction("Análisis de Bode / Transferencia…", self)
+        act_bode = QAction(self.tr("Bode / Transfer Analysis…"), self)
         act_bode.triggered.connect(self._open_bode_analyzer)
         menu.addAction(act_bode)
-        act_resistor_calc = QAction("Código de colores…", self)
+        act_resistor_calc = QAction(self.tr("Resistor Color Code…"), self)
         act_resistor_calc.triggered.connect(self._open_resistor_calculator)
         menu.addAction(act_resistor_calc)
         btn.setMenu(menu)
@@ -426,7 +427,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.tabBarDoubleClicked.connect(self._rename_sheet)
 
         # Crear la primera hoja
-        self._add_sheet(name="Hoja 1")
+        self._add_sheet(name=self.tr("Sheet 1"))
 
         # Panel derecho (propiedades + resultados)
         self._build_right_panel()
@@ -446,7 +447,7 @@ class MainWindow(QMainWindow):
         self._build_component_toolbar()
 
         # Status bar
-        self.statusBar().showMessage("Listo — Selecciona una categoría para colocar componentes")
+        self.statusBar().showMessage(self.tr("Ready — Choose a category to place components"))
 
     # ── Propiedades: scene y view apuntan a la hoja activa ─────
     @property
@@ -480,7 +481,7 @@ class MainWindow(QMainWindow):
     def _add_sheet(self, name: str = ''):
         if not name:
             idx = len(self._sheets) + 1
-            name = f"Hoja {idx}"
+            name = self.tr("Sheet {number}").format(number=idx)
         scene, view = self._create_scene_view()
         sheet = {'scene': scene, 'view': view, 'name': name}
         self._sheets.append(sheet)
@@ -489,11 +490,11 @@ class MainWindow(QMainWindow):
 
     def _close_sheet(self, index: int):
         if len(self._sheets) <= 1:
-            self.statusBar().showMessage("No se puede cerrar la última hoja")
+            self.statusBar().showMessage(self.tr("The last sheet cannot be closed"))
             return
         reply = QMessageBox.question(
-            self, "Cerrar hoja",
-            f"¿Cerrar \"{self._sheets[index]['name']}\"? Se perderán los componentes.",
+            self, self.tr("Close Sheet"),
+            self.tr("Close \"{name}\"? Its components will be lost.").format(name=self._sheets[index]['name']),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
@@ -502,13 +503,13 @@ class MainWindow(QMainWindow):
 
     def _on_sheet_changed(self, index: int):
         if 0 <= index < len(self._sheets):
-            self.statusBar().showMessage(f"Hoja activa: {self._sheets[index]['name']}")
+            self.statusBar().showMessage(self.tr("Active sheet: {name}").format(name=self._sheets[index]['name']))
 
     def _rename_sheet(self, index: int):
         if 0 <= index < len(self._sheets):
             old_name = self._sheets[index]['name']
             new_name, ok = QInputDialog.getText(
-                self, "Renombrar hoja", "Nuevo nombre:", text=old_name)
+                self, self.tr("Rename Sheet"), self.tr("New name:"), text=old_name)
             if ok and new_name.strip():
                 self._sheets[index]['name'] = new_name.strip()
                 self.tab_widget.setTabText(index, new_name.strip())
@@ -520,12 +521,12 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(8, 8, 8, 8)
 
         # Propiedades del componente seleccionado
-        prop_label = QLabel("PROPIEDADES")
+        prop_label = QLabel(self.tr("PROPERTIES"))
         prop_label.setFont(_qfont('Menlo', 9, QFont.Weight.Bold))
         layout.addWidget(prop_label)
 
         self.prop_table = QTableWidget(0, 2)
-        self.prop_table.setHorizontalHeaderLabels(["Campo", "Valor"])
+        self.prop_table.setHorizontalHeaderLabels([self.tr("Field"), self.tr("Value")])
         self.prop_table.horizontalHeader().setStretchLastSection(True)
         self.prop_table.setMaximumHeight(200)
         layout.addWidget(self.prop_table)
@@ -535,7 +536,7 @@ class MainWindow(QMainWindow):
         self.pot_panel = QWidget()
         pot_layout = QVBoxLayout(self.pot_panel)
         pot_layout.setContentsMargins(0, 4, 0, 4)
-        self.pot_label = QLabel("CURSOR DEL POTENCIÓMETRO")
+        self.pot_label = QLabel(self.tr("POTENTIOMETER WIPER"))
         self.pot_label.setFont(_qfont('Menlo', 8, QFont.Weight.Bold))
         pot_layout.addWidget(self.pot_label)
 
@@ -543,8 +544,8 @@ class MainWindow(QMainWindow):
         self.pot_slider.setRange(0, 1000)        # resolución 0.1%
         self.pot_slider.setValue(500)
         self.pot_slider.setToolTip(
-            "Mueve el cursor del potenciómetro en tiempo real.\n"
-            "Si la simulación está activa, el efecto se ve al instante.")
+            self.tr("Move the potentiometer wiper in real time.\n"
+                    "When simulation is active, the effect is immediate."))
         self.pot_slider.valueChanged.connect(self._on_pot_slider)
         pot_layout.addWidget(self.pot_slider)
 
@@ -557,7 +558,7 @@ class MainWindow(QMainWindow):
         self._selected_pot = None   # ComponentItem actualmente seleccionado (POT)
 
         # Resultados de simulación
-        res_label = QLabel("RESULTADOS")
+        res_label = QLabel(self.tr("RESULTS"))
         res_label.setFont(_qfont('Menlo', 9, QFont.Weight.Bold))
         layout.addWidget(res_label)
 
@@ -567,7 +568,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.results_text)
 
         # Botón triángulo de potencia (visible solo tras análisis AC)
-        self.btn_power_triangle = QPushButton("📐  Ver Triángulo de Potencia")
+        self.btn_power_triangle = QPushButton(self.tr("📐  View Power Triangle"))
         self.btn_power_triangle.setFont(_qfont('Menlo', 9))
         self.btn_power_triangle.setVisible(False)
         self.btn_power_triangle.clicked.connect(self._show_power_triangle)
@@ -581,20 +582,20 @@ class MainWindow(QMainWindow):
         tb.setObjectName("main_toolbar")
 
         actions = [
-            ("Nuevo",           "Ctrl+N",          self._new_circuit),
-            ("Abrir",           "Ctrl+O",          self._open_circuit),
-            ("Guardar",         "Ctrl+S",          self._save_circuit),
-            ("Guardar como…",   "Ctrl+Shift+S",    self._save_circuit_as),
-            ("Exportar SPICE",  "Ctrl+E",          self._export_spice),
+            ("New",             "Ctrl+N",          self._new_circuit),
+            ("Open",            "Ctrl+O",          self._open_circuit),
+            ("Save",            "Ctrl+S",          self._save_circuit),
+            ("Save As…",        "Ctrl+Shift+S",    self._save_circuit_as),
+            ("Export SPICE",    "Ctrl+E",          self._export_spice),
             ("|", None, None),
-            ("+ Hoja",       "Ctrl+T", lambda: self._add_sheet()),
+            ("+ Sheet",      "Ctrl+T", lambda: self._add_sheet()),
             ("__TOOLS__", None, None),                    # placeholder Herramientas
-            ("Limpiar",      "Ctrl+L", self._clear_circuit),
+            ("Clear",        "Ctrl+L", self._clear_circuit),
             # Zoom: sin atajo para no chocar con la rotación Ctrl++/Ctrl+-.
             # El zoom sigue disponible vía botón en la toolbar y Ctrl+rueda.
             ("Zoom +",       None,     lambda: self.view.scale(1.2, 1.2)),
             ("Zoom −",       None,     lambda: self.view.scale(1/1.2, 1/1.2)),
-            ("Restablecer",  "Ctrl+0", self._reset_zoom),
+            ("Reset",        "Ctrl+0", self._reset_zoom),
         ]
         for name, shortcut, fn in actions:
             if name == '|':
@@ -603,7 +604,7 @@ class MainWindow(QMainWindow):
             if name == '__TOOLS__':
                 tb.addWidget(self._build_tools_button())
                 continue
-            act = QAction(name, self)
+            act = QAction(self.tr(name), self)
             if shortcut:
                 act.setShortcut(shortcut)
             act.triggered.connect(fn)
@@ -623,10 +624,10 @@ class MainWindow(QMainWindow):
                              QSizePolicy.Policy.Preferred)
         tb.addWidget(spacer)
 
-        act_settings = QAction("⚙ Configuración", self)
+        act_settings = QAction(self.tr("⚙ Settings"), self)
         act_settings.setShortcut("Ctrl+,")
         act_settings.setToolTip(
-            "Abrir ventana de configuración (temas, preferencias…)")
+            self.tr("Open settings window (themes, preferences…)") )
         act_settings.triggered.connect(self._open_settings_dialog)
         tb.addAction(act_settings)
 
@@ -648,7 +649,7 @@ class MainWindow(QMainWindow):
         self._refresh_theme_in_ui()
         meta = THEME_MANAGER.get_theme_meta(applied)
         if meta:
-            self.statusBar().showMessage(f"Tema aplicado: {meta['name']}", 3000)
+            self.statusBar().showMessage(self.tr("Theme applied: {name}").format(name=meta['name']), 3000)
 
     def _refresh_theme_in_ui(self):
         """Re-aplica stylesheet y fuerza redibujo del canvas tras cambiar tema."""
@@ -663,30 +664,30 @@ class MainWindow(QMainWindow):
         # ── FORZAR SALTO DE LÍNEA antes de esta toolbar ──────────────────
         self.addToolBarBreak()
 
-        tb = QToolBar("Componentes", self)
+        tb = QToolBar("Components", self)
         tb.setMovable(False)
         tb.setObjectName("component_toolbar")
         self.addToolBar(tb)
 
         # ── Categorías de componentes ────────────────────────────────────
         categories = [
-            ("Pasivos", [
+            ("Passive", [
                 ('R',    'Resistor',      '━┤ZZZ├━'),
-                ('POT',  'Potenciómetro', '━┤Z↗├━'),
+                ('POT',  'Potentiometer', '━┤Z↗├━'),
                 ('C',    'Capacitor',     '━┤  ├━'),
                 ('L',    'Inductor',      '━⌒⌒⌒━'),
-                ('Z',    'Impedancia',    '━┤▭├━'),
-                ('XFMR', 'Transformador', '⌇⌇'),
+                ('Z',    'Impedance',     '━┤▭├━'),
+                ('XFMR', 'Transformer',   '⌇⌇'),
             ]),
-            ("Fuentes", [
-                ('V',   'Fuente VDC',  '━(+)━'),
-                ('VAC', 'Fuente VAC',  '━(~)━'),
-                ('I',   'Fuente I',    '━(→)━'),
+            ("Sources", [
+                ('V',   'DC Voltage Source',  '━(+)━'),
+                ('VAC', 'AC Voltage Source',  '━(~)━'),
+                ('I',   'Current Source',     '━(→)━'),
             ]),
-            ("Semiconductores", [
-                ('D',       'Diodo',                 '━|▷|━'),
+            ("Semiconductors", [
+                ('D',       'Diode',                 '━|▷|━'),
                 ('LED',     'LED',                   '━|▷|★'),
-                ('BRIDGE',  'Puente rectificador',   '◇'),
+                ('BRIDGE',  'Bridge rectifier',      '◇'),
                 ('BJT_NPN', 'BJT NPN',               '━(NPN)'),
                 ('BJT_PNP', 'BJT PNP',               '━(PNP)'),
                 ('NMOS',    'MOSFET N',              '━[N]━'),
@@ -694,38 +695,38 @@ class MainWindow(QMainWindow):
                 ('OPAMP',   'Op-Amp (ideal)',         '━[▷]━'),
                 ('TL082',   'TL082 (op-amp dual)',   '━[▷²]━'),
             ]),
-            ("Referencia", [
-                ('GND',          'Tierra',          '⏚'),
-                ('NODE',         'Nodo',            '•'),
-                ('NET_LABEL_IN',  'Net Label Entrada', '→▷'),
-                ('NET_LABEL_OUT', 'Net Label Salida',  '◁→'),
+            ("Reference", [
+                ('GND',          'Ground',          '⏚'),
+                ('NODE',         'Node',            '•'),
+                ('NET_LABEL_IN',  'Input Net Label', '→▷'),
+                ('NET_LABEL_OUT', 'Output Net Label', '◁→'),
             ]),
-            ("Instrumentos", [
-                ('FGEN', 'Generador de funciones', '⎍'),
-                ('OSC',  'Osciloscopio (2 canales)', '∿▥'),
-                ('MULTIMETER', 'Multímetro', '[V/A]'),
+            ("Instruments", [
+                ('FGEN', 'Function generator', '⎍'),
+                ('OSC',  'Oscilloscope (2 channels)', '∿▥'),
+                ('MULTIMETER', 'Multimeter', '[V/A]'),
             ]),
             ("Digital", [
-                ('AND',       'Puerta AND',     '&'),
-                ('OR',        'Puerta OR',      '≥1'),
-                ('NOT',       'Inversor NOT',   '○'),
-                ('NAND',      'Puerta NAND',    '&̄'),
-                ('NOR',       'Puerta NOR',     '≥1̄'),
-                ('XOR',       'Puerta XOR',     '=1'),
+                ('AND',       'AND Gate',       '&'),
+                ('OR',        'OR Gate',        '≥1'),
+                ('NOT',       'NOT Gate',       '○'),
+                ('NAND',      'NAND Gate',      '&̄'),
+                ('NOR',       'NOR Gate',       '≥1̄'),
+                ('XOR',       'XOR Gate',       '=1'),
                 ('DFF',       'Flip-flop D',    '▣D'),
                 ('JKFF',      'Flip-flop JK',   '▣JK'),
                 ('TFF',       'Flip-flop T',    '▣T'),
                 ('SRFF',      'Flip-flop SR',   '▣SR'),
                 ('COUNTER',   'Contador binario','#'),
                 ('MUX2',      'Multiplexor 2:1','⊞'),
-                ('IC555',     'Temporizador NE555', '⌛'),
-                ('LOGIC_STATE','Estado Lógico',  '0/1'),
-                ('CLK',       'Reloj (CLK)',    '⏲'),
+                ('IC555',     'NE555 Timer',    '⌛'),
+                ('LOGIC_STATE','Logic State',   '0/1'),
+                ('CLK',       'Clock (CLK)',    '⏲'),
             ]),
         ]
 
         for cat_name, items in categories:
-            btn = QPushButton(cat_name)
+            btn = QPushButton(self.tr(cat_name))
             btn.setFont(_qfont('Menlo', 9))
             btn.setFixedHeight(28)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -735,26 +736,26 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
 
         # ── Subcircuitos ─────────────────────────────────────────────────
-        btn_sub = QPushButton("⊞ Subcircuitos")
+        btn_sub = QPushButton(self.tr("⊞ Subcircuits"))
         btn_sub.setFont(_qfont('Menlo', 9))
         btn_sub.setFixedHeight(28)
         btn_sub.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_sub.clicked.connect(self._show_subcircuit_picker)
         tb.addWidget(btn_sub)
 
-        btn_mksub = QPushButton("＋ Crear Subckt")
+        btn_mksub = QPushButton(self.tr("＋ Create Subckt"))
         btn_mksub.setFont(_qfont('Menlo', 9))
         btn_mksub.setFixedHeight(28)
         btn_mksub.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_mksub.setToolTip("Empaqueta la hoja actual como un subcircuito "
-                             "reutilizable (sus Net Labels serán los pines)")
+        btn_mksub.setToolTip(self.tr("Packages the current sheet as a reusable "
+                                     "subcircuit (its Net Labels become the pins)"))
         btn_mksub.clicked.connect(self._create_subcircuit_from_sheet)
         tb.addWidget(btn_mksub)
 
         tb.addSeparator()
 
         # ── Herramientas ─────────────────────────────────────────────────
-        self.btn_select = QPushButton("↖ Seleccionar")
+        self.btn_select = QPushButton(self.tr("↖ Select"))
         self.btn_select.setFont(_qfont('Menlo', 9))
         self.btn_select.setFixedHeight(28)
         self.btn_select.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -763,7 +764,7 @@ class MainWindow(QMainWindow):
         self.btn_select.clicked.connect(self._set_select_mode)
         tb.addWidget(self.btn_select)
 
-        self.btn_wire = QPushButton("✏ Cable")
+        self.btn_wire = QPushButton(self.tr("✏ Wire"))
         self.btn_wire.setFont(_qfont('Menlo', 9))
         self.btn_wire.setFixedHeight(28)
         self.btn_wire.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -775,11 +776,11 @@ class MainWindow(QMainWindow):
 
         # ── Simulación ─────────────────────────────────────────────────────
         # Estándar lógico fijo: CMOS 5 V (no expuesto en la UI)
-        self.run_btn = QPushButton("▶  SIMULAR")
+        self.run_btn = QPushButton(self.tr("▶  SIMULATE"))
         self.run_btn.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
         self.run_btn.setFixedHeight(28)
         self.run_btn.setCheckable(True)
-        self.run_btn.setToolTip("Detecta automáticamente: DC · AC · Digital · Mixto")
+        self.run_btn.setToolTip(self.tr("Automatically detects: DC · AC · Digital · Mixed"))
         self.run_btn.clicked.connect(self._toggle_simulation)
         tb.addWidget(self.run_btn)
 
@@ -867,14 +868,14 @@ class MainWindow(QMainWindow):
         subs = SUBCIRCUIT_MANAGER.list_subcircuits()
         if not subs:
             QMessageBox.information(
-                self, "Subcircuitos",
-                "No hay subcircuitos en la biblioteca.\n\n"
-                "Crea uno: pon Net Labels (entrada/salida) en una hoja y "
-                "pulsa «＋ Crear Subckt».")
+                self, self.tr("Subcircuits"),
+                self.tr("There are no subcircuits in the library.\n\n"
+                        "Create one: add Net Labels (input/output) to a sheet and "
+                        "click «＋ Create Subckt»."))
             return
         items = [(f"SUBCKT:{s['name']}", s['name'],
-                  f"⊞ {len(s.get('ports', []))} pines") for s in subs]
-        dialog = ComponentPickerDialog("Subcircuitos", items,
+                  self.tr("⊞ {count} pins").format(count=len(s.get('ports', [])))) for s in subs]
+        dialog = ComponentPickerDialog(self.tr("Subcircuits"), items,
                                        ComponentItem, COLORS, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             ctype = dialog.get_selected_type()
@@ -895,34 +896,34 @@ class MainWindow(QMainWindow):
                        and (c.sheet_label or '').strip()]
         if not label_items:
             QMessageBox.warning(
-                self, "Crear subcircuito",
-                "La hoja no tiene Net Labels.\n\n"
-                "Coloca un «Net Label Entrada/Salida» por cada pin que "
-                "quieras exponer; su nombre será el nombre del pin del IC.")
+                self, self.tr("Create Subcircuit"),
+                self.tr("This sheet has no Net Labels.\n\n"
+                        "Add one «Net Label Input/Output» for each pin you want to "
+                        "expose; its name will become the IC pin name."))
             return
         nested = [c for c in scene.components if c.comp_type == 'SUBCKT']
         body = [c for c in scene.components if c.comp_type not in _LBL
                 and c.comp_type not in ('PORT',)]
         if not body:
-            QMessageBox.warning(self, "Crear subcircuito",
-                                "La hoja no tiene componentes que empaquetar.")
+            QMessageBox.warning(self, self.tr("Create Subcircuit"),
+                                self.tr("This sheet has no components to package."))
             return
 
-        name, ok = QInputDialog.getText(self, "Crear subcircuito",
-                                        "Nombre del subcircuito:")
+        name, ok = QInputDialog.getText(self, self.tr("Create Subcircuit"),
+                                        self.tr("Subcircuit name:"))
         if not ok or not name.strip():
             return
         name = name.strip()
         nested_used = {c.subckt_name for c in nested}
         if name in nested_used:
-            QMessageBox.warning(self, "Crear subcircuito",
-                                "Un subcircuito no puede contenerse a sí mismo "
-                                f"(hay una instancia de «{name}» en la hoja).")
+            QMessageBox.warning(self, self.tr("Create Subcircuit"),
+                                self.tr("A subcircuit cannot contain itself "
+                                        "(there is an instance of «{name}» on this sheet).").format(name=name))
             return
         if SUBCIRCUIT_MANAGER.exists(name):
             r = QMessageBox.question(
-                self, "Crear subcircuito",
-                f"Ya existe «{name}». ¿Sobrescribir?")
+                self, self.tr("Create Subcircuit"),
+                self.tr("«{name}» already exists. Overwrite it?").format(name=name))
             if r != QMessageBox.StandardButton.Yes:
                 return
 
@@ -984,33 +985,33 @@ class MainWindow(QMainWindow):
         path = SUBCIRCUIT_MANAGER.save(definition, overwrite=True)
         if path:
             QMessageBox.information(
-                self, "Crear subcircuito",
-                f"Subcircuito «{name}» guardado en:\n{path}\n\n"
-                f"Disponible en «⊞ Subcircuitos».")
+                self, self.tr("Create Subcircuit"),
+                self.tr("Subcircuit «{name}» saved to:\n{path}\n\n"
+                        "Available in «⊞ Subcircuits».").format(name=name, path=path))
         else:
-            QMessageBox.critical(self, "Crear subcircuito",
-                                 "No se pudo guardar el subcircuito.")
+            QMessageBox.critical(self, self.tr("Create Subcircuit"),
+                                 self.tr("The subcircuit could not be saved."))
 
     def _set_place_mode(self, comp_type: str):
         self.scene.set_mode(f'place_{comp_type}')
         self.btn_select.setChecked(False)
         self.btn_wire.setChecked(False)
         self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
-        self.statusBar().showMessage(f"Click en el canvas para colocar: {comp_type}")
+        self.statusBar().showMessage(self.tr("Click the canvas to place: {component}").format(component=comp_type))
 
     def _set_wire_mode(self):
         self.scene.set_mode('wire')
         self.btn_select.setChecked(False)
         self.btn_wire.setChecked(True)
         self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
-        self.statusBar().showMessage("Wire: click para iniciar, click para terminar, ESC para cancelar")
+        self.statusBar().showMessage(self.tr("Wire: click to start, click to finish, ESC to cancel"))
 
     def _set_select_mode(self):
         self.scene.set_mode('select')
         self.btn_select.setChecked(True)
         self.btn_wire.setChecked(False)
         self.view.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
-        self.statusBar().showMessage("Modo selección")
+        self.statusBar().showMessage(self.tr("Selection mode"))
 
     def _on_sim_mode_changed(self, mode: str):
         pass  # modo automático — no se usa
@@ -1127,9 +1128,9 @@ class MainWindow(QMainWindow):
         else:
             self.run_btn.setChecked(False)
             self.run_btn.setText("▶  SIMULAR")
-            self.results_text.setPlainText(
-                "⚠  No se encontraron componentes para simular.\n"
-                "Añade componentes al canvas y conéctalos a tierra.")
+            self.results_text.setPlainText(self.tr(
+                "⚠  No components were found to simulate.\n"
+                "Add components to the canvas and connect them to ground."))
 
     def _stop_simulation(self):
         """Detiene la simulación y apaga todos los LEDs en todas las hojas."""
@@ -1212,7 +1213,7 @@ class MainWindow(QMainWindow):
 
         if not analog_comps:
             self.results_text.setPlainText(
-                "⚠  No hay componentes analógicos para simular.")
+                self.tr("⚠  There are no analog components to simulate."))
             self._stop_simulation()
             return
 
@@ -1262,7 +1263,7 @@ class MainWindow(QMainWindow):
         self._sim_timer.start()
 
         msg = [
-            f"═══ SIMULACIÓN LIVE (transient continuo, ×{self._LIVE_TIME_SCALE:g}) ═══",
+            self.tr("═══ LIVE SIMULATION (continuous transient, ×{scale:g}) ═══").format(scale=self._LIVE_TIME_SCALE),
             f"  {flags.summary()}",
             f"  f_AC = {self._live_freq:g} Hz  ·  paso real {self._LIVE_TICK_MS} ms"
             f"  ·  paso simulado {self._LIVE_TICK_MS * self._LIVE_TIME_SCALE:.2f} ms",
@@ -1274,10 +1275,10 @@ class MainWindow(QMainWindow):
         if self._live_phasor_summary:
             msg.append(self._live_phasor_summary)
 
-        msg.append("  Iniciando…")
+        msg.append("  Starting…")
         if build_errors:
             msg.append("")
-            msg.append("── Advertencias ──")
+            msg.append("── Warnings ──")
             msg.extend([f"  ⚠ {e}" for e in build_errors])
         self.results_text.setPlainText("\n".join(msg))
 
@@ -1334,8 +1335,9 @@ class MainWindow(QMainWindow):
         )
 
         if not tr.get('success'):
-            self.results_text.setPlainText(
-                f"✗ Live transient falló:\n  {tr.get('error', 'desconocido')}")
+            self.results_text.setPlainText(self.tr(
+                "✗ Live transient failed:\n  {error}").format(
+                    error=tr.get('error', self.tr('unknown'))))
             self._stop_simulation()
             return
 
@@ -1551,7 +1553,7 @@ class MainWindow(QMainWindow):
 
         t_now = float(t_arr[-1])
         out = [
-            f"═══ SIMULACIÓN LIVE (×{self._LIVE_TIME_SCALE:g}) ═══",
+            self.tr("═══ LIVE SIMULATION (×{scale:g}) ═══").format(scale=self._LIVE_TIME_SCALE),
             f"  t_simulado = {t_now*1000:.2f} ms"
             f"   ·   ticks = {self._live_tick_count}"
             f"   ·   pasos_NR = {tr.get('steps', 0)}",
@@ -1562,7 +1564,7 @@ class MainWindow(QMainWindow):
         if getattr(self, '_live_phasor_summary', ''):
             out.append(self._live_phasor_summary)
 
-        out.append("── Voltajes instantáneos ──")
+        out.append(self.tr("── Instantaneous voltages ──"))
         for node, v_arr in sorted(v_dict.items()):
             if len(v_arr) > 0:
                 out.append(f"  V({node}) = {float(v_arr[-1]):+.4f} V")
@@ -1581,7 +1583,7 @@ class MainWindow(QMainWindow):
         if tot:
             lines += [
                 "",
-                "── Potencia total ──",
+                "── Total power ──",
                 f"  P={tot.get('P',0):+.4f} W  Q={tot.get('Q',0):+.4f} VAR",
                 f"  S={tot.get('S',0):.4f} VA  fp={tot.get('fp',0):.4f} "
                 f"({tot.get('fp_type','')})",
@@ -1618,7 +1620,7 @@ class MainWindow(QMainWindow):
             _modes.append("Mixto")
         _mode_str = " + ".join(_modes) if _modes else "—"
 
-        out = [f"═══ SIMULACIÓN ({_mode_str}) ═══",
+        out = [self.tr("═══ SIMULATION ({mode}) ═══").format(mode=_mode_str),
                f"  {flags.summary()}", ""]
         if flags.warnings:
             out.extend([f"  ⚠ {w}" for w in flags.warnings]); out.append("")
@@ -1631,7 +1633,7 @@ class MainWindow(QMainWindow):
             dc_comps = [VoltageSource(c.name, c.n_pos, c.n_neg, 0.0)
                         if isinstance(c, VoltageSourceAC) else c for c in analog_comps]
             dc = self.solver.solve_dc(dc_comps)
-            out.append("── Voltajes DC ──")
+            out.append(self.tr("── DC Voltages ──"))
             if dc["success"]:
                 for node, v in sorted(dc["voltages"].items()):
                     out.append(f"  V({node}) = {v:+.4f} V")
@@ -1684,8 +1686,8 @@ class MainWindow(QMainWindow):
                     nr_max_iter = 30,
                 )
                 out.append(
-                    f"── Transitorio (no-lineal + AC, f={freq:g} Hz, "
-                    f"{n_cycles} ciclos) ──")
+                    f"── Transient (nonlinear + AC, f={freq:g} Hz, "
+                    f"{n_cycles} cycles) ──")
                 if tr["success"]:
                     t_arr      = tr["time"]
                     v_dict     = tr["voltages"]
@@ -1702,7 +1704,7 @@ class MainWindow(QMainWindow):
                             f"  V({node}): pk=[{vmin:+.3f}, {vmax:+.3f}] V  "
                             f"DC={vmean:+.3f} V  RMS={vrms:.3f} V")
                     out.append(
-                        f"  pasos={tr['steps']}  "
+                        f"  steps={tr['steps']}  "
                         f"dt_avg={tr['dt_stats']['mean']*1e6:.1f} µs")
 
                     # LEDs según corriente promedio en último ciclo (si la
@@ -1724,7 +1726,7 @@ class MainWindow(QMainWindow):
                         out.append(f"  V({node}) = {abs(V):.4f} V  ∠{_cmath.phase(V)*180/_cmath.pi:.2f}°")
                     t = ac.get("total", {})
                     if t:
-                        out += ["", "── Potencia total ──",
+                        out += ["", "── Total power ──",
                                 f"  P={t.get('P',0):+.4f} W  Q={t.get('Q',0):+.4f} VAR",
                                 f"  S={t.get('S',0):.4f} VA  fp={t.get('fp',0):.4f} ({t.get('fp_type','')})"]
                     self._last_ac_result = ac
@@ -1815,7 +1817,7 @@ class MainWindow(QMainWindow):
                     build_errors.append(f"{item.name}: {e}")
             if flags.implicit_boundary_nodes:
                 std = DEFAULT_STANDARD
-                out.append(f"── Fronteras implícitas ({std.name}) ──")
+                out.append(self.tr("── Implicit boundaries ({name}) ──").format(name=std.name))
                 logic_drivers = []
                 for index, node in enumerate(flags.implicit_boundary_nodes):
                     detail = flags.boundary_detail[node]
@@ -1845,7 +1847,7 @@ class MainWindow(QMainWindow):
                     else: iface.add_comparator(d)
                 mr = iface.run_iterative(t_stop=t_stop, dt_chunk=dt_chunk,
                                           dt_analog=min(dt_chunk/10, 1e-6))
-                out.append("── Co-simulación mixta ──")
+                out.append(self.tr("── Mixed co-simulation ──"))
                 if mr.success:
                     for nd, arr in sorted(mr.analog_voltages.items()):
                         if len(arr) > 0: out.append(f"  V({nd}) = {arr[-1]:+.4f} V")
@@ -1857,7 +1859,7 @@ class MainWindow(QMainWindow):
                 out.append("")
 
         if build_errors:
-            out.append("── Advertencias ──")
+            out.append("── Warnings ──")
             out.extend([f"  ⚠ {e}" for e in build_errors])
         self.results_text.setPlainText("\n".join(out))
         self.scene.update()
@@ -1930,7 +1932,7 @@ class MainWindow(QMainWindow):
 
                 # Validación específica de R
                 if item.comp_type == 'R' and item.value <= 0:
-                    errors.append(f"{item.name}: resistencia debe ser > 0")
+                    errors.append(f"{item.name}: resistance must be > 0")
                     continue
 
                 # Resto de componentes analógicos (incluye POT, XFMR, BRIDGE)
@@ -1995,7 +1997,7 @@ class MainWindow(QMainWindow):
                     _net = _it.node1.strip() or pin_node.get(f"{_it.name}__p1", "")
                     if _net:
                         _dig_voltages[_net] = _v
-            out = ["═══ SIMULACIÓN DIGITAL ═══", ""]
+            out = [self.tr("═══ DIGITAL SIMULATION ═══"), ""]
             self._evaluate_digital_gates(pin_node, _dig_voltages, silent=silent, out=out, sim_comps=sim_comps)
             if not silent:
                 self.results_text.setPlainText('\n'.join(out))
@@ -2023,24 +2025,24 @@ class MainWindow(QMainWindow):
         # Mostrar resultados
         out = []
         if result['success']:
-            out.append("═══ ANÁLISIS DC ═══\n")
-            out.append("── Tensiones nodales ──")
+            out.append(self.tr("═══ DC ANALYSIS ═══\n"))
+            out.append(self.tr("── Node voltages ──"))
             for node, v in sorted(result['voltages'].items()):
                 out.append(f"  V({node}) = {v:+.4f} V")
             if result.get('branch_currents'):
-                out.append("\n── Corrientes de rama ──")
+                out.append(self.tr("\n── Branch currents ──"))
                 for name, i in result['branch_currents'].items():
                     out.append(f"  I({name}) = {i*1000:+.4f} mA")
 
             # Iteraciones Newton-Raphson (si aplica)
             if 'iterations' in result:
-                out.append(f"\n  [NR convergió en {result['iterations']} iteraciones]")
+                out.append(self.tr("\n  [NR converged in {iterations} iterations]").format(iterations=result['iterations']))
             if 'warning' in result:
                 out.append(f"\n  ⚠ {result['warning']}")
 
             # Puntos de operación de componentes no-lineales
             if result.get('operating_points'):
-                out.append("\n── Puntos de operación ──")
+                out.append(self.tr("\n── Operating points ──"))
                 for comp_name, op in result['operating_points'].items():
                     out.append(f"  {comp_name}:")
                     for k, v in op.items():
@@ -2114,19 +2116,19 @@ class MainWindow(QMainWindow):
                     va  = result['voltages'].get(n1d, 'N/A')
                     vk  = result['voltages'].get(n2d, 'N/A')
                     op  = result.get('operating_points', {}).get(it.name, {})
-                    out.append(f"  {it.name}: ánodo={n1d}({va}) cátodo={n2d}({vk})")
+                    out.append(f"  {it.name}: anode={n1d}({va}) cathode={n2d}({vk})")
                     out.append(f"    op={op}  led_on={it.led_on}")
 
         else:
             if not silent:
-                out.append(f"\u2717 Error de simulaci\u00f3n:\n{result['error']}")
-                out.append("\nVerifica que el circuito tenga:")
-                out.append("  \u2022 Al menos una fuente de voltaje")
-                out.append("  \u2022 Nodo de tierra (nodo '0')")
-                out.append("  \u2022 Nodos asignados a cada componente")
+                out.append(self.tr("✗ Simulation error:\n{error}").format(error=result['error']))
+                out.append(self.tr("\nCheck that the circuit has:"))
+                out.append(self.tr("  • At least one voltage source"))
+                out.append("  • Ground node (node '0')")
+                out.append(self.tr("  • Nodes assigned to every component"))
 
         if errors and not silent:
-            out.append("\n── Advertencias ──")
+            out.append("\n── Warnings ──")
             out.extend([f"  ⚠ {e}" for e in errors])
 
         # Evaluar puertas digitales y actualizar LEDs en su salida
@@ -2164,7 +2166,7 @@ class MainWindow(QMainWindow):
         _all = sim_comps if sim_comps is not None else list(self.scene.components)
         gate_items = [it for it in _all if it.comp_type in _gmap]
         if gate_items and out is not None and not silent:
-            out.append('\n── Señales digitales ──')
+            out.append(self.tr('\n── Digital signals ──'))
         for item in gate_items:
             n_in = max(1, item.dig_inputs)
             input_logics = []
@@ -2372,16 +2374,16 @@ class MainWindow(QMainWindow):
         # Buscar fuente AC en el canvas para leer la frecuencia
         ac_items = [it for it in sim_comps if it.comp_type in ('VAC', 'FGEN')]
         if not ac_items:
-            self.results_text.setPlainText(
-                "⚠  No hay fuentes AC en el circuito.\n"
-                "Agrega una fuente VAC o FGEN para el análisis AC.")
+            self.results_text.setPlainText(self.tr(
+                "⚠  There are no AC sources in the circuit.\n"
+                "Add a VAC or FGEN source for AC analysis."))
             return
 
         # Usar la frecuencia de la primera fuente AC como referencia
         freq_default = ac_items[0].frequency
         freq, ok = QInputDialog.getDouble(
-            self, 'Frecuencia de análisis',
-            'Frecuencia (Hz):', freq_default, 0.001, 1e9, 3)
+            self, self.tr('Analysis Frequency'),
+            self.tr('Frequency (Hz):'), freq_default, 0.001, 1e9, 3)
         if not ok:
             return
 
@@ -2445,21 +2447,21 @@ class MainWindow(QMainWindow):
                 errors.append(f"{item.name}: {e}")
 
         if not components:
-            self.results_text.setPlainText("⚠  No hay componentes simulables.")
+            self.results_text.setPlainText("⚠  There are no simulatable components.")
             return
 
         solver = MNASolver()
         result = solver.solve_ac_single(components, freq)
 
-        out = ["═══ ANÁLISIS AC ═══", f"  Frecuencia: {freq} Hz", ""]
+        out = [self.tr("═══ AC ANALYSIS ═══"), self.tr("  Frequency: {frequency} Hz").format(frequency=freq), ""]
 
         if errors:
-            out.append("⚠ Advertencias:")
+            out.append(self.tr("⚠ Warnings:"))
             out += [f"  {e}" for e in errors]
             out.append("")
 
         if not result['success']:
-            out.append(f"✗ Error: {result['error']}")
+            out.append(self.tr("✗ Error: {error}").format(error=result['error']))
             self.results_text.setPlainText('\n'.join(out))
             self.btn_power_triangle.setVisible(False)
             return
@@ -2475,7 +2477,7 @@ class MainWindow(QMainWindow):
         self._refresh_open_multimeter_panels()
 
         # ── Voltajes nodales ──────────────────────────────────────────────
-        out.append("── Voltajes nodales (Vrms / ∠°) ──")
+        out.append(self.tr("── Node voltages (Vrms / ∠°) ──"))
         for node, V in sorted(result['voltages'].items()):
             import cmath
             mag   = abs(V)
@@ -2494,7 +2496,7 @@ class MainWindow(QMainWindow):
         bridges = [it for it in sim_comps if it.comp_type == 'BRIDGE']
         bridge_vdc: Dict[str, float] = {}
         if bridges:
-            out.append("\n── Puentes rectificadores (salida DC) ──")
+            out.append(self.tr("\n── Bridge rectifiers (DC output) ──"))
             import math as _m
             for br in bridges:
                 a1 = br.node1.strip() or pin_node.get(f"{br.name}__p1", "")
@@ -2513,12 +2515,12 @@ class MainWindow(QMainWindow):
                 v_dc_peak = max(0.0, v_pk - 2 * vf)
                 v_dc_avg  = max(0.0, (2.0 / _m.pi) * v_pk - 2 * vf)
                 bridge_vdc[br.name] = v_dc_peak
-                out.append(f"  {br.name} (V_f = {vf:.2f} V por diodo):")
-                out.append(f"    V_AC entre AC1-AC2 : {v_rms:.4f} Vrms ({v_pk:.4f} Vpk)")
-                out.append(f"    V_DC con filtro    ≈ {v_dc_peak:.4f} V"
-                           f"  (pico − 2·Vf, salida {d_p} − {d_n})")
-                out.append(f"    V_DC sin filtro    ≈ {v_dc_avg:.4f} V"
-                           f"  (promedio onda completa)")
+                out.append(f"  {br.name} (V_f = {vf:.2f} V per diode):")
+                out.append(f"    V_AC across AC1-AC2 : {v_rms:.4f} Vrms ({v_pk:.4f} Vpk)")
+                out.append(f"    V_DC with filter    ≈ {v_dc_peak:.4f} V"
+                           f"  (peak − 2·Vf, output {d_p} − {d_n})")
+                out.append(f"    V_DC without filter ≈ {v_dc_avg:.4f} V"
+                           f"  (full-wave average)")
                 br.result_voltage = v_dc_peak
 
             # ── Construir circuito DC con el puente como fuente ideal ────
@@ -2573,12 +2575,12 @@ class MainWindow(QMainWindow):
                 dc_res = dc_solver.solve_dc(dc_components)
                 if dc_res.get('success'):
                     out.append("")
-                    out.append("── Voltajes DC del lado rectificado ──")
+                    out.append(self.tr("── Rectified-side DC voltages ──"))
                     for node, v in sorted(dc_res['voltages'].items()):
                         out.append(f"  V({node}) = {v:+.4f} V")
                     if dc_res.get('branch_currents'):
                         out.append("")
-                        out.append("── Corrientes DC ──")
+                        out.append(self.tr("── DC currents ──"))
                         for name, i in dc_res['branch_currents'].items():
                             out.append(f"  I({name}) = {i*1000:+.4f} mA")
                     # Encender LEDs cuyos nodos quedaron polarizados con
@@ -2605,10 +2607,10 @@ class MainWindow(QMainWindow):
                         it.led_on = on
                         it.update()
                 else:
-                    out.append(f"\n  ⚠ Análisis DC del lado rectificado falló: {dc_res.get('error')}")
+                    out.append(self.tr("\n  ⚠ Rectified-side DC analysis failed: {error}").format(error=dc_res.get('error')))
 
         # ── Potencias por componente ──────────────────────────────────────
-        out.append("\n── Potencias por componente ──")
+        out.append(self.tr("\n── Power by component ──"))
         for name, pw in result['powers'].items():
             out.append(f"  {name}:")
             out.append(f"    P = {pw['P']:+.4f} W")
@@ -2618,13 +2620,13 @@ class MainWindow(QMainWindow):
 
         # ── Triángulo de potencia total ───────────────────────────────────
         t = result['total']
-        out.append("\n── Potencia total del circuito ──")
-        out.append(f"  P  = {t['P']:+.4f} W      (potencia real/activa)")
-        out.append(f"  Q  = {t['Q']:+.4f} VAR    (potencia reactiva)")
-        out.append(f"  S  = {t['S']:.4f} VA     (potencia aparente)")
+        out.append(self.tr("\n── Total circuit power ──"))
+        out.append(f"  P  = {t['P']:+.4f} W      (real/active power)")
+        out.append(f"  Q  = {t['Q']:+.4f} VAR    (reactive power)")
+        out.append(f"  S  = {t['S']:.4f} VA     (apparent power)")
         out.append(f"  fp = {t['fp']:.4f}  ({t['fp_type']})")
         out.append("")
-        out.append("  [Haz click en '📐 Ver Triángulo de Potencia']")
+        out.append(self.tr("  [Click '📐 View Power Triangle']"))
 
         if result.get('warning'):
             out.append(f"\n⚠ {result['warning']}")
@@ -2753,36 +2755,41 @@ class MainWindow(QMainWindow):
 
         def _node_display(manual, auto_key):
             v = manual.strip() if manual.strip() else pin_node.get(auto_key, '—')
-            return v if manual.strip() else f"{v} (auto)"
+            return v if manual.strip() else f"{v} ({self.tr('auto')})"
 
         rows = [
-            ("Tipo",     item.comp_type),
-            ("Nombre",   item.name),
-            ("Valor",    f"{item.value} {item.unit}"),
-            ("Rotación", f"{item._angle}°"),
+            (self.tr("Type"),     item.comp_type),
+            (self.tr("Name"),     item.name),
+            (self.tr("Value"),    f"{item.value} {item.unit}"),
+            (self.tr("Rotation"), f"{item._angle}°"),
         ]
 
         if item.comp_type in DIGITAL_GATE_TYPES:
             n_in = item.dig_inputs if item.comp_type != 'NOT' else 1
-            rows.append(("Salida (Y)", _node_display(item.node1, f"{item.name}__p1")))
-            rows.append(("Entrada 1 (A)", _node_display(item.node2, f"{item.name}__p2")))
+            rows.append((self.tr("Output (Y)"), _node_display(item.node1, f"{item.name}__p1")))
+            rows.append((self.tr("Input 1 (A)"), _node_display(item.node2, f"{item.name}__p2")))
             if n_in >= 2:
-                rows.append(("Entrada 2 (B)", _node_display(
+                rows.append((self.tr("Input 2 (B)"), _node_display(
                     item.node3 if hasattr(item,'node3') else '', f"{item.name}__p3")))
             for i in range(2, n_in):
                 _extra = getattr(item, 'dig_input_nodes', [])
                 _manual = _extra[i-2] if len(_extra) > i-2 else ''
-                rows.append((f"Entrada {i+1}", _node_display(_manual, f"{item.name}__p{i+2}")))
-            rows.append(("Nº entradas", str(n_in)))
-            rows.append(("Retardo tpd", f"{item.dig_tpd_ns} ns"))
+                rows.append((self.tr("Input {number}").format(number=i + 1), _node_display(_manual, f"{item.name}__p{i+2}")))
+            rows.append((self.tr("Input count"), str(n_in)))
+            rows.append((self.tr("Propagation delay"), f"{item.dig_tpd_ns} ns"))
         elif item.comp_type in DIGITAL_FLIPFLOP_TYPES:
-            rows.append(("Salida Q",    _node_display(item.node1, f"{item.name}__p1")))
-            rows.append(("Dato D / J",  _node_display(item.node2, f"{item.name}__p2")))
+            rows.append((self.tr("Q output"),    _node_display(item.node1, f"{item.name}__p1")))
+            rows.append((self.tr("D / J data"),  _node_display(item.node2, f"{item.name}__p2")))
             rows.append(("CLK",         _node_display(
                 item.node3 if hasattr(item,'node3') else '', f"{item.name}__p3")))
         elif item.comp_type == 'LOGIC_STATE':
-            rows.append(("Salida",  _node_display(item.node1, f"{item.name}__p1")))
-            rows.append(("Estado",  "1 (HIGH)" if item.value else "0 (LOW)"))
+            rows.append((self.tr("Output"),  _node_display(item.node1, f"{item.name}__p1")))
+            rows.append((self.tr("State"),  "1 (HIGH)" if item.value else "0 (LOW)"))
+        elif item.comp_type == 'MUX2':
+            rows.append((self.tr("Output (Y)"), _node_display(item.node1, f"{item.name}__p1")))
+            rows.append((self.tr("Input 0 (I0)"), _node_display(item.node2, f"{item.name}__p2")))
+            rows.append((self.tr("Input 1 (I1)"), _node_display(item.node3, f"{item.name}__p3")))
+            rows.append((self.tr("Select (SEL)"), _node_display(item.node4, f"{item.name}__p4")))
         elif item.comp_type in FOUR_PIN_NODE_LABELS:
             lbls = FOUR_PIN_NODE_LABELS[item.comp_type]
             rows.append((lbls[0], _node_display(item.node1, f"{item.name}__p1")))
@@ -2798,8 +2805,8 @@ class MainWindow(QMainWindow):
             # Para fuentes, invertir el orden de visualización
             # porque node1=pin izquierdo=negativo, node2=pin derecho=positivo
             if item.comp_type in ('V', 'VAC', 'I'):
-                rows.append(("Nodo +", _node_display(item.node2, f"{item.name}__p2")))  # Nodo +
-                rows.append(("Nodo -", _node_display(item.node1, f"{item.name}__p1")))  # Nodo −
+                rows.append((self.tr("Node +"), _node_display(item.node2, f"{item.name}__p2")))
+                rows.append((self.tr("Node −"), _node_display(item.node1, f"{item.name}__p1")))
             else:
                 rows.append((lbl1, _node_display(item.node1, f"{item.name}__p1")))
                 rows.append((lbl2, _node_display(item.node2, f"{item.name}__p2")))
@@ -2807,7 +2814,7 @@ class MainWindow(QMainWindow):
                 rows.append((lbl3, _node_display(
                     item.node3 if hasattr(item,'node3') else '', f"{item.name}__p3")))
             if item.comp_type == 'Z':
-                rows.append(("Modo Z", item.z_mode))
+                rows.append((self.tr("Z mode"), item.z_mode))
                 if item.z_mode == 'rect':
                     rows.append(("Z", f"{item.z_real:.4g} {item.z_imag:+.4g}j Ω"))
                 else:
@@ -2828,18 +2835,18 @@ class MainWindow(QMainWindow):
         s.place_component('R',   QPointF(   0,  80), 'R2', 1000.0, 'Ω', 'B', '0')
         s.place_component('GND', QPointF(-120,  80), 'GND1')
         self.results_text.setPlainText(
-            "Circuito demo: divisor de voltaje\n"
+            self.tr("Demo circuit: voltage divider\n"
             "V1=10V, R1=R2=1kΩ\n\n"
-            "Esperado: V(B) = 5.0 V\n\n"
-            "Presiona ▶ SIMULAR para verificar.\n\n"
-            "Tip: doble-click sobre un componente\npara editar sus nodos y valores."
+            "Expected: V(B) = 5.0 V\n\n"
+            "Press ▶ SIMULATE to verify.\n\n"
+            "Tip: double-click a component\nto edit its nodes and values.")
         )
 
     # ── Acciones ─────────────────────────────────
     def _new_circuit(self):
         reply = QMessageBox.question(
-            self, "Nuevo circuito",
-            "¿Descartar el circuito actual (todas las hojas)?",
+            self, self.tr("New Circuit"),
+            self.tr("Discard the current circuit (all sheets)?"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
@@ -2868,10 +2875,10 @@ class MainWindow(QMainWindow):
             sc._comp_counter.clear()
         self._sheets.clear()
         self.tab_widget.clear()
-        self._add_sheet(name="Hoja 1")
+        self._add_sheet(name=self.tr("Sheet 1"))
         self.results_text.clear()
         self._current_file = None
-        self.setWindowTitle("OhmPy — Simulador de Circuitos")
+        self.setWindowTitle(self.tr("OhmPy — Circuit Simulator"))
 
     # ── Serialización de una hoja ─────────────────
     def _serialize_sheet(self, scene: CircuitScene) -> dict:
@@ -3097,8 +3104,8 @@ class MainWindow(QMainWindow):
         path = self._current_file
         if not path:
             path, _ = QFileDialog.getSaveFileName(
-                self, "Guardar circuito", "",
-                "OhmPy (*.csin);;Todos los archivos (*)"
+                self, self.tr("Save Circuit"), "",
+                self.tr("OhmPy (*.csin);;All Files (*)")
             )
         if not path:
             return
@@ -3118,13 +3125,13 @@ class MainWindow(QMainWindow):
 
         self._current_file = path
         self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
-        self.statusBar().showMessage(f"Guardado: {path}")
+        self.statusBar().showMessage(self.tr("Saved: {path}").format(path=path))
 
     # ── Guardar como (.csin) ─────────────────────
     def _save_circuit_as(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, "Guardar circuito como", "",
-            "OhmPy (*.csin);;Todos los archivos (*)"
+            self, self.tr("Save Circuit As"), "",
+            self.tr("OhmPy (*.csin);;All Files (*)")
         )
         if not path:
             return
@@ -3136,8 +3143,8 @@ class MainWindow(QMainWindow):
     # ── Abrir (.csin) ────────────────────────────
     def _open_circuit(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Abrir circuito", "",
-            "OhmPy (*.csin);;Todos los archivos (*)"
+            self, self.tr("Open Circuit"), "",
+            self.tr("OhmPy (*.csin);;All Files (*)")
         )
         if not path:
             return
@@ -3146,13 +3153,13 @@ class MainWindow(QMainWindow):
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo abrir el archivo:\n{e}")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Could not open file:\n{error}").format(error=e))
             return
 
         # Compatibilidad con formato v1 (una sola hoja)
         if 'sheets' not in data:
             data = {'version': '2.0', 'sheets': [{
-                'name': 'Hoja 1',
+                'name': self.tr('Sheet 1'),
                 'components': data.get('components', []),
                 'wires': data.get('wires', []),
             }]}
@@ -3162,20 +3169,20 @@ class MainWindow(QMainWindow):
         self.tab_widget.clear()
 
         for sd in data['sheets']:
-            name = sd.get('name', f'Hoja {len(self._sheets)+1}')
+            name = sd.get('name', self.tr('Sheet {number}').format(number=len(self._sheets) + 1))
             self._add_sheet(name=name)
             scene = self._sheets[-1]['scene']
             self._load_sheet_data(scene, sd)
 
         self._current_file = path
         self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
-        self.statusBar().showMessage(f"Abierto: {path}")
+        self.statusBar().showMessage(self.tr("Opened: {path}").format(path=path))
 
     # ── Exportar netlist SPICE (.net) ────────────
     def _export_spice(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar netlist SPICE", "",
-            "SPICE Netlist (*.net);;Todos los archivos (*)"
+            self, self.tr("Export SPICE Netlist"), "",
+            self.tr("SPICE Netlist (*.net);;All Files (*)")
         )
         if not path:
             return
@@ -3183,8 +3190,8 @@ class MainWindow(QMainWindow):
             path += '.net'
 
         lines = []
-        lines.append(f"* OhmPy — Netlist exportado")
-        lines.append(f"* Archivo: {os.path.basename(path)}")
+        lines.append("* OhmPy — Exported netlist")
+        lines.append(self.tr("* File: {name}").format(name=os.path.basename(path)))
         lines.append("")
 
         type_map = {'R': 'R', 'C': 'C', 'L': 'L', 'V': 'V', 'I': 'I', 'Z': 'Z'}

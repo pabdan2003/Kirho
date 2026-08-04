@@ -51,7 +51,7 @@ class BodeDialog(QDialog):
         super().__init__(parent)
         self.scene = scene
         self.colors = colors
-        self.setWindowTitle('Análisis de Bode / Función de transferencia')
+        self.setWindowTitle('Bode / Transfer Function Analysis')
         # No-modal flotante (igual que el resto de instrumentos)
         self.setModal(False)
         self.resize(900, 640)
@@ -72,55 +72,58 @@ class BodeDialog(QDialog):
         left = QVBoxLayout()
         left.setSpacing(8)
 
-        gb_signal = QGroupBox('Señal de entrada / salida')
+        gb_signal = QGroupBox('Input / Output Signal')
         form_signal = QFormLayout(gb_signal)
+        form_signal.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form_signal.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.cb_input = QComboBox()
         self.cb_input.setMinimumWidth(140)
-        form_signal.addRow('Fuente AC:', self.cb_input)
+        form_signal.addRow('AC source:', self.cb_input)
         self.cb_out = QComboBox()
-        form_signal.addRow('Nodo salida (V_out):', self.cb_out)
+        form_signal.addRow('Output node (V_out):', self.cb_out)
         self.cb_ref = QComboBox()
-        form_signal.addRow('Nodo referencia:', self.cb_ref)
+        form_signal.addRow('Reference node:', self.cb_ref)
         left.addWidget(gb_signal)
 
-        gb_sweep = QGroupBox('Barrido')
+        gb_sweep = QGroupBox('Sweep')
         form_sweep = QFormLayout(gb_sweep)
         self.sb_fstart = QDoubleSpinBox()
         self.sb_fstart.setRange(1e-3, 1e9)
         self.sb_fstart.setDecimals(3)
         self.sb_fstart.setValue(1.0)
         self.sb_fstart.setSuffix(' Hz')
-        form_sweep.addRow('f inicial:', self.sb_fstart)
+        form_sweep.addRow('Start f:', self.sb_fstart)
 
         self.sb_fstop = QDoubleSpinBox()
         self.sb_fstop.setRange(1e-3, 1e9)
         self.sb_fstop.setDecimals(3)
         self.sb_fstop.setValue(100_000.0)
         self.sb_fstop.setSuffix(' Hz')
-        form_sweep.addRow('f final:', self.sb_fstop)
+        form_sweep.addRow('Stop f:', self.sb_fstop)
 
         self.sp_points = QSpinBox()
         self.sp_points.setRange(10, 5000)
         self.sp_points.setValue(400)
-        form_sweep.addRow('Puntos:', self.sp_points)
+        form_sweep.addRow('Points:', self.sp_points)
 
         self.cb_scale = QComboBox()
-        self.cb_scale.addItems(['Logarítmica', 'Lineal'])
-        form_sweep.addRow('Escala f:', self.cb_scale)
+        self.cb_scale.addItems(['Logarithmic', 'Linear'])
+        form_sweep.addRow('f scale:', self.cb_scale)
 
         left.addWidget(gb_sweep)
 
         btn_row = QHBoxLayout()
-        self.btn_run = QPushButton('Calcular')
+        self.btn_run = QPushButton('Calculate')
         self.btn_run.clicked.connect(self._run_sweep)
         btn_row.addWidget(self.btn_run)
-        btn_close = QPushButton('Cerrar')
+        btn_close = QPushButton('Close')
         btn_close.clicked.connect(self.close)
         btn_row.addWidget(btn_close)
         left.addLayout(btn_row)
 
         # Lectura: cursor sobre el gráfico
-        gb_cursor = QGroupBox('Cursor (clic sobre el gráfico)')
+        gb_cursor = QGroupBox('Cursor (click the chart)')
         form_c = QFormLayout(gb_cursor)
         self.lbl_freq = QLabel('—')
         self.lbl_mag  = QLabel('—')
@@ -133,7 +136,7 @@ class BodeDialog(QDialog):
         form_c.addRow('∠H:', self.lbl_phase)
         left.addWidget(gb_cursor)
 
-        gb_notable = QGroupBox('Puntos notables')
+        gb_notable = QGroupBox('Notable points')
         v_not = QVBoxLayout(gb_notable)
         self.lbl_dc_gain = QLabel('—')
         self.lbl_fc_3db  = QLabel('—')
@@ -182,9 +185,9 @@ class BodeDialog(QDialog):
             ax.xaxis.label.set_color(text_col)
         self.ax_mag.set_ylabel('|H| (dB)')
         self.ax_phase.set_ylabel('∠H (°)')
-        self.ax_phase.set_xlabel('Frecuencia (Hz)')
-        self.ax_mag.set_title('Magnitud')
-        self.ax_phase.set_title('Fase')
+        self.ax_phase.set_xlabel('Frequency (Hz)')
+        self.ax_mag.set_title('Magnitude')
+        self.ax_phase.set_title('Phase')
 
     def _apply_style(self):
         c = self.colors
@@ -202,7 +205,8 @@ class BodeDialog(QDialog):
                 margin-top: 10px; padding-top: 8px; color: {text};
             }}
             QGroupBox::title {{
-                subcontrol-origin: margin; left: 8px; padding: 0 4px;
+                subcontrol-origin: margin; left: 8px; padding: 0 6px;
+                background: {panel};
             }}
             QComboBox, QSpinBox, QDoubleSpinBox {{
                 background: {c.get('bg', '#1a1a2e')}; color: {text};
@@ -260,9 +264,9 @@ class BodeDialog(QDialog):
 
         if not ac_items:
             QMessageBox.warning(
-                self, 'Sin fuentes AC',
-                'No se encontraron fuentes VAC o FGEN en el circuito. '
-                'Coloca al menos una para realizar el barrido.')
+                self, 'No AC sources',
+                'No VAC or FGEN sources were found in the circuit. '
+                'Place at least one to run the sweep.')
             self.btn_run.setEnabled(False)
         else:
             self.btn_run.setEnabled(True)
@@ -286,8 +290,8 @@ class BodeDialog(QDialog):
         f_start = float(self.sb_fstart.value())
         f_stop  = float(self.sb_fstop.value())
         if f_stop <= f_start:
-            QMessageBox.warning(self, 'Rango inválido',
-                                'f final debe ser mayor que f inicial.')
+            QMessageBox.warning(self, 'Invalid range',
+                                'Stop f must be greater than start f.')
             return
         points = int(self.sp_points.value())
         scale = 'log' if self.cb_scale.currentText().startswith('Log') else 'linear'
@@ -330,8 +334,8 @@ class BodeDialog(QDialog):
                 pass
 
         if not comps:
-            QMessageBox.warning(self, 'Circuito vacío',
-                                'No hay componentes simulables.')
+            QMessageBox.warning(self, 'Empty circuit',
+                                'There are no simulatable components.')
             return
 
         # Verificar que out/ref existen en la red (auto + manuales). Sin
@@ -344,15 +348,15 @@ class BodeDialog(QDialog):
                 if v:
                     all_nets.add(v)
         if n_out not in all_nets:
-            QMessageBox.warning(self, 'Nodo no encontrado',
-                                f'El nodo de salida "{n_out}" no aparece en el circuito.')
+            QMessageBox.warning(self, 'Node not found',
+                                f'The output node "{n_out}" does not appear in the circuit.')
             return
 
         solver = MNASolver()
         res = solver.solve_ac(comps, f_start, f_stop, points=points, scale=scale)
         if not res.get('success'):
-            QMessageBox.warning(self, 'Error en el barrido',
-                                f"{res.get('error', 'desconocido')}")
+            QMessageBox.warning(self, 'Sweep error',
+                                f"{res.get('error', 'unknown')}")
             return
 
         freqs = res['frequencies']
@@ -429,12 +433,12 @@ class BodeDialog(QDialog):
             slope = 0.0
 
         self.lbl_dc_gain.setText(
-            f"Ganancia DC: {g_dc_db:+.3f} dB  ({g_dc_lin:.4g} V/V)")
+            f"DC gain: {g_dc_db:+.3f} dB  ({g_dc_lin:.4g} V/V)")
         if fc is not None:
-            self.lbl_fc_3db.setText(f"f_corte (−3 dB): {fc:.4g} Hz")
+            self.lbl_fc_3db.setText(f"f_cutoff (−3 dB): {fc:.4g} Hz")
         else:
-            self.lbl_fc_3db.setText("f_corte (−3 dB): no cruzada en el rango")
-        self.lbl_slope.setText(f"Pendiente final: {slope:+.1f} dB/dec")
+            self.lbl_fc_3db.setText("f_cutoff (−3 dB): no crossing in range")
+        self.lbl_slope.setText(f"Final slope: {slope:+.1f} dB/dec")
 
     def _on_canvas_click(self, event):
         """Cuando el usuario hace clic sobre los plots, muestra |H| y ∠H

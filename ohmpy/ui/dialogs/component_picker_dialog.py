@@ -49,7 +49,7 @@ class ComponentPickerDialog(QDialog):
         super().__init__(parent)
         self.colors = colors
         self.component_item_cls = component_item_cls
-        self.setWindowTitle(f"Seleccionar componente — {category_name}")
+        self.setWindowTitle(self.tr("Select Component — {category}").format(category=category_name))
         self._components = components
         self._selected_type = None
         self._build_ui()
@@ -74,10 +74,10 @@ class ComponentPickerDialog(QDialog):
         left.addWidget(self.list_widget)
 
         btn_row = QHBoxLayout()
-        self.place_btn = QPushButton("Colocar")
+        self.place_btn = QPushButton(self.tr("Place"))
         self.place_btn.setDefault(True)
         self.place_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("Cancelar")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
         btn_row.addStretch()
         btn_row.addWidget(self.place_btn)
@@ -86,7 +86,7 @@ class ComponentPickerDialog(QDialog):
         layout.addLayout(left, 1)
 
         right = QVBoxLayout()
-        preview_title = QLabel("Vista previa")
+        preview_title = QLabel(self.tr("Preview"))
         preview_title.setFont(QFont('Menlo', 9, QFont.Weight.Bold))
         preview_title.setStyleSheet(f"color: {self._color('component', '#e94560')};")
         right.addWidget(preview_title)

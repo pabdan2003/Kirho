@@ -145,7 +145,7 @@ def parse_si_value(text: str) -> float:
             if mult is not None:
                 return num * mult
         return num
-    raise ValueError(f"No se puede interpretar como valor SI: {text!r}")
+    raise ValueError(f"Could not parse SI value: {text!r}")
 
 
 def format_si_value(value: float, unit: str = '') -> str:

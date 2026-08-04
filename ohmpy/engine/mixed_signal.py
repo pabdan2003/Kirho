@@ -132,10 +132,10 @@ class MixedSimResult:
         lines = [
             f"MixedSimResult({'OK' if self.success else 'FAIL'})",
             f"  t_stop    = {self.t[-1] if len(self.t) else 0:.3e} s",
-            f"  pasos     = {len(self.t)}",
-            f"  nodos A   = {list(self.analog_voltages.keys())}",
+            f"  steps     = {len(self.t)}",
+            f"  A nodes   = {list(self.analog_voltages.keys())}",
             f"  nets D    = {list(self.digital_waveforms.keys())}",
-            f"  eventos   = {self.events_count}",
+            f"  events    = {self.events_count}",
         ]
         if self.analog_dt_stats:
             lines.append(
@@ -277,7 +277,7 @@ class MixedSignalInterface:
 
             if not tr['success']:
                 result.success = False
-                result.error   = f"MNA transitorio falló: {tr['error']}"
+                result.error   = f"MNA transient failed: {tr['error']}"
                 return result
 
             t_arr    = tr['time']
@@ -346,8 +346,8 @@ class MixedSignalInterface:
                 # usar coupling='relaxation' o simulación iterativa.
                 if self.coupling == 'one_shot' and dac_hist:
                     result.warnings.append(
-                        f"DAC '{dac.name}' → '{src_name}': salida calculada "
-                        f"post-hoc. Para retroalimentación real usar coupling='relaxation'."
+                        f"DAC '{dac.name}' → '{src_name}': output calculated "
+                        f"post-hoc. Use coupling='relaxation' for real feedback."
                     )
 
             # ── Procesar PWM ───────────────────────────────────────────
@@ -422,7 +422,7 @@ class MixedSignalInterface:
 
                 if not tr['success']:
                     result.success = False
-                    result.error   = f"MNA chunk {chunk_idx} falló: {tr['error']}"
+                    result.error   = f"MNA chunk {chunk_idx} failed: {tr['error']}"
                     break
 
                 # Ajustar tiempos al eje global

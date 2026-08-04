@@ -258,7 +258,7 @@ class OscilloscopeDialog(QDialog):
         self.sb_pos_a.setDecimals(2)
         self.sb_pos_a.setSingleStep(0.1)
         self.sb_pos_a.setSuffix(" div")
-        f_a.addRow("Posición:", self.sb_pos_a)
+        f_a.addRow(self.tr("Position:"), self.sb_pos_a)
         right.addWidget(gb_a)
 
         # Canal B
@@ -273,7 +273,7 @@ class OscilloscopeDialog(QDialog):
         self.sb_pos_b.setDecimals(2)
         self.sb_pos_b.setSingleStep(0.1)
         self.sb_pos_b.setSuffix(" div")
-        f_b.addRow("Posición:", self.sb_pos_b)
+        f_b.addRow(self.tr("Position:"), self.sb_pos_b)
         right.addWidget(gb_b)
 
         # Trigger (controles visibles pero sin lógica todavía)
@@ -291,20 +291,20 @@ class OscilloscopeDialog(QDialog):
 
         # Botones
         btn_row = QHBoxLayout()
-        self.btn_clear = QPushButton("Limpiar")
+        self.btn_clear = QPushButton(self.tr("Clear"))
         self.btn_clear.clicked.connect(self._on_clear)
         btn_row.addWidget(self.btn_clear)
         self.btn_hw = QPushButton("Hardware…")
         self.btn_hw.setToolTip(
-            "Conecta el osciloscopio a un micro (RP2040 / STM32 / …) "
-            "vía USB-CDC, o usa Mock device para probar sin hardware.")
+            self.tr("Connect the oscilloscope to a microcontroller (RP2040 / STM32 / …) "
+                    "via USB-CDC, or use Mock device to test without hardware."))
         self.btn_hw.clicked.connect(self._on_hardware_button)
         btn_row.addWidget(self.btn_hw)
         btn_row.addStretch(1)
         right.addLayout(btn_row)
 
         # Etiqueta de estado del HW (cambia de color según conexión)
-        self.lbl_hw_status = QLabel('HW desconectado')
+        self.lbl_hw_status = QLabel(self.tr('HW disconnected'))
         self.lbl_hw_status.setStyleSheet('color: #888888;')
         right.addWidget(self.lbl_hw_status)
         right.addStretch(1)

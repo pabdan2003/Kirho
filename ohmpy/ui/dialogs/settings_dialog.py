@@ -24,26 +24,26 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.theme_manager = theme_manager
         self.colors = colors
-        self.setWindowTitle("Configuración")
-        self.setMinimumSize(560, 380)
         self._current_theme_id = current_theme_id
         self._on_theme_change = on_theme_change
+        self.setWindowTitle("Settings")
+        self.setMinimumSize(560, 380)
         self._build_ui()
 
     def _build_ui(self):
         main = QVBoxLayout(self)
         main.setSpacing(10)
 
-        gb_theme = QGroupBox("Apariencia")
+        gb_theme = QGroupBox("Appearance")
         gl = QVBoxLayout(gb_theme)
 
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("Tema:"))
+        row1.addWidget(QLabel("Theme:"))
         self.theme_combo = QComboBox()
         self.theme_combo.setMinimumWidth(240)
         self.theme_combo.setToolTip(
-            "Cambia el esquema de colores de la app.\n"
-            "Se aplica al instante y se recuerda entre sesiones.")
+            "Changes the app color scheme.\n"
+            "It applies immediately and is remembered between sessions.")
         self._populate_theme_combo()
         self.theme_combo.currentIndexChanged.connect(self._on_combo_changed)
         row1.addWidget(self.theme_combo)
@@ -57,24 +57,24 @@ class SettingsDialog(QDialog):
         gl.addWidget(self.theme_desc)
 
         row2 = QHBoxLayout()
-        btn_open = QPushButton("📁  Abrir carpeta de temas")
+        btn_open = QPushButton("📁  Open themes folder")
         btn_open.setToolTip(
-            "Abre la carpeta donde puedes dejar archivos .json\n"
-            "para añadir tus propios temas.")
+            "Opens the folder where you can place .json files\n"
+            "to add your own themes.")
         btn_open.clicked.connect(self._open_themes_folder)
         row2.addWidget(btn_open)
 
-        btn_reload = QPushButton("🔄  Recargar lista")
+        btn_reload = QPushButton("🔄  Reload list")
         btn_reload.setToolTip(
-            "Vuelve a escanear las carpetas de temas tras añadir\n"
-            "o quitar archivos .json sin reiniciar la app.")
+            "Rescans theme folders after adding or removing\n"
+            ".json files without restarting the app.")
         btn_reload.clicked.connect(self._reload_themes)
         row2.addWidget(btn_reload)
 
-        btn_export = QPushButton("💾  Exportar tema actual…")
+        btn_export = QPushButton("💾  Export current theme…")
         btn_export.setToolTip(
-            "Guarda el tema seleccionado como plantilla .json para\n"
-            "que puedas modificarlo y crear el tuyo.")
+            "Saves the selected theme as a .json template\n"
+            "that you can modify to create your own.")
         btn_export.clicked.connect(self._export_current_theme)
         row2.addWidget(btn_export)
 
@@ -82,9 +82,9 @@ class SettingsDialog(QDialog):
         gl.addLayout(row2)
 
         hint = QLabel(
-            "Para añadir un tema instalable por separado, deja un archivo .json\n"
-            "con el formato indicado en themes/README.md dentro de la carpeta\n"
-            "y pulsa «Recargar lista» (o reinicia la app)."
+            "To add a separately installable theme, place a .json file\n"
+            "using the format described in themes/README.md in that folder,\n"
+            "then click “Reload list” (or restart the app)."
         )
         hint.setWordWrap(True)
         hint.setFont(QFont('Menlo', 8))
@@ -95,6 +95,8 @@ class SettingsDialog(QDialog):
         main.addStretch()
 
         bbox = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.close_button = bbox.button(QDialogButtonBox.StandardButton.Close)
+        self.close_button.setText("Close")
         bbox.rejected.connect(self.accept)
         bbox.accepted.connect(self.accept)
         main.addWidget(bbox)
@@ -107,7 +109,7 @@ class SettingsDialog(QDialog):
         for entry in self.theme_manager.list_themes():
             label = entry['name']
             if entry['source'] != 'builtin':
-                label += '  (externo)'
+                label += '  (external)'
             self.theme_combo.addItem(label, entry['id'])
         idx = self.theme_combo.findData(self._current_theme_id)
         if idx < 0:
@@ -131,8 +133,8 @@ class SettingsDialog(QDialog):
         if meta is None:
             self.theme_desc.setText("")
             return
-        src = ("Origen: built-in" if meta['source'] == 'builtin'
-               else f"Origen: {meta['source']}")
+        src = ("Source: built-in" if meta['source'] == 'builtin'
+               else f"Source: {meta['source']}")
         desc = meta.get('description', '')
         self.theme_desc.setText(f"  {desc}\n  {src}" if desc else f"  {src}")
 
@@ -145,8 +147,8 @@ class SettingsDialog(QDialog):
         self._populate_theme_combo()
         self._refresh_theme_description()
         QMessageBox.information(
-            self, "Temas recargados",
-            f"Se descubrieron {len(self.theme_manager.list_themes())} temas en total."
+            self, "Themes reloaded",
+            f"Discovered {len(self.theme_manager.list_themes())} themes in total."
         )
 
     def _export_current_theme(self):
@@ -156,18 +158,18 @@ class SettingsDialog(QDialog):
         suggested = f"{tid}_copia.json"
         default_dir = self.theme_manager.ensure_user_themes_dir()
         path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar tema como plantilla",
+            self, "Export theme as template",
             os.path.join(default_dir, suggested),
-            "Tema JSON (*.json)")
+            "JSON Theme (*.json)")
         if not path:
             return
         ok = self.theme_manager.export_theme_template(tid, path)
         if ok:
             QMessageBox.information(
-                self, "Tema exportado",
-                f"Plantilla guardada en:\n{path}\n\n"
-                "Edita los colores y pulsa «Recargar lista» para verlo en el selector.")
+                self, "Theme exported",
+                f"Template saved to:\n{path}\n\n"
+                "Edit the colors and click “Reload list” to see it in the selector.")
         else:
             QMessageBox.warning(
                 self, "Error",
-                f"No se pudo guardar el archivo:\n{path}")
+                f"Could not save the file:\n{path}")

@@ -122,17 +122,17 @@ THEME_LIGHT: Dict[str, str] = {
 BUILTIN_THEMES: Dict[str, Dict] = {
     'python': {
         'name':        'Python (predeterminado)',
-        'description': 'Azul y amarillo característicos de Python.',
+        'description': 'Python’s signature blue and yellow.',
         'colors':      THEME_PYTHON,
     },
     'dark': {
         'name':        'Oscuro',
-        'description': 'Paleta azul-medianoche, contraste alto.',
+        'description': 'Midnight-blue palette with high contrast.',
         'colors':      THEME_DARK,
     },
     'light': {
         'name':        'Claro',
-        'description': 'Fondo blanco con líneas oscuras',
+        'description': 'White background with dark lines.',
         'colors':      THEME_LIGHT,
     },
 }
@@ -166,11 +166,11 @@ def _coerce_theme_dict(d: Dict, source: str) -> Optional[Dict]:
 
     if 'colors' in d and isinstance(d['colors'], dict):
         colors      = {k: str(v) for k, v in d['colors'].items()}
-        name        = str(d.get('name', '<sin nombre>'))
+        name        = str(d.get('name', '<unnamed>'))
         description = str(d.get('description', ''))
     else:
         colors      = {k: str(v) for k, v in d.items() if isinstance(v, str)}
-        name        = '<sin nombre>'
+        name        = '<unnamed>'
         description = ''
 
     if _validate_colors(colors):

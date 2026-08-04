@@ -23,7 +23,7 @@ class PowerTriangleDialog(QDialog):
         super().__init__(parent)
         self.ac_result = ac_result
         self.colors = colors or {}
-        self.setWindowTitle("Triángulo de Potencia")
+        self.setWindowTitle(self.tr("Power Triangle"))
         self.setMinimumSize(620, 580)
         self._apply_style()
         self._build_ui()
@@ -90,10 +90,10 @@ class PowerTriangleDialog(QDialog):
         self.canvas.setMinimumHeight(260)
         splitter.addWidget(self.canvas)
 
-        box = QGroupBox("Corrección de Factor de Potencia")
+        box = QGroupBox(self.tr("Power Factor Correction"))
         box_layout = QHBoxLayout(box)
 
-        box_layout.addWidget(QLabel("FP objetivo:"))
+        box_layout.addWidget(QLabel(self.tr("Target PF:")))
         self.fp_spin = QDoubleSpinBox()
         self.fp_spin.setRange(0.01, 1.0)
         self.fp_spin.setDecimals(3)
@@ -102,28 +102,28 @@ class PowerTriangleDialog(QDialog):
         box_layout.addWidget(self.fp_spin)
 
         box_layout.addSpacing(10)
-        box_layout.addWidget(QLabel("Tipo:"))
+        box_layout.addWidget(QLabel(self.tr("Type:")))
         self.target_combo = QComboBox()
-        self.target_combo.addItem("Auto (mismo dominio)", 'auto')
-        self.target_combo.addItem("Inductivo (Q > 0)", 'inductive')
-        self.target_combo.addItem("Capacitivo (Q < 0)", 'capacitive')
+        self.target_combo.addItem(self.tr("Auto (same domain)"), 'auto')
+        self.target_combo.addItem(self.tr("Inductive (Q > 0)"), 'inductive')
+        self.target_combo.addItem(self.tr("Capacitive (Q < 0)"), 'capacitive')
         self.target_combo.setToolTip(
-            "Auto: mantiene el dominio actual (capacitivo↔capacitivo,\n"
-            "inductivo↔inductivo).\n"
-            "Inductivo: fuerza un Q resultante positivo (puede cruzar\n"
-            "de capacitivo a inductivo agregando un inductor grande).\n"
-            "Capacitivo: fuerza un Q resultante negativo."
+            self.tr("Auto: keeps the current domain (capacitive↔capacitive,\n"
+                    "inductive↔inductive).\n"
+                    "Inductive: forces a positive resulting Q (it may cross\n"
+                    "from capacitive to inductive by adding a large inductor).\n"
+                    "Capacitive: forces a negative resulting Q.")
         )
         box_layout.addWidget(self.target_combo)
 
-        self.decimals_label = QLabel("Decimales:")
+        self.decimals_label = QLabel(self.tr("Decimals:"))
         self.decimals_spinbox = QSpinBox()
         self.decimals_spinbox.setRange(0, 15)
         self.decimals_spinbox.setValue(4)
         box_layout.addWidget(self.decimals_label)
         box_layout.addWidget(self.decimals_spinbox)
 
-        self.correct_btn = QPushButton("Calcular corrección")
+        self.correct_btn = QPushButton(self.tr("Calculate correction"))
         self.correct_btn.clicked.connect(self._on_correct)
         box_layout.addWidget(self.correct_btn)
         box_layout.addStretch()
@@ -141,11 +141,11 @@ class PowerTriangleDialog(QDialog):
         main.addWidget(splitter)
 
         btn_row = QHBoxLayout()
-        reset_btn = QPushButton("🔍 Restablecer vista")
+        reset_btn = QPushButton(self.tr("🔍 Reset view"))
         reset_btn.clicked.connect(self.canvas.reset_view)
         btn_row.addWidget(reset_btn)
         btn_row.addStretch()
-        close_btn = QPushButton("Cerrar")
+        close_btn = QPushButton(self.tr("Close"))
         close_btn.clicked.connect(self.accept)
         btn_row.addWidget(close_btn)
         main.addLayout(btn_row)
@@ -174,23 +174,23 @@ class PowerTriangleDialog(QDialog):
         tt_used = res.get('target_type', 'auto')
 
         if tipo == 'capacitor':
-            val_str = f"C = {val*1e6:.{decsel}f} µF  (normalizado a 1 Vrms)"
+            val_str = f"C = {val*1e6:.{decsel}f} µF  (normalized to 1 Vrms)"
             emoji = "⚡ Capacitor"
         else:
-            val_str = f"L = {val*1e3:.{decsel}f} mH  (normalizado a 1 Vrms)"
+            val_str = f"L = {val*1e3:.{decsel}f} mH  (normalized to 1 Vrms)"
             emoji = "🔄 Inductor"
 
-        modo_map = {'auto': 'Auto', 'inductive': 'Inductivo',
-                    'capacitive': 'Capacitivo'}
+        modo_map = {'auto': 'Auto', 'inductive': 'Inductive',
+                    'capacitive': 'Capacitive'}
         modo_str = modo_map.get(tt_used, tt_used)
 
         text = (
-            f"  Modo objetivo:      {modo_str}\n"
-            f"  Elemento corrector: {emoji} en PARALELO\n"
+            f"  Target mode:        {modo_str}\n"
+            f"  Correction element: {emoji} in PARALLEL\n"
             f"  {val_str}\n"
-            f"  Q a compensar:      {Q_corr:.4f} VAR\n"
-            f"  FP resultante:      {fp_new:.4f}  ({fp_type_new})\n"
-            f"  Fórmula:            {form}\n"
+            f"  Q to compensate:    {Q_corr:.4f} VAR\n"
+            f"  Resulting PF:       {fp_new:.4f}  ({fp_type_new})\n"
+            f"  Formula:            {form}\n"
             f"  📌 {note}"
         )
         self.corr_label.setText(text)
@@ -277,7 +277,7 @@ class _PowerTriangleCanvas(QWidget):
         if S < 1e-12:
             painter.setPen(QPen(self._color('text_dim', '#aaaaaa'), 1))
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                             "Sin datos de potencia")
+                             "No power data")
             return
 
         base_scale = (width * 0.55) / S
@@ -350,8 +350,8 @@ class _PowerTriangleCanvas(QWidget):
         painter.drawText(ox + ax_len + 4, oy + 4, "P (W)")
 
         arrow(painter, pen_ax, ox, oy + 20, ox, oy - ax_len, '', 'end')
-        painter.drawText(ox + 4, oy - ax_len - 4, "Q+ inductivo")
-        painter.drawText(ox + 4, oy + 28, "Q− capacitivo")
+        painter.drawText(ox + 4, oy - ax_len - 4, "Q+ inductive")
+        painter.drawText(ox + 4, oy + 28, "Q− capacitive")
 
         painter.setPen(QPen(self._color('grid_line', '#333355'), 1, Qt.PenStyle.DotLine))
         painter.drawLine(ox, oy, ox, oy + ax_len)

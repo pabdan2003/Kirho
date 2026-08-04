@@ -235,12 +235,12 @@ def simplify_pos(minterms, dont_cares, var_names):
 
 
 NOTATION_LABELS = {
-    'math_bar': "Matematica (barrita)",
-    'math_prime': "Matematica alternativa (')",
-    'logic_words': "Logica",
-    'logic_symbols': "Logica alternativa",
-    'program_bool': "Programando con booleanos",
-    'program_bits': "Programando con bits",
+    'math_bar': "Mathematical (overbar)",
+    'math_prime': "Alternative Mathematical (')",
+    'logic_words': "Logic",
+    'logic_symbols': "Alternative Logic",
+    'program_bool': "Boolean Programming",
+    'program_bits': "Bitwise Programming",
 }
 
 
@@ -397,26 +397,26 @@ class KMapGroupDelegate(QStyledItemDelegate):
 
 
 class AutoBuildCircuitDialog(QDialog):
-    def __init__(self, default_sheet_name: str = "Circuito simplificado",
+    def __init__(self, default_sheet_name: str = "Simplified circuit",
                  parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Armar circuito automaticamente")
+        self.setWindowTitle("Build Circuit Automatically")
         self.setMinimumWidth(420)
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
         self.sheet_name_edit = QLineEdit(default_sheet_name)
-        form.addRow("Nombre de la hoja:", self.sheet_name_edit)
+        form.addRow("Sheet name:", self.sheet_name_edit)
         layout.addLayout(form)
 
-        self.two_input_only_check = QCheckBox("Usar compuertas unicamente de 2 entradas")
-        self.nand_only_check = QCheckBox("Armar solo usando compuertas NAND")
+        self.two_input_only_check = QCheckBox("Use only 2-input gates")
+        self.nand_only_check = QCheckBox("Build using NAND gates only")
         layout.addWidget(self.two_input_only_check)
         layout.addWidget(self.nand_only_check)
 
         hint = QLabel(
-            "<small>Estas opciones definen la topologia que usara el generador "
-            "al convertir las ecuaciones minimizadas en una hoja nueva.</small>")
+            "<small>These options define the topology used to turn the "
+            "minimized equations into a new sheet.</small>")
         hint.setWordWrap(True)
         layout.addWidget(hint)
 
@@ -450,7 +450,7 @@ class CircuitAnalyzerDialog(QDialog):
 
     def __init__(self, parent=None, initial_state: dict = None):
         super().__init__(parent)
-        self.setWindowTitle("Analizar Circuito Digital")
+        self.setWindowTitle("Analyze Digital Circuit")
         self.resize(820, 580)
 
         # Estado del modelo
@@ -459,7 +459,7 @@ class CircuitAnalyzerDialog(QDialog):
         self.truth_data: dict = {}
         self._last_simplification: dict = {}
         self._last_highlight: str = 'sop'
-        self._all_outputs_label = "Todas las salidas"
+        self._all_outputs_label = "All outputs"
         self._notation_id = 'math_prime'
         self._kmap_groups = []
         
@@ -546,10 +546,10 @@ class CircuitAnalyzerDialog(QDialog):
     def _build_ui(self):
         layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._build_io_tab(),    "Entradas y Salidas")
-        self.tabs.addTab(self._build_truth_tab(), "Tabla de Verdad")
-        self.tabs.addTab(self._build_eqs_tab(),   "Ecuaciones simplificadas")
-        self.tabs.addTab(self._build_kmap_tab(),  "Mapa de Karnaugh")
+        self.tabs.addTab(self._build_io_tab(),    "Inputs and Outputs")
+        self.tabs.addTab(self._build_truth_tab(), "Truth Table")
+        self.tabs.addTab(self._build_eqs_tab(),   "Simplified Equations")
+        self.tabs.addTab(self._build_kmap_tab(),  "Karnaugh Map")
         self.tabs.currentChanged.connect(self._on_tab_changed)
         layout.addWidget(self.tabs)
 
@@ -577,9 +577,9 @@ class CircuitAnalyzerDialog(QDialog):
         # Entradas
         self.inputs_list = QListWidget()
         self.inputs_list.addItems(self.var_inputs)
-        self.in_edit  = QLineEdit(); self.in_edit.setPlaceholderText("Ej: A, B, EN")
-        btn_add_in = QPushButton("Añadir entrada")
-        btn_rm_in  = QPushButton("Quitar seleccionada")
+        self.in_edit  = QLineEdit(); self.in_edit.setPlaceholderText("E.g.: A, B, EN")
+        btn_add_in = QPushButton("Add input")
+        btn_rm_in  = QPushButton("Remove selected")
         btn_add_in.clicked.connect(self._add_input)
         btn_rm_in.clicked.connect(self._remove_input)
         self.in_edit.returnPressed.connect(self._add_input)
@@ -587,22 +587,22 @@ class CircuitAnalyzerDialog(QDialog):
         # Salidas
         self.outputs_list = QListWidget()
         self.outputs_list.addItems(self.var_outputs)
-        self.out_edit = QLineEdit(); self.out_edit.setPlaceholderText("Ej: Y, S, COUT")
-        btn_add_out = QPushButton("Añadir salida")
-        btn_rm_out  = QPushButton("Quitar seleccionada")
+        self.out_edit = QLineEdit(); self.out_edit.setPlaceholderText("E.g.: Y, S, COUT")
+        btn_add_out = QPushButton("Add output")
+        btn_rm_out  = QPushButton("Remove selected")
         btn_add_out.clicked.connect(self._add_output)
         btn_rm_out.clicked.connect(self._remove_output)
         self.out_edit.returnPressed.connect(self._add_output)
 
-        h.addWidget(col("Entradas",
+        h.addWidget(col("Inputs",
                         self.inputs_list, self.in_edit, btn_add_in, btn_rm_in))
-        h.addWidget(col("Salidas",
+        h.addWidget(col("Outputs",
                         self.outputs_list, self.out_edit, btn_add_out, btn_rm_out))
 
         info = QLabel(
-            "<small>Define los nombres de variables.  "
-            "Al pasar a la pestaña <b>Tabla de Verdad</b> se generarán "
-            "automáticamente las 2<sup>N</sup> filas correspondientes."
+            "<small>Define the variable names. When you open the "
+            "<b>Truth Table</b> tab, the corresponding 2<sup>N</sup> rows "
+            "are generated automatically."
             "</small>")
         info.setWordWrap(True)
         outer.addLayout(h)
@@ -620,16 +620,16 @@ class CircuitAnalyzerDialog(QDialog):
                 invalid.append(name)
         if invalid:
             QMessageBox.warning(
-                self, "Nombre invalido",
-                "Usa nombres como A, B, EN, S0 o COUT.")
+                self, "Invalid name",
+                "Use names such as A, B, EN, S0, or COUT.")
         return valid
 
     def _add_variables(self, edit: QLineEdit, target: list, widget: QListWidget):
         added = False
         for name in self._parse_variable_names(edit.text()):
             if name in self.var_inputs or name in self.var_outputs:
-                QMessageBox.warning(self, "Nombre duplicado",
-                                    f"La variable '{name}' ya existe.")
+                QMessageBox.warning(self, "Duplicate name",
+                                    f"The variable '{name}' already exists.")
                 continue
             target.append(name)
             widget.addItem(name)
@@ -672,10 +672,9 @@ class CircuitAnalyzerDialog(QDialog):
         v = QVBoxLayout(w)
 
         info = QLabel(
-            "<small>Llena cada celda de salida con <b>0</b>, <b>1</b> o "
-            "<b>X</b> (don't care).  Las filas donde todas las salidas son "
-            "<b>X</b> se ocultan automáticamente — no afectan a la "
-            "minimización.</small>")
+            "<small>Fill each output cell with <b>0</b>, <b>1</b>, or "
+            "<b>X</b> (don't care). Rows where every output is <b>X</b> "
+            "are hidden automatically — they do not affect minimization.</small>")
         info.setWordWrap(True)
         v.addWidget(info)
 
@@ -695,15 +694,15 @@ class CircuitAnalyzerDialog(QDialog):
         self.truth_count_label = QLabel("")
         row.addWidget(self.truth_count_label)
         row.addStretch(1)
-        row.addWidget(QLabel("Salida a simplificar:"))
+        row.addWidget(QLabel("Output to simplify:"))
         self.output_selector = QComboBox()
         row.addWidget(self.output_selector)
         v.addLayout(row)
 
         # Botones de minimización
         btn_row = QHBoxLayout()
-        self.btn_sop = QPushButton("→ Mintérminos (SOP)")
-        self.btn_pos = QPushButton("→ Maxtérminos (POS)")
+        self.btn_sop = QPushButton("→ Minterms (SOP)")
+        self.btn_pos = QPushButton("→ Maxterms (POS)")
         self.btn_sop.clicked.connect(lambda: self._simplify_and_show('sop'))
         self.btn_pos.clicked.connect(lambda: self._simplify_and_show('pos'))
         btn_row.addStretch(1)
@@ -721,7 +720,7 @@ class CircuitAnalyzerDialog(QDialog):
             self.truth_table.clear()
             self.truth_table.setRowCount(0)
             self.truth_table.setColumnCount(0)
-            self.truth_count_label.setText("Filas activas: 0/0")
+            self.truth_count_label.setText("Active rows: 0/0")
             self.output_selector.clear()
             return
 
@@ -824,7 +823,7 @@ class CircuitAnalyzerDialog(QDialog):
             self.truth_table.setRowHidden(r, all_x)
             if not all_x:
                 active += 1
-        self.truth_count_label.setText(f"Filas activas: {active}/{n_rows}")
+        self.truth_count_label.setText(f"Active rows: {active}/{n_rows}")
 
     def _gather_terms(self, output_name: str):
         """Devuelve (minterms, dont_cares, maxterms) para la salida dada."""
@@ -844,8 +843,8 @@ class CircuitAnalyzerDialog(QDialog):
     def _simplify_and_show(self, mode: str):
         """mode: 'sop' o 'pos'.  Calcula la expresión y salta a Ecuaciones."""
         if not self.var_inputs or not self.var_outputs:
-            QMessageBox.warning(self, "Faltan variables",
-                                "Define al menos una entrada y una salida.")
+            QMessageBox.warning(self, "Missing variables",
+                                "Define at least one input and one output.")
             return
         selected = self.output_selector.currentText()
         outputs = (self.var_outputs if selected in ('', self._all_outputs_label)
@@ -872,14 +871,14 @@ class CircuitAnalyzerDialog(QDialog):
         w = QWidget()
         v = QVBoxLayout(w)
         info = QLabel(
-            "<small>Resultados de la minimización por Quine-McCluskey "
-            "con soporte para don't cares.  Notación: <b>'</b> = NEGADO, "
+            "<small>Quine-McCluskey minimization results with support for "
+            "don't cares. Notation: <b>'</b> = NOT, "
             "<b>·</b> = AND, <b>+</b> = OR.</small>")
         info.setWordWrap(True)
         v.addWidget(info)
 
         notation_row = QHBoxLayout()
-        notation_row.addWidget(QLabel("Notacion:"))
+        notation_row.addWidget(QLabel("Notation:"))
         self.notation_selector = QComboBox()
         for notation_id, label in NOTATION_LABELS.items():
             self.notation_selector.addItem(label, notation_id)
@@ -897,10 +896,10 @@ class CircuitAnalyzerDialog(QDialog):
         # Botón futuro: armar circuito automáticamente
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
-        self.btn_build_circuit = QPushButton("⚙  Armar circuito automáticamente")
+        self.btn_build_circuit = QPushButton("⚙  Build Circuit Automatically")
         self.btn_build_circuit.setToolTip(
-            "Próximamente: genera y coloca las puertas lógicas necesarias "
-            "en una hoja nueva, conectándolas según las ecuaciones SOP.")
+            "Generates and places the required logic gates on a new sheet, "
+            "connecting them according to the SOP equations.")
         self.btn_build_circuit.clicked.connect(self._build_circuit_stub)
         btn_row.addWidget(self.btn_build_circuit)
         v.addLayout(btn_row)
@@ -914,9 +913,9 @@ class CircuitAnalyzerDialog(QDialog):
     def _populate_eqs_tab(self, highlight: str = 'sop'):
         if not self._last_simplification:
             self.eqs_text.setPlainText(
-                "Aún no se ha minimizado ninguna salida.  "
-                "Ve a la pestaña 'Tabla de Verdad', llena los valores "
-                "y pulsa Mintérminos (SOP) o Maxtérminos (POS).")
+                "No output has been minimized yet. Go to the 'Truth Table' "
+                "tab, fill in the values, and press Minterms (SOP) or "
+                "Maxterms (POS).")
             return
         lines = []
         notation = self._notation_id
@@ -1100,14 +1099,14 @@ class CircuitAnalyzerDialog(QDialog):
 
         owner = self.parent()
         if owner is None or not hasattr(owner, '_add_sheet'):
-            QMessageBox.warning(self, "Armado automatico",
-                                "No se encontro la ventana principal para crear la hoja.")
+            QMessageBox.warning(self, "Automatic build",
+                                "The main window was not found to create the sheet.")
             return False
 
         results = self._ensure_auto_build_results()
         if not self.var_inputs or not self.var_outputs:
-            QMessageBox.warning(self, "Faltan variables",
-                                "Define al menos una entrada y una salida.")
+            QMessageBox.warning(self, "Missing variables",
+                                "Define at least one input and one output.")
             return False
 
         owner._add_sheet(opts['sheet_name'])
@@ -1273,7 +1272,7 @@ class CircuitAnalyzerDialog(QDialog):
         scene.setSceneRect(scene.itemsBoundingRect().adjusted(-120, -120, 160, 120))
         if hasattr(owner, 'statusBar'):
             owner.statusBar().showMessage(
-                f"Circuito generado en la hoja '{opts['sheet_name']}'")
+                f"Circuit generated in sheet '{opts['sheet_name']}'")
         return True
 
     def _place_combiner_gates(self, scene, gate_type: str, prefix: str,
@@ -1412,14 +1411,14 @@ class CircuitAnalyzerDialog(QDialog):
         """
         owner = self.parent()
         if owner is None or not hasattr(owner, '_add_sheet'):
-            QMessageBox.warning(self, "Armado automatico",
-                                "No se encontro la ventana principal para crear la hoja.")
+            QMessageBox.warning(self, "Automatic build",
+                                "The main window was not found to create the sheet.")
             return False
 
         results = self._ensure_auto_build_results()
         if not self.var_inputs or not self.var_outputs:
-            QMessageBox.warning(self, "Faltan variables",
-                                "Define al menos una entrada y una salida.")
+            QMessageBox.warning(self, "Missing variables",
+                                "Define at least one input and one output.")
             return False
 
         owner._add_sheet(opts['sheet_name'])
@@ -1564,7 +1563,7 @@ class CircuitAnalyzerDialog(QDialog):
         scene.setSceneRect(scene.itemsBoundingRect().adjusted(-120, -120, 160, 120))
         if hasattr(owner, 'statusBar'):
             owner.statusBar().showMessage(
-                f"Circuito NAND generado en la hoja '{opts['sheet_name']}'")
+                f"NAND circuit generated in sheet '{opts['sheet_name']}'")
         return True
 
     def _place_nand_term(self, scene, prefix: str, lits: list,
@@ -1709,35 +1708,35 @@ class CircuitAnalyzerDialog(QDialog):
             return
         opts = dlg.get_options()
         if not opts['sheet_name']:
-            QMessageBox.warning(self, "Nombre requerido",
-                                "Indica un nombre para la hoja del circuito.")
+            QMessageBox.warning(self, "Name required",
+                                "Enter a name for the circuit sheet.")
             return
         self._last_auto_build_options = opts
         if self._auto_build_sop_circuit(opts):
             QMessageBox.information(
-                self, "Armado automatico",
-                f"Circuito generado en la hoja '{opts['sheet_name']}'.")
+                self, "Automatic build",
+                f"Circuit generated in sheet '{opts['sheet_name']}'.")
 
     # ── Pestaña 4: Mapa de Karnaugh (placeholder) ─────────────────────────
     def _build_kmap_tab(self) -> QWidget:
         w = QWidget()
         self._kmap_tab = w
         v = QVBoxLayout(w)
-        title = QLabel("<h3>Mapa de Karnaugh</h3>")
+        title = QLabel("<h3>Karnaugh Map</h3>")
         v.addWidget(title)
 
         top = QHBoxLayout()
-        top.addWidget(QLabel("Salida:"))
+        top.addWidget(QLabel("Output:"))
         self.kmap_output_selector = QComboBox()
         self.kmap_output_selector.currentIndexChanged.connect(self._refresh_kmap)
         top.addWidget(self.kmap_output_selector)
-        top.addWidget(QLabel("Grupos visibles:"))
+        top.addWidget(QLabel("Visible groups:"))
         self.kmap_group_selector = QComboBox()
         self.kmap_group_selector.addItem("SOP", 'sop')
         self.kmap_group_selector.addItem("POS", 'pos')
         self.kmap_group_selector.currentIndexChanged.connect(self._on_kmap_group_mode_changed)
         top.addWidget(self.kmap_group_selector)
-        btn_refresh = QPushButton("Actualizar")
+        btn_refresh = QPushButton("Refresh")
         btn_refresh.clicked.connect(self._refresh_kmap)
         top.addWidget(btn_refresh)
         top.addStretch(1)
@@ -1755,7 +1754,7 @@ class CircuitAnalyzerDialog(QDialog):
         self.kmap_table.itemChanged.connect(self._on_kmap_cell_changed)
         v.addWidget(self.kmap_table)
 
-        self.kmap_group_hint = QLabel("Pasa el cursor sobre una celda agrupada.")
+        self.kmap_group_hint = QLabel("Hover over a grouped cell.")
         self.kmap_group_hint.setTextFormat(Qt.TextFormat.RichText)
         self.kmap_group_hint.setWordWrap(True)
         self.kmap_group_hint.setStyleSheet(
@@ -1765,7 +1764,7 @@ class CircuitAnalyzerDialog(QDialog):
         btn_row = QHBoxLayout()
         self.btn_kmap_sop = QPushButton("K-map -> SOP")
         self.btn_kmap_pos = QPushButton("K-map -> POS")
-        self.btn_kmap_export = QPushButton("Exportar PNG")
+        self.btn_kmap_export = QPushButton("Export PNG")
         self.btn_kmap_sop.clicked.connect(lambda: self._simplify_from_kmap('sop'))
         self.btn_kmap_pos.clicked.connect(lambda: self._simplify_from_kmap('pos'))
         self.btn_kmap_export.clicked.connect(self._export_kmap_png)
@@ -1776,25 +1775,25 @@ class CircuitAnalyzerDialog(QDialog):
         v.addLayout(btn_row)
 
         msg = QLabel(
-            "<p>Próximamente:</p>"
+            "<p>Coming soon:</p>"
             "<ul>"
-            "<li>Visualización del K-map para cada salida con sus "
-            "agrupaciones óptimas.</li>"
-            "<li>Edición directa del mapa para introducir 0/1/X.</li>"
-            "<li>Generar SOP y POS desde el mapa "
-            "y viceversa (ecuación → mapa).</li>"
-            "<li>Exportación a imagen.</li>"
+            "<li>K-map visualization for each output with its "
+            "optimal groupings.</li>"
+            "<li>Direct map editing to enter 0/1/X.</li>"
+            "<li>Generate SOP and POS from the map "
+            "and vice versa (equation → map).</li>"
+            "<li>Export to image.</li>"
             "</ul>")
         msg.setWordWrap(True)
         msg.setVisible(False)
         v.addWidget(msg)
-        future = QGroupBox("Opciones futuras")
+        future = QGroupBox("Future options")
         future.setVisible(False)
         future_row = QHBoxLayout(future)
         for text in (
-                "Exportar K-map",
+                "Export K-map",
                 "K-map -> SOP/POS",
-                "Ecuaciones -> K-map"):
+                "Equations -> K-map"):
             btn = QPushButton(text)
             btn.setEnabled(False)
             future_row.addWidget(btn)
@@ -1848,7 +1847,7 @@ class CircuitAnalyzerDialog(QDialog):
     def _kmap_group_hint_html(self, groups: list) -> str:
         parts = []
         for i, group in enumerate(groups):
-            label = html.escape(f"{group['mode']} grupo {i + 1}: ")
+            label = html.escape(f"{group['mode']} group {i + 1}: ")
             term = group['term']
             if '<span' not in term:
                 term = html.escape(term)
@@ -1886,20 +1885,20 @@ class CircuitAnalyzerDialog(QDialog):
         item = self.kmap_table.item(row, col)
         groups = item.data(KMAP_GROUPS_ROLE) if item else None
         if not groups:
-            self.kmap_group_hint.setText("Esta celda no pertenece a ningun grupo visible.")
+            self.kmap_group_hint.setText("This cell does not belong to any visible group.")
             return
         self.kmap_group_hint.setText(self._kmap_group_hint_html(groups))
 
     def _export_kmap_png(self):
         if not hasattr(self, 'kmap_table') or self.kmap_table.rowCount() == 0:
-            QMessageBox.warning(self, "Exportar K-map",
-                                "No hay un K-map listo para exportar.")
+            QMessageBox.warning(self, "Export K-map",
+                                "There is no K-map ready to export.")
             return
         output = self.kmap_output_selector.currentText() or 'kmap'
         safe_output = re.sub(r'[^A-Za-z0-9_-]+', '_', output).strip('_') or 'kmap'
         path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar K-map a PNG", f"{safe_output}_kmap.png",
-            "Imagen PNG (*.png)")
+            self, "Export K-map to PNG", f"{safe_output}_kmap.png",
+            "PNG Image (*.png)")
         if not path:
             return
         if not path.lower().endswith('.png'):
@@ -1907,11 +1906,11 @@ class CircuitAnalyzerDialog(QDialog):
         widget = self.kmap_table
         ok = widget.grab().save(path, 'PNG')
         if ok:
-            QMessageBox.information(self, "K-map exportado",
-                                    f"Imagen guardada en:\n{path}")
+            QMessageBox.information(self, "K-map exported",
+                                    f"Image saved to:\n{path}")
         else:
             QMessageBox.warning(self, "Error",
-                                f"No se pudo guardar la imagen:\n{path}")
+                                f"Could not save the image:\n{path}")
 
     def _refresh_kmap(self):
         if not hasattr(self, 'kmap_table'):
@@ -1927,15 +1926,15 @@ class CircuitAnalyzerDialog(QDialog):
         if n == 0 or not output:
             self.kmap_table.setRowCount(0)
             self.kmap_table.setColumnCount(0)
-            self.kmap_summary.setText("Define al menos una entrada y una salida.")
-            self.kmap_group_hint.setText("Pasa el cursor sobre una celda agrupada.")
+            self.kmap_summary.setText("Define at least one input and one output.")
+            self.kmap_group_hint.setText("Hover over a grouped cell.")
             self.kmap_table.blockSignals(False)
             return
         if n > 4:
             self.kmap_table.setRowCount(0)
             self.kmap_table.setColumnCount(0)
-            self.kmap_summary.setText("La vista inicial de K-map soporta de 1 a 4 variables.")
-            self.kmap_group_hint.setText("Las agrupaciones visibles estan disponibles hasta 4 variables.")
+            self.kmap_summary.setText("The K-map view supports 1 to 4 variables.")
+            self.kmap_group_hint.setText("Visible groups are available for up to 4 variables.")
             self.kmap_table.blockSignals(False)
             return
 
@@ -1962,10 +1961,10 @@ class CircuitAnalyzerDialog(QDialog):
 
         self.kmap_table.resizeColumnsToContents()
         self.kmap_summary.setText(
-            f"K-map de {output}: filas {', '.join(row_vars) or '1'}; "
-            f"columnas {', '.join(col_vars) or '1'}. "
-            f"Mostrando agrupaciones {mode.upper()} ({len(self._kmap_groups)} grupos).")
-        self.kmap_group_hint.setText("Pasa el cursor sobre una celda agrupada.")
+            f"K-map for {output}: rows {', '.join(row_vars) or '1'}; "
+            f"columns {', '.join(col_vars) or '1'}. "
+            f"Showing {mode.upper()} groups ({len(self._kmap_groups)} groups).")
+        self.kmap_group_hint.setText("Hover over a grouped cell.")
         self.kmap_table.blockSignals(False)
 
     def _on_kmap_cell_changed(self, item):
@@ -2006,8 +2005,8 @@ class CircuitAnalyzerDialog(QDialog):
                 self._populate_eqs_tab(highlight=self._last_highlight)
             else:
                 self.eqs_text.setPlainText(
-                    "Aún no se ha minimizado ninguna salida.  Ve a la "
-                    "pestaña 'Tabla de Verdad', llena los valores y "
-                    "pulsa Mintérminos (SOP) o Maxtérminos (POS).")
+                    "No output has been minimized yet. Go to the 'Truth Table' "
+                    "tab, fill in the values, and press Minterms (SOP) or "
+                    "Maxterms (POS).")
         elif idx == 3:  # Mapa de Karnaugh
             self._refresh_kmap()

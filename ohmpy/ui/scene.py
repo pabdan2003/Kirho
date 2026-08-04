@@ -400,7 +400,8 @@ class CircuitScene(QGraphicsScene):
             placed = self.place_component(comp_type, pos)
             if placed is not None:
                 self.status_message.emit(
-                    f"Componente {comp_type} colocado en ({pos.x():.0f}, {pos.y():.0f})")
+                    self.tr("Component {type} placed at ({x:.0f}, {y:.0f})").format(
+                        type=comp_type, x=pos.x(), y=pos.y()))
             return
 
         if self._mode == 'wire':
@@ -637,23 +638,23 @@ class CircuitScene(QGraphicsScene):
                     elif isinstance(item, WireItem) and item in self.wires:
                         self.wires.remove(item)
                     self.removeItem(item)
-                self.status_message.emit("Selección eliminada")
+                self.status_message.emit(self.tr("Selection deleted"))
         elif has_ctrl and key == Qt.Key.Key_Z:
             if self.undo():
-                self.status_message.emit("Acción deshecha (Ctrl+Z)")
+                self.status_message.emit(self.tr("Action undone (Ctrl+Z)"))
             else:
-                self.status_message.emit("Nada que deshacer")
+                self.status_message.emit(self.tr("Nothing to undo"))
         elif has_ctrl and key == Qt.Key.Key_C:
             if self.copy_selected():
-                self.status_message.emit("Selección copiada (Ctrl+C)")
+                self.status_message.emit(self.tr("Selection copied (Ctrl+C)"))
         elif has_ctrl and key == Qt.Key.Key_X:
             if self.cut_selected():
-                self.status_message.emit("Selección cortada (Ctrl+X)")
+                self.status_message.emit(self.tr("Selection cut (Ctrl+X)"))
         elif has_ctrl and key == Qt.Key.Key_V:
             if self.paste():
-                self.status_message.emit("Pegado (Ctrl+V)")
+                self.status_message.emit(self.tr("Pasted (Ctrl+V)"))
             else:
-                self.status_message.emit("Portapapeles vacío")
+                self.status_message.emit(self.tr("Clipboard is empty"))
         elif has_ctrl and key in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
             # Ctrl++ → rotar 90° a la derecha (horario).
             # Aceptamos también Ctrl+= para teclados donde + requiere Shift.
@@ -930,13 +931,13 @@ class CircuitScene(QGraphicsScene):
             comp.setSelected(True)
 
         menu = QMenu()
-        act_props    = menu.addAction("Propiedades…")
+        act_props    = menu.addAction(self.tr("Properties…"))
         menu.addSeparator()
-        act_rot_left  = menu.addAction("Rotar 90° izquierda")
-        act_rot_right = menu.addAction("Rotar 90° derecha")
+        act_rot_left  = menu.addAction(self.tr("Rotate 90° Left"))
+        act_rot_right = menu.addAction(self.tr("Rotate 90° Right"))
         menu.addSeparator()
-        act_flip_x = menu.addAction("Invertir en eje X")
-        act_flip_y = menu.addAction("Invertir en eje Y")
+        act_flip_x = menu.addAction(self.tr("Flip on X Axis"))
+        act_flip_y = menu.addAction(self.tr("Flip on Y Axis"))
 
         chosen = menu.exec(event.screenPos())
         if chosen is None:

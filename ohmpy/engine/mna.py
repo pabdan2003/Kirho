@@ -200,7 +200,7 @@ class MNASolver:
                     x_new = _sparse_solve(G, I_vec)
                 except Exception:
                     return {'success': False,
-                            'error': 'Sistema singular en iteración NR',
+                            'error': 'Singular system in NR iteration',
                             'voltages': {}, 'branch_currents': {}}
 
                 delta = x_new - x
@@ -220,8 +220,8 @@ class MNASolver:
                     break
             else:
                 result = self._parse_result(x, node_map, branch_map, components)
-                result['warning'] = (f'Newton-Raphson no convergió en {max_iter} '
-                                     f'iteraciones. Resultado puede ser inexacto.')
+                result['warning'] = (f'Newton-Raphson did not converge in {max_iter} '
+                                     f'iterations. The result may be inaccurate.')
                 return result
 
             result = self._parse_result(x, node_map, branch_map, components)
@@ -470,9 +470,9 @@ class MNASolver:
             S_total = complex(P_total, Q_total)
             Sm      = abs(S_total)
             fp      = P_total / Sm if Sm > 1e-12 else 0.0
-            fp_type = ('inductivo'  if Q_total > 0
-                       else 'capacitivo' if Q_total < 0
-                       else 'unitario')
+            fp_type = ('inductive'  if Q_total > 0
+                       else 'capacitive' if Q_total < 0
+                       else 'unity')
 
             total = {'P': P_total, 'Q': Q_total, 'S': Sm, 'fp': fp, 'fp_type': fp_type}
 
@@ -487,7 +487,7 @@ class MNASolver:
             }
 
         except np.linalg.LinAlgError as e:
-            return {'success': False, 'error': f'Sistema singular: {e}',
+            return {'success': False, 'error': f'Singular system: {e}',
                     'voltages': {}, 'currents': {}, 'powers': {}, 'total': {}}
         except Exception as e:
             return {'success': False, 'error': str(e),
@@ -538,11 +538,11 @@ class MNASolver:
         Q = total.get('Q', 0.0)
 
         if abs(P) < 1e-12:
-            return {'error': 'Potencia activa nula — no se puede corregir FP'}
+            return {'error': 'Zero active power — PF cannot be corrected'}
 
         omega = 2 * math.pi * frequency
         if omega <= 0:
-            return {'error': 'Frecuencia inválida para corrección de FP'}
+            return {'error': 'Invalid frequency for PF correction'}
 
         # ── Magnitud del Q objetivo a partir del fp objetivo ─────────────
         fp_clip    = max(0.01, min(abs(fp_target), 1.0))
@@ -569,7 +569,7 @@ class MNASolver:
         delta_Q = Q - Q_target
 
         if abs(delta_Q) < 1e-12:
-            return {'error': 'No se requiere corrección — el FP ya coincide con el objetivo'}
+            return {'error': 'No correction is required — PF already matches the target'}
 
         if delta_Q > 0:
             # Sobra Q inductivo (o falta capacitivo) → CAPACITOR en paralelo
@@ -577,23 +577,23 @@ class MNASolver:
             comp_type  = 'capacitor'
             formula    = 'C = ΔQ / (V² · ω)'
             value_norm = delta_Q / omega
-            note = ('Multiplica C por (1/Vrms²) con tu tensión real de línea. '
-                    'Ej: para Vrms=120V → C_real = C_norm / 120²')
+            note = ('Multiply C by (1/Vrms²) using your actual line voltage. '
+                    'E.g., for Vrms=120V → C_real = C_norm / 120²')
         else:
             # Hace falta más Q inductivo → INDUCTOR en paralelo
             # Q_L = V²/(ω·L)  →  L = V² / (|ΔQ|·ω)
             comp_type  = 'inductor'
             formula    = 'L = V² / (|ΔQ| · ω)'
             value_norm = 1.0 / (omega * abs(delta_Q))
-            note = ('Multiplica L por Vrms² con tu tensión real de línea. '
-                    'Ej: para Vrms=120V → L_real = L_norm · 120²')
+            note = ('Multiply L by Vrms² using your actual line voltage. '
+                    'E.g., for Vrms=120V → L_real = L_norm · 120²')
 
         Q_new       = Q_target
         S_new       = math.sqrt(P*P + Q_new*Q_new)
         fp_new      = abs(P) / S_new if S_new > 1e-12 else 1.0
-        fp_type_new = ('inductivo'  if Q_new >  1e-9
-                       else 'capacitivo' if Q_new < -1e-9
-                       else 'unitario')
+        fp_type_new = ('inductive'  if Q_new >  1e-9
+                       else 'capacitive' if Q_new < -1e-9
+                       else 'unity')
 
         return {
             'type':         comp_type,
@@ -679,8 +679,8 @@ class MNASolver:
                 x = np.asarray(initial_state['x'], dtype=float).copy()
                 if x.shape[0] != size:
                     raise ValueError(
-                        f"initial_state.x tiene tamaño {x.shape[0]} pero el "
-                        f"sistema actual requiere {size}. Topología cambió.")
+                        f"initial_state.x has size {x.shape[0]}, but the "
+                        f"current system requires {size}. Topology changed.")
                 cap_states: Dict[str, Tuple[float, float]] = dict(
                     initial_state.get('cap_states', {}))
                 ind_states: Dict[str, Tuple[float, float]] = dict(
@@ -804,8 +804,8 @@ class MNASolver:
                         continue
                     return {
                         'success': False,
-                        'error': ('Sistema singular' if singular
-                                  else f'NR no convergió en {max_nr} iter (err={last_err:.2e})'),
+                        'error': ('Singular system' if singular
+                                  else f'NR did not converge in {max_nr} iterations (err={last_err:.2e})'),
                         'time': np.array(times_list),
                         'voltages': {n: np.array(v) for n, v in volt_lists.items()},
                         'branch_currents': {n: np.array(v) for n, v in branch_lists.items()},

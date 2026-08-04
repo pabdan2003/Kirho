@@ -38,7 +38,7 @@ class MultimeterDialog(QDialog):
     def __init__(self, item: 'ComponentItem', parent=None):
         super().__init__(parent)
         self.item = item
-        self.setWindowTitle(f"Multímetro — {item.name}")
+        self.setWindowTitle(self.tr("Multimeter — {name}").format(name=item.name))
         # No-modal, flotante, estilo instrumento Multisim
         self.setModal(False)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.Tool)
@@ -62,7 +62,7 @@ class MultimeterDialog(QDialog):
         root.setSpacing(8)
 
         # Cabecera
-        header = QLabel(f"<b>{self.item.name}</b> — Multímetro")
+        header = QLabel(self.tr("<b>{name}</b> — Multimeter").format(name=self.item.name))
         header.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
         root.addWidget(header)
 
@@ -80,7 +80,7 @@ class MultimeterDialog(QDialog):
         root.addWidget(self.display)
 
         # Selector de magnitud (V / A / Ω)
-        gb_qty = QGroupBox('Medir')
+        gb_qty = QGroupBox(self.tr('Measure'))
         l_qty = QHBoxLayout(gb_qty)
         self.btn_v   = QPushButton('V')
         self.btn_a   = QPushButton('A')
@@ -101,7 +101,7 @@ class MultimeterDialog(QDialog):
         root.addWidget(gb_qty)
 
         # Selector de acoplamiento (DC / AC)
-        gb_cpl = QGroupBox('Acoplamiento')
+        gb_cpl = QGroupBox(self.tr('Coupling'))
         l_cpl = QHBoxLayout(gb_cpl)
         self.btn_dc = QPushButton('DC')
         self.btn_ac = QPushButton('AC')
@@ -120,17 +120,16 @@ class MultimeterDialog(QDialog):
 
         # Pie con info breve
         hint = QLabel(
-            '<small>Conecta la punta <b>+</b> (roja) y <b>−</b> (negra) '
-            'a los nodos a medir.<br>'
-            'V → en paralelo · A → en serie · Ω → circuito sin alimentar.'
-            '</small>'
+            self.tr('<small>Connect the <b>+</b> (red) and <b>−</b> (black) '
+                    'probes to the nodes to measure.<br>'
+                    'V → parallel · A → series · Ω → unpowered circuit.</small>')
         )
         hint.setWordWrap(True)
         root.addWidget(hint)
 
         bottom = QHBoxLayout()
         bottom.addStretch(1)
-        btn_close = QPushButton('Cerrar')
+        btn_close = QPushButton(self.tr('Close'))
         btn_close.clicked.connect(self.close)
         bottom.addWidget(btn_close)
         root.addLayout(bottom)

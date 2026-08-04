@@ -88,10 +88,10 @@ class HardwareSourceDialog(QDialog):
         form_port.addRow('Baudrate:', self.cb_baud)
 
         info = QLabel(
-            '<small>Para USB-CDC (Pico / STM32 / Arduino nativo USB) el '
-            'baudrate suele ignorarse — el firmware empuja a la '
-            'velocidad máxima del bus. Pónlo igual al de tu '
-            'firmware si usas UART físico.</small>')
+            self.tr('<small>For USB-CDC (Pico / STM32 / native USB Arduino), '
+                    'the baud rate is usually ignored — the firmware sends at '
+                    'the maximum bus speed. Match it to your firmware when '
+                    'using physical UART.</small>'))
         info.setWordWrap(True)
         form_port.addRow(info)
         root.addWidget(gb_port)
@@ -101,36 +101,36 @@ class HardwareSourceDialog(QDialog):
         # Defaults: gain=1.0 mV→mV (sí, redundante) y offset=0.
         # El firmware ya envía en mV con su escala física, así que para un
         # frontend 0-3.3V con divisor /3 hay que poner gain=3.0 y offset=0.
-        gb_cal = QGroupBox('Calibración (mV del HW → V mostrado)')
+        gb_cal = QGroupBox(self.tr('Calibration (HW mV → displayed V)'))
         form_cal = QFormLayout(gb_cal)
         self.sb_gain_a = QDoubleSpinBox()
         self.sb_gain_a.setRange(-1e6, 1e6); self.sb_gain_a.setDecimals(6)
         self.sb_gain_a.setValue(1.0)
-        form_cal.addRow('Canal A — ganancia:', self.sb_gain_a)
+        form_cal.addRow(self.tr('Channel A — gain:'), self.sb_gain_a)
         self.sb_off_a = QDoubleSpinBox()
         self.sb_off_a.setRange(-1e6, 1e6); self.sb_off_a.setDecimals(6)
         self.sb_off_a.setSuffix(' V')
-        form_cal.addRow('Canal A — offset:', self.sb_off_a)
+        form_cal.addRow(self.tr('Channel A — offset:'), self.sb_off_a)
         self.sb_gain_b = QDoubleSpinBox()
         self.sb_gain_b.setRange(-1e6, 1e6); self.sb_gain_b.setDecimals(6)
         self.sb_gain_b.setValue(1.0)
-        form_cal.addRow('Canal B — ganancia:', self.sb_gain_b)
+        form_cal.addRow(self.tr('Channel B — gain:'), self.sb_gain_b)
         self.sb_off_b = QDoubleSpinBox()
         self.sb_off_b.setRange(-1e6, 1e6); self.sb_off_b.setDecimals(6)
         self.sb_off_b.setSuffix(' V')
-        form_cal.addRow('Canal B — offset:', self.sb_off_b)
+        form_cal.addRow(self.tr('Channel B — offset:'), self.sb_off_b)
         root.addWidget(gb_cal)
 
         # Mock device: ajuste rápido de forma de onda para pruebas sin HW.
         gb_mock = QGroupBox('Mock device (si elegiste ⟨Mock device⟩)')
         form_mock = QFormLayout(gb_mock)
         self.cb_mock_wave = QComboBox()
-        self.cb_mock_wave.addItems(['Senoidal', 'Cuadrada', 'Triangular'])
-        form_mock.addRow('Forma de onda A:', self.cb_mock_wave)
+        self.cb_mock_wave.addItems([self.tr('Sine'), self.tr('Square'), self.tr('Triangle')])
+        form_mock.addRow(self.tr('Waveform A:'), self.cb_mock_wave)
         self.sb_mock_freq = QDoubleSpinBox()
         self.sb_mock_freq.setRange(0.1, 1e6); self.sb_mock_freq.setDecimals(2)
         self.sb_mock_freq.setValue(1000.0); self.sb_mock_freq.setSuffix(' Hz')
-        form_mock.addRow('Frecuencia:', self.sb_mock_freq)
+        form_mock.addRow(self.tr('Frequency:'), self.sb_mock_freq)
         self.sb_mock_amp = QDoubleSpinBox()
         self.sb_mock_amp.setRange(0.0, 100.0); self.sb_mock_amp.setDecimals(3)
         self.sb_mock_amp.setValue(1.0); self.sb_mock_amp.setSuffix(' V')
@@ -145,9 +145,9 @@ class HardwareSourceDialog(QDialog):
         # forzamos al usuario a Mock device.
         if not _SERIAL_AVAILABLE:
             warn = QLabel(
-                '<small style="color: #e94560;">pyserial no instalado. '
-                'Solo Mock device está disponible. Instala con '
-                '<code>pip install pyserial</code>.</small>')
+                self.tr('<small style="color: #e94560;">pyserial is not installed. '
+                        'Only Mock device is available. Install it with '
+                        '<code>pip install pyserial</code>.</small>'))
             warn.setWordWrap(True)
             root.addWidget(warn)
             self.cb_port.setEnabled(False)

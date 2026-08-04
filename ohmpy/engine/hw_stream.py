@@ -68,7 +68,7 @@ class HardwareStreamThread(QThread):
             else:
                 self._run_serial()
         except Exception as e:
-            self.error_occurred.emit(f'Hilo HW falló: {e}')
+            self.error_occurred.emit(f'HW thread failed: {e}')
         finally:
             self.connection_state.emit(False)
 
@@ -83,7 +83,7 @@ class HardwareStreamThread(QThread):
             import serial   # type: ignore
         except Exception:
             self.error_occurred.emit(
-                'pyserial no está instalado. Usa Mock device o instala con '
+                'pyserial is not installed. Use Mock device or install it with '
                 '`pip install pyserial`.')
             return
         port = self.cfg.get('port', '')
@@ -91,7 +91,7 @@ class HardwareStreamThread(QThread):
         try:
             ser = serial.Serial(port, baud, timeout=0.1)
         except Exception as e:
-            self.error_occurred.emit(f'No pude abrir {port}: {e}')
+            self.error_occurred.emit(f'Could not open {port}: {e}')
             return
         self.connection_state.emit(True)
         try:

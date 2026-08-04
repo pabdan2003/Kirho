@@ -143,12 +143,12 @@ class AnalysisFlags:
         if self.has_dc:      modes.append('DC')
         if self.has_ac:      modes.append('AC')
         if self.has_digital: modes.append('Digital')
-        if self.needs_mixed: modes.append('→ Co-simulación mixta')
+        if self.needs_mixed: modes.append('→ Mixed co-simulation')
         if not modes:
-            return 'Circuito vacío o sin componentes reconocidos'
-        s = 'Análisis detectado: ' + ' + '.join(modes)
+            return 'Empty circuit or no recognized components'
+        s = 'Detected analysis: ' + ' + '.join(modes)
         if self.implicit_boundary_nodes:
-            s += f'\n  Nodos frontera implícitos: {self.implicit_boundary_nodes}'
+            s += f'\n  Implicit boundary nodes: {self.implicit_boundary_nodes}'
         return s
 
 
@@ -334,14 +334,14 @@ class CircuitAnalyzer:
         # ── Paso 3: validaciones básicas ─────────────────────────────────
         if flags.has_dc and not flags.has_gnd:
             flags.warnings.append(
-                'No se encontró nodo de tierra (GND). '
-                'La simulación puede fallar o dar resultados incorrectos.')
+                'No ground node (GND) was found. '
+                'Simulation may fail or produce incorrect results.')
 
         if flags.has_ac and not flags.has_dc:
             # Circuito solo con VAC sin resistencias — inusual
             flags.warnings.append(
-                'Solo se encontraron fuentes VAC, sin componentes pasivos. '
-                'El análisis AC puede no converger.')
+                'Only VAC sources were found, with no passive components. '
+                'AC analysis may not converge.')
 
         return flags
 
