@@ -113,7 +113,7 @@ class FunctionGeneratorDialog(QDialog):
 
         # Cabecera con nombre
         header = QLabel(f"<b>{self.item.name}</b> — Function Generator")
-        header.setFont(_qfont('Consolas', 10, QFont.Weight.Bold))
+        header.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
         root.addWidget(header)
 
         # Preview de onda
@@ -131,7 +131,7 @@ class FunctionGeneratorDialog(QDialog):
         self._wf_group.addButton(self.btn_sq,  1)
         self._wf_group.addButton(self.btn_tri, 2)
         for b in (self.btn_sin, self.btn_sq, self.btn_tri):
-            b.setFont(_qfont('Consolas', 9))
+            b.setFont(_qfont('Menlo', 9))
             wf_row.addWidget(b)
         root.addWidget(wf_group)
 

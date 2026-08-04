@@ -52,7 +52,7 @@ class SettingsDialog(QDialog):
 
         self.theme_desc = QLabel("")
         self.theme_desc.setWordWrap(True)
-        self.theme_desc.setFont(QFont('Consolas', 9))
+        self.theme_desc.setFont(QFont('Menlo', 9))
         self.theme_desc.setStyleSheet(f"color: {self.colors['text_dim']};")
         gl.addWidget(self.theme_desc)
 
@@ -87,7 +87,7 @@ class SettingsDialog(QDialog):
             "y pulsa «Recargar lista» (o reinicia la app)."
         )
         hint.setWordWrap(True)
-        hint.setFont(QFont('Consolas', 8))
+        hint.setFont(QFont('Menlo', 8))
         hint.setStyleSheet(f"color: {self.colors['text_dim']};")
         gl.addWidget(hint)
 

@@ -64,7 +64,7 @@ class ComponentPickerDialog(QDialog):
 
         left = QVBoxLayout()
         self.list_widget = QListWidget()
-        self.list_widget.setFont(QFont('Consolas', 10))
+        self.list_widget.setFont(QFont('Menlo', 10))
         for ctype, label, sym in self._components:
             item = QListWidgetItem(f"{sym}   {label}")
             item.setData(Qt.ItemDataRole.UserRole, ctype)
@@ -87,7 +87,7 @@ class ComponentPickerDialog(QDialog):
 
         right = QVBoxLayout()
         preview_title = QLabel("Vista previa")
-        preview_title.setFont(QFont('Consolas', 9, QFont.Weight.Bold))
+        preview_title.setFont(QFont('Menlo', 9, QFont.Weight.Bold))
         preview_title.setStyleSheet(f"color: {self._color('component', '#e94560')};")
         right.addWidget(preview_title)
 

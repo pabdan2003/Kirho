@@ -63,14 +63,14 @@ class MultimeterDialog(QDialog):
 
         # Cabecera
         header = QLabel(f"<b>{self.item.name}</b> — Multímetro")
-        header.setFont(_qfont('Consolas', 10, QFont.Weight.Bold))
+        header.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
         root.addWidget(header)
 
         # Display grande
         self.display = QLabel('— — —')
         self.display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.display.setMinimumHeight(72)
-        self.display.setFont(QFont('Consolas', 24, QFont.Weight.Bold))
+        self.display.setFont(QFont('Menlo', 24, QFont.Weight.Bold))
         self.display.setStyleSheet(
             f"background: {COLORS.get('bg', '#1a1a2e')};"
             f"color: {COLORS.get('current', '#27ae60')};"
@@ -87,7 +87,7 @@ class MultimeterDialog(QDialog):
         self.btn_ohm = QPushButton('Ω')
         for b in (self.btn_v, self.btn_a, self.btn_ohm):
             b.setCheckable(True)
-            b.setFont(_qfont('Consolas', 12, QFont.Weight.Bold))
+            b.setFont(_qfont('Menlo', 12, QFont.Weight.Bold))
             b.setMinimumHeight(36)
             l_qty.addWidget(b)
         self._qty_group = QButtonGroup(self)
@@ -107,7 +107,7 @@ class MultimeterDialog(QDialog):
         self.btn_ac = QPushButton('AC')
         for b in (self.btn_dc, self.btn_ac):
             b.setCheckable(True)
-            b.setFont(_qfont('Consolas', 11, QFont.Weight.Bold))
+            b.setFont(_qfont('Menlo', 11, QFont.Weight.Bold))
             b.setMinimumHeight(32)
             l_cpl.addWidget(b)
         self._cpl_group = QButtonGroup(self)

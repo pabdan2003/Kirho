@@ -287,14 +287,16 @@ class ComponentItem(QGraphicsItem):
         if self.comp_type == 'TL082':
             # Triángulo (−35..+35, −28..+28) + cables V+/V− (±44) + margen etiquetas
             return QRectF(-64, -58, 128, 116)
-        return QRectF(-COMP_W//2 - 10, -COMP_H//2 - 20, COMP_W + 20, COMP_H + 40)
+        margin = 10 + PIN_RADIUS
+        return QRectF(-COMP_W//2 - margin, -COMP_H//2 - 20,
+                      COMP_W + 2 * margin, COMP_H + 40)
 
     def pin_positions(self) -> Tuple[QPointF, QPointF]:
         """Retorna posición de los pines principales en coordenadas locales."""
         hw = COMP_W // 2
         hh = COMP_H // 2
         if self.comp_type == 'GND':
-            return QPointF(0, -5), QPointF(0, -5)
+            return QPointF(0, 0), QPointF(0, 0)
         if self.comp_type in ('BJT_NPN', 'BJT_PNP'):
             return QPointF(hw + 10, -hh - 6), QPointF(hw + 10, hh + 6)
         if self.comp_type in ('NMOS', 'PMOS'):
@@ -728,7 +730,7 @@ class ComponentItem(QGraphicsItem):
 
         # Indicador del % (pequeño, debajo)
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
-        painter.setFont(_qfont('Consolas', 6))
+        painter.setFont(_qfont('Menlo', 6))
         painter.drawText(QRectF(-hw, hh + 14, COMP_W, 10),
                          Qt.AlignmentFlag.AlignCenter, f"{w*100:.0f}%")
 
@@ -770,7 +772,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawLine(QPointF( 3, -22), QPointF( 3, 22))
 
         # ── Etiqueta de relación ──────────────────────────────────────────
-        painter.setFont(_qfont('Consolas', 7))
+        painter.setFont(_qfont('Menlo', 7))
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
         n = self.xfmr_ratio
         if n >= 1:
@@ -855,7 +857,7 @@ class ComponentItem(QGraphicsItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
         # Etiquetas de pines
-        painter.setFont(_qfont('Consolas', 6))
+        painter.setFont(_qfont('Menlo', 6))
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
         painter.drawText(QRectF(-60, -8, 18, 10),  Qt.AlignmentFlag.AlignCenter, '~')
         painter.drawText(QRectF(42,  -8, 18, 10),  Qt.AlignmentFlag.AlignCenter, '~')
@@ -949,7 +951,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawPath(path)
         # Etiqueta "FGEN" arriba a la izquierda
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
-        painter.setFont(_qfont('Consolas', 6, QFont.Weight.Bold))
+        painter.setFont(_qfont('Menlo', 6, QFont.Weight.Bold))
         painter.drawText(QRectF(-hw + 2, -hh + 1, hw * 2 - 4, 8),
                          Qt.AlignmentFlag.AlignLeft, 'FGEN')
 
@@ -984,16 +986,22 @@ class ComponentItem(QGraphicsItem):
         painter.drawPath(path)
         # Etiqueta "XSC" arriba
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
-        painter.setFont(_qfont('Consolas', 6, QFont.Weight.Bold))
+        painter.setFont(_qfont('Menlo', 6, QFont.Weight.Bold))
         painter.drawText(QRectF(-hw, -hh + 1, hw * 2, 8),
                          Qt.AlignmentFlag.AlignCenter, 'XSC')
         # Etiquetas de pines junto al cuerpo
-        painter.setFont(_qfont('Consolas', 6))
+        painter.setFont(_qfont('Menlo', 6))
         painter.setPen(QPen(QColor(COLORS['text']), 1))
         painter.drawText(QRectF(-hw, -16,  8, 10), Qt.AlignmentFlag.AlignLeft,   'A+')
         painter.drawText(QRectF(-hw,   6,  8, 10), Qt.AlignmentFlag.AlignLeft,   'A−')
         painter.drawText(QRectF( hw-9, -16, 9, 10), Qt.AlignmentFlag.AlignRight, 'B+')
         painter.drawText(QRectF( hw-9,   6, 9, 10), Qt.AlignmentFlag.AlignRight, 'B−')
+        # Los pines A se dibujan en paint() como pines genéricos; B son los
+        # pines tercero y cuarto y se dibujan aquí con la misma apariencia.
+        painter.setPen(QPen(QColor(COLORS['pin']), 2))
+        painter.setBrush(QBrush(QColor(COLORS['pin'])))
+        painter.drawEllipse(QPointF(40, -20), PIN_RADIUS, PIN_RADIUS)
+        painter.drawEllipse(QPointF(40, 20), PIN_RADIUS, PIN_RADIUS)
 
     def _draw_multimeter(self, painter, pen_body, pen_wire, body_color):
         """Multímetro estilo Multisim: cuerpo cuadrado con display, modo
@@ -1019,13 +1027,13 @@ class ComponentItem(QGraphicsItem):
 
         reading_text = self._format_meter_reading()
         painter.setPen(QPen(QColor(COLORS.get('current', '#0fff50'))))
-        painter.setFont(_qfont('Consolas', 10, QFont.Weight.Bold))
+        painter.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
         painter.drawText(disp, Qt.AlignmentFlag.AlignCenter, reading_text)
 
         # ── Etiqueta de modo (V/A/Ω + DC/AC) ─────────────────────────────
         mode_lbl = self._meter_mode_label()
         painter.setPen(QPen(QColor(COLORS.get('text_dim', '#a0a0a0'))))
-        painter.setFont(_qfont('Consolas', 8))
+        painter.setFont(_qfont('Menlo', 8))
         mode_rect = QRectF(x0, y0 + body_h - 22, body_w, 14)
         painter.drawText(mode_rect, Qt.AlignmentFlag.AlignCenter, mode_lbl)
 
@@ -1039,7 +1047,7 @@ class ComponentItem(QGraphicsItem):
 
         # Etiquetas + y − junto a los pines
         painter.setPen(QPen(QColor('#e94560')))
-        painter.setFont(_qfont('Consolas', 8, QFont.Weight.Bold))
+        painter.setFont(_qfont('Menlo', 8, QFont.Weight.Bold))
         painter.drawText(QRectF(-44, 32, 16, 14),
                          Qt.AlignmentFlag.AlignCenter, '+')
         painter.setPen(QPen(QColor(COLORS.get('text', '#e0e0e0'))))
@@ -1086,9 +1094,9 @@ class ComponentItem(QGraphicsItem):
 
     def _draw_gnd(self, painter, pen_body):
         painter.setPen(pen_body)
-        painter.drawLine(QPointF(0, -5), QPointF(0, 5))
+        painter.drawLine(QPointF(0, 0), QPointF(0, 10))
         for i, w in enumerate([20, 14, 8]):
-            y = 5 + i * 5
+            y = 10 + i * 5
             painter.drawLine(QPointF(-w//2, y), QPointF(w//2, y))
 
     def _draw_node(self, painter, color):
@@ -1275,7 +1283,7 @@ class ComponentItem(QGraphicsItem):
                                   QPointF(base_x, base_y))
 
         # Pines con etiquetas B / C / E
-        font = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         pin_color = QColor(COLORS['pin'])
 
@@ -1339,7 +1347,7 @@ class ComponentItem(QGraphicsItem):
             painter.drawLine(QPointF(ax - 2,  3), QPointF(ax - 6, 0))
 
         # Pines con etiquetas G / D / S
-        font = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         pin_color = QColor(COLORS['pin'])
 
@@ -1380,7 +1388,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawText(QRectF(-hw + 4,  hh - 16, 12, 12), Qt.AlignmentFlag.AlignCenter, '−')
 
         # Pines con etiquetas
-        font = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         pin_color = QColor(COLORS['pin'])
 
@@ -1438,7 +1446,7 @@ class ComponentItem(QGraphicsItem):
 
         # ── Símbolos + / − dentro del triángulo ──────────────────────────
         painter.setPen(QPen(QColor(COLORS['component']), 2))
-        font_sym = _qfont('Consolas', 9, QFont.Weight.Bold)
+        font_sym = _qfont('Menlo', 9, QFont.Weight.Bold)
         painter.setFont(font_sym)
         # "+" cerca de IN+ (arriba-izq)
         painter.drawText(QRectF(-30, -26, 16, 14),
@@ -1449,14 +1457,14 @@ class ComponentItem(QGraphicsItem):
 
         # ── Letra de unidad (A / B) centrada en el triángulo ─────────────
         unit = getattr(self, 'tl082_unit', 'A')
-        font_unit = _qfont('Consolas', 8, QFont.Weight.Bold)
+        font_unit = _qfont('Menlo', 8, QFont.Weight.Bold)
         painter.setFont(font_unit)
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
         painter.drawText(QRectF(-8, -8, 16, 16),
                          Qt.AlignmentFlag.AlignCenter, unit)
 
         # ── Pines con puntos y etiquetas ──────────────────────────────────
-        font_lbl = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font_lbl = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font_lbl)
         pin_color = QColor(COLORS['pin'])
 
@@ -1511,7 +1519,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawRoundedRect(QRectF(-hw, -hh, hw * 2, hh * 2), 4, 4)
         # Etiqueta
         painter.setPen(QPen(QColor(COLORS['component']), 2))
-        font = _qfont('Consolas', 8, QFont.Weight.Bold)
+        font = _qfont('Menlo', 8, QFont.Weight.Bold)
         painter.setFont(font)
         painter.drawText(QRectF(-hw, -hh, hw * 2, hh * 2),
                          Qt.AlignmentFlag.AlignCenter, label)
@@ -1704,7 +1712,7 @@ class ComponentItem(QGraphicsItem):
         title = {'DFF': 'D-FF', 'JKFF': 'JK-FF',
                  'TFF': 'T-FF', 'SRFF': 'SR-FF'}[ff_type]
         painter.setPen(QPen(QColor(COLORS['component']), 2))
-        font = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         painter.drawText(QRectF(-hw, -hh + 1, hw * 2, 11),
                          Qt.AlignmentFlag.AlignCenter, title)
@@ -1740,7 +1748,7 @@ class ComponentItem(QGraphicsItem):
         # usa j/k/clk pero solo tenemos 2 pines de entrada laterales. Convención:
         # p2 = J (arriba), p3 = K (abajo); CLK se asume en el net p3 también
         # (la simulación lo enruta vía dig_clk como nombre de net global).
-        font2 = _qfont('Consolas', 6)
+        font2 = _qfont('Menlo', 6)
         painter.setFont(font2)
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
         painter.drawText(QRectF(-hw + 2, -hh // 2 - 8, 18, 10),
@@ -1768,7 +1776,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawEllipse(QPointF(0, 1), mem_r, mem_r)
         # Dígito interno (1 ó 0) en blanco
         painter.setPen(QPen(QColor('white' if q else '#7f8c8d'), 1))
-        font_q = _qfont('Consolas', 8, QFont.Weight.Bold)
+        font_q = _qfont('Menlo', 8, QFont.Weight.Bold)
         painter.setFont(font_q)
         painter.drawText(QRectF(-mem_r, 1 - mem_r, mem_r * 2, mem_r * 2),
                          Qt.AlignmentFlag.AlignCenter, str(q))
@@ -1788,9 +1796,9 @@ class ComponentItem(QGraphicsItem):
         painter.setBrush(QBrush(body_color))
         painter.drawRoundedRect(QRectF(-60, -72, 120, 144), 4, 4)
         painter.setPen(QPen(QColor(COLORS['component']), 2))
-        painter.setFont(_qfont('Consolas', 11, QFont.Weight.Bold))
+        painter.setFont(_qfont('Menlo', 11, QFont.Weight.Bold))
         painter.drawText(QRectF(-56, -13, 112, 20), Qt.AlignmentFlag.AlignCenter, 'NE555')
-        painter.setFont(_qfont('Consolas', 6))
+        painter.setFont(_qfont('Menlo', 6))
         labels = ('1 GND', '2 TRIG', '3 OUT', '4 RESET',
                   '5 CTRL', '6 THRESH', '7 DISCH', '8 VCC')
         for pin, label in zip(self._timer_pin_positions(), labels):
@@ -1845,7 +1853,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawPath(path)
 
         # Dígito grande del estado
-        font_big = _qfont('Consolas', 18, QFont.Weight.Bold)
+        font_big = _qfont('Menlo', 18, QFont.Weight.Bold)
         painter.setFont(font_big)
         painter.setPen(QPen(QColor('white'), 2))
         painter.drawText(QRectF(-hw, -hh + 4, hw * 2, hh * 2),
@@ -1868,14 +1876,14 @@ class ComponentItem(QGraphicsItem):
         painter.drawRect(QRectF(-hw, -hh, hw * 2, hh * 2))
         # Etiqueta principal
         lbl = 'ADC' if is_adc else 'DAC'
-        font = _qfont('Consolas', 9, QFont.Weight.Bold)
+        font = _qfont('Menlo', 9, QFont.Weight.Bold)
         painter.setFont(font)
         painter.setPen(QPen(QColor(COLORS['component']), 2))
         painter.drawText(QRectF(-hw, -hh, hw * 2, hh * 2),
                          Qt.AlignmentFlag.AlignCenter, lbl)
         # Flecha de conversión
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
-        font2 = _qfont('Consolas', 6)
+        font2 = _qfont('Menlo', 6)
         painter.setFont(font2)
         if is_adc:
             painter.drawText(QRectF(-hw + 2, 4, hw * 2 - 4, 12),
@@ -1913,7 +1921,7 @@ class ComponentItem(QGraphicsItem):
         painter.setBrush(QBrush(fill))
         painter.drawRoundedRect(QRectF(-hw, -hh, hw * 2, hh * 2), 6, 6)
         # Dígito grande
-        font_big = _qfont('Consolas', 22, QFont.Weight.Bold)
+        font_big = _qfont('Menlo', 22, QFont.Weight.Bold)
         painter.setFont(font_big)
         painter.setPen(QPen(QColor('white'), 2))
         painter.drawText(QRectF(-hw, -hh, hw * 2, hh * 2),
@@ -1932,7 +1940,7 @@ class ComponentItem(QGraphicsItem):
         painter.setPen(pen_body)
         painter.setBrush(QBrush(body_color))
         painter.drawRect(QRectF(-hw, -hh, hw * 2, hh * 2))
-        font = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         painter.setPen(QPen(QColor(COLORS['component']), 2))
         bits_lbl = f'CNT {self.dig_bits}b'
@@ -1956,7 +1964,7 @@ class ComponentItem(QGraphicsItem):
         painter.setPen(pen_body)
         painter.setBrush(QBrush(body_color))
         painter.drawRect(QRectF(-hw, -hh, hw * 2, hh * 2))
-        font = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         painter.setPen(QPen(QColor(COLORS['component']), 2))
         painter.drawText(QRectF(-hw, -hh, hw * 2, hh * 2),
@@ -1968,7 +1976,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawLine(QPointF(0, hh), QPointF(0, hh + 10))        # sel
         painter.drawLine(QPointF(hw, 0), QPointF(hw + 10, 0))
         # Etiquetas de pin
-        painter.setFont(_qfont('Consolas', 6))
+        painter.setFont(_qfont('Menlo', 6))
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
         painter.drawText(QRectF(-hw + 2, ys[0] - 6, 16, 12),
                          Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, '0')
@@ -2015,7 +2023,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawPolygon(arrow)
 
         # ── Etiqueta encima de la flecha ──────────────────────────────────
-        font = _qfont('Consolas', 7, QFont.Weight.Bold)
+        font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         painter.setPen(QPen(QColor(COLORS['text']), 1))
         text_rect = QRectF(tail_x - 4, -15, (head_x - tail_x) + 8, 11)
@@ -2046,13 +2054,13 @@ class ComponentItem(QGraphicsItem):
         painter.setPen(pen_wire)
         painter.drawLine(QPointF(12, 0), QPointF(16, 0))
         # Etiqueta (port_name) dentro / encima
-        painter.setFont(_qfont('Consolas', 7, QFont.Weight.Bold))
+        painter.setFont(_qfont('Menlo', 7, QFont.Weight.Bold))
         painter.setPen(QPen(QColor(COLORS['text']), 1))
         painter.drawText(QRectF(-22, -8, 30, 16),
                          Qt.AlignmentFlag.AlignCenter,
                          self.port_name or self.name)
         # Dirección encima
-        painter.setFont(_qfont('Consolas', 6))
+        painter.setFont(_qfont('Menlo', 6))
         painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
         painter.drawText(QRectF(-26, -20, 52, 10),
                          Qt.AlignmentFlag.AlignCenter,
@@ -2083,7 +2091,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawArc(QRectF(-6, -h / 2 - 6, 12, 12), 180 * 16, 180 * 16)
 
         pts = self._subckt_pin_points()
-        painter.setFont(_qfont('Consolas', 6))
+        painter.setFont(_qfont('Menlo', 6))
         for i, p in enumerate(pts):
             side = (self.ic_pins[i].get('side', 'left')
                     if i < len(self.ic_pins) else 'left')
@@ -2116,10 +2124,10 @@ class ComponentItem(QGraphicsItem):
         # Label central
         label = self.ic_label or self.subckt_name or 'SUB'
         painter.setPen(QPen(txt, 1))
-        painter.setFont(_qfont('Consolas', 9, QFont.Weight.Bold))
+        painter.setFont(_qfont('Menlo', 9, QFont.Weight.Bold))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
         # Nombre de instancia encima del cuerpo
-        painter.setFont(_qfont('Consolas', 8))
+        painter.setFont(_qfont('Menlo', 8))
         painter.setPen(QPen(QColor(COLORS['text']), 1))
         painter.drawText(QRectF(-w / 2, -h / 2 - 18, w, 16),
                          Qt.AlignmentFlag.AlignCenter, self.name)
@@ -2128,7 +2136,7 @@ class ComponentItem(QGraphicsItem):
         if self.comp_type in ('GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT',
                                'PORT', 'SUBCKT'):
             return
-        font = _qfont('Consolas', 8)
+        font = _qfont('Menlo', 8)
         painter.setFont(font)
         painter.setPen(QPen(text_color))
 

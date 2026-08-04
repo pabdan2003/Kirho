@@ -130,7 +130,7 @@ class PowerTriangleDialog(QDialog):
 
         self.corr_label = QLabel("")
         self.corr_label.setWordWrap(True)
-        self.corr_label.setFont(QFont('Consolas', 9))
+        self.corr_label.setFont(QFont('Menlo', 9))
 
         bottom = QWidget()
         bl = QVBoxLayout(bottom)
@@ -306,8 +306,8 @@ class _PowerTriangleCanvas(QWidget):
         pen_ax = QPen(self._color('panel_brd', '#444466'), 1)
         pen_c = QPen(self._color('comp_sel', '#f39c12'), 2, Qt.PenStyle.DashLine)
 
-        font_lbl = QFont('Consolas', 9, QFont.Weight.Bold)
-        font_ax = QFont('Consolas', 8)
+        font_lbl = QFont('Menlo', 9, QFont.Weight.Bold)
+        font_ax = QFont('Menlo', 8)
         painter.setFont(font_lbl)
 
         def arrow(painter, pen, x1, y1, x2, y2, label='', lside='end'):

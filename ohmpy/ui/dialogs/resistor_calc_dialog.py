@@ -494,7 +494,7 @@ class ResistorCalcDialog(QDialog):
             tc_str = (f"<br><span style='color:{dim}; font-size:9pt;'>"
                       f"Coef. temperatura: {tc} ppm/°C</span>")
         return (
-            f"<div style='font-family:Consolas,monospace;'>"
+            f"<div style='font-family:Menlo;'>"
             f"<span style='color:{accent}; font-size:20pt; font-weight:bold;'>"
             f"{val_str}</span>"
             f"  <span style='font-size:14pt;'>{tol_str}</span>"

@@ -121,7 +121,7 @@ class CircuitView(QGraphicsView):
 # ══════════════════════════════════════════════════════════════
 class MainWindow(QMainWindow):
     # ── Constantes de simulación live ────────────────────────────────
-    _LIVE_TIME_SCALE         = 0.1   # 10x slow-motion deseado a baja frecuencia
+    _LIVE_TIME_SCALE         = 1.0   # tiempo simulado igual al tiempo real
     _LIVE_TICK_MS            = 50    # 20 Hz refresh visual
     _LIVE_PANEL_REFRESH_TICKS = 5    # Texto del panel cada N ticks (~250 ms)
 
@@ -521,7 +521,7 @@ class MainWindow(QMainWindow):
 
         # Propiedades del componente seleccionado
         prop_label = QLabel("PROPIEDADES")
-        prop_label.setFont(_qfont('Consolas', 9, QFont.Weight.Bold))
+        prop_label.setFont(_qfont('Menlo', 9, QFont.Weight.Bold))
         layout.addWidget(prop_label)
 
         self.prop_table = QTableWidget(0, 2)
@@ -536,7 +536,7 @@ class MainWindow(QMainWindow):
         pot_layout = QVBoxLayout(self.pot_panel)
         pot_layout.setContentsMargins(0, 4, 0, 4)
         self.pot_label = QLabel("CURSOR DEL POTENCIÓMETRO")
-        self.pot_label.setFont(_qfont('Consolas', 8, QFont.Weight.Bold))
+        self.pot_label.setFont(_qfont('Menlo', 8, QFont.Weight.Bold))
         pot_layout.addWidget(self.pot_label)
 
         self.pot_slider = QSlider(Qt.Orientation.Horizontal)
@@ -549,7 +549,7 @@ class MainWindow(QMainWindow):
         pot_layout.addWidget(self.pot_slider)
 
         self.pot_value_label = QLabel("50.0% — R = ----")
-        self.pot_value_label.setFont(_qfont('Consolas', 8))
+        self.pot_value_label.setFont(_qfont('Menlo', 8))
         pot_layout.addWidget(self.pot_value_label)
 
         self.pot_panel.setVisible(False)
@@ -558,17 +558,17 @@ class MainWindow(QMainWindow):
 
         # Resultados de simulación
         res_label = QLabel("RESULTADOS")
-        res_label.setFont(_qfont('Consolas', 9, QFont.Weight.Bold))
+        res_label.setFont(_qfont('Menlo', 9, QFont.Weight.Bold))
         layout.addWidget(res_label)
 
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
-        self.results_text.setFont(_qfont('Consolas', 9))
+        self.results_text.setFont(_qfont('Menlo', 9))
         layout.addWidget(self.results_text)
 
         # Botón triángulo de potencia (visible solo tras análisis AC)
         self.btn_power_triangle = QPushButton("📐  Ver Triángulo de Potencia")
-        self.btn_power_triangle.setFont(_qfont('Consolas', 9))
+        self.btn_power_triangle.setFont(_qfont('Menlo', 9))
         self.btn_power_triangle.setVisible(False)
         self.btn_power_triangle.clicked.connect(self._show_power_triangle)
         layout.addWidget(self.btn_power_triangle)
@@ -726,7 +726,7 @@ class MainWindow(QMainWindow):
 
         for cat_name, items in categories:
             btn = QPushButton(cat_name)
-            btn.setFont(_qfont('Consolas', 9))
+            btn.setFont(_qfont('Menlo', 9))
             btn.setFixedHeight(28)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda checked, c=cat_name, it=items: self._show_picker(c, it))
@@ -736,14 +736,14 @@ class MainWindow(QMainWindow):
 
         # ── Subcircuitos ─────────────────────────────────────────────────
         btn_sub = QPushButton("⊞ Subcircuitos")
-        btn_sub.setFont(_qfont('Consolas', 9))
+        btn_sub.setFont(_qfont('Menlo', 9))
         btn_sub.setFixedHeight(28)
         btn_sub.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_sub.clicked.connect(self._show_subcircuit_picker)
         tb.addWidget(btn_sub)
 
         btn_mksub = QPushButton("＋ Crear Subckt")
-        btn_mksub.setFont(_qfont('Consolas', 9))
+        btn_mksub.setFont(_qfont('Menlo', 9))
         btn_mksub.setFixedHeight(28)
         btn_mksub.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_mksub.setToolTip("Empaqueta la hoja actual como un subcircuito "
@@ -754,26 +754,29 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
 
         # ── Herramientas ─────────────────────────────────────────────────
-        btn_select = QPushButton("↖ Seleccionar")
-        btn_select.setFont(_qfont('Consolas', 9))
-        btn_select.setFixedHeight(28)
-        btn_select.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_select.clicked.connect(self._set_select_mode)
-        tb.addWidget(btn_select)
+        self.btn_select = QPushButton("↖ Seleccionar")
+        self.btn_select.setFont(_qfont('Menlo', 9))
+        self.btn_select.setFixedHeight(28)
+        self.btn_select.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_select.setCheckable(True)
+        self.btn_select.setChecked(True)
+        self.btn_select.clicked.connect(self._set_select_mode)
+        tb.addWidget(self.btn_select)
 
-        btn_wire = QPushButton("✏ Cable")
-        btn_wire.setFont(_qfont('Consolas', 9))
-        btn_wire.setFixedHeight(28)
-        btn_wire.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_wire.clicked.connect(self._set_wire_mode)
-        tb.addWidget(btn_wire)
+        self.btn_wire = QPushButton("✏ Cable")
+        self.btn_wire.setFont(_qfont('Menlo', 9))
+        self.btn_wire.setFixedHeight(28)
+        self.btn_wire.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_wire.setCheckable(True)
+        self.btn_wire.clicked.connect(self._set_wire_mode)
+        tb.addWidget(self.btn_wire)
 
         tb.addSeparator()
 
         # ── Simulación ─────────────────────────────────────────────────────
         # Estándar lógico fijo: CMOS 5 V (no expuesto en la UI)
         self.run_btn = QPushButton("▶  SIMULAR")
-        self.run_btn.setFont(_qfont('Consolas', 10, QFont.Weight.Bold))
+        self.run_btn.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
         self.run_btn.setFixedHeight(28)
         self.run_btn.setCheckable(True)
         self.run_btn.setToolTip("Detecta automáticamente: DC · AC · Digital · Mixto")
@@ -786,7 +789,7 @@ class MainWindow(QMainWindow):
             QMainWindow, QWidget {{
                 background-color: {COLORS['bg']};
                 color: {COLORS['text']};
-                font-family: 'Consolas', monospace;
+                font-family: 'Menlo';
             }}
             QToolBar {{
                 background: {COLORS['toolbar']};
@@ -801,7 +804,7 @@ class MainWindow(QMainWindow):
             QToolBar QToolButton {{
                 color: {COLORS['text']};
                 padding: 4px 10px;
-                font-family: 'Consolas';
+                font-family: 'Menlo';
             }}
             QPushButton {{
                 background: {COLORS['comp_body']};
@@ -838,7 +841,7 @@ class MainWindow(QMainWindow):
             QStatusBar {{ background: {COLORS['toolbar']}; color: {COLORS['text_dim']}; }}
             QSplitter::handle {{ background: {COLORS['panel_brd']}; width: 1px; }}
             QGroupBox {{
-                font-family: 'Consolas', monospace;
+                font-family: 'Menlo';
                 margin-top: 6px;
             }}
             QGroupBox::title {{
@@ -990,16 +993,22 @@ class MainWindow(QMainWindow):
 
     def _set_place_mode(self, comp_type: str):
         self.scene.set_mode(f'place_{comp_type}')
+        self.btn_select.setChecked(False)
+        self.btn_wire.setChecked(False)
         self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.statusBar().showMessage(f"Click en el canvas para colocar: {comp_type}")
 
     def _set_wire_mode(self):
         self.scene.set_mode('wire')
+        self.btn_select.setChecked(False)
+        self.btn_wire.setChecked(True)
         self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.statusBar().showMessage("Wire: click para iniciar, click para terminar, ESC para cancelar")
 
     def _set_select_mode(self):
         self.scene.set_mode('select')
+        self.btn_select.setChecked(True)
+        self.btn_wire.setChecked(False)
         self.view.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         self.statusBar().showMessage("Modo selección")
 

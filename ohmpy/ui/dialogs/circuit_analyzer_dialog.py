@@ -891,7 +891,7 @@ class CircuitAnalyzerDialog(QDialog):
 
         self.eqs_text = QTextEdit()
         self.eqs_text.setReadOnly(True)
-        self.eqs_text.setFont(_qfont('Consolas', 11))
+        self.eqs_text.setFont(_qfont('Menlo', 11))
         v.addWidget(self.eqs_text)
 
         # Botón futuro: armar circuito automáticamente
@@ -943,7 +943,7 @@ class CircuitAnalyzerDialog(QDialog):
                 escaped.append(line if '<span' in line else html.escape(line))
             body = '<br>'.join(escaped)
             self.eqs_text.setHtml(
-                '<div style="font-family: Consolas, monospace; font-size: 11pt; white-space: pre;">'
+                '<div style="font-family: Menlo; font-size: 11pt; white-space: pre;">'
                 f'{body}</div>')
         else:
             self.eqs_text.setPlainText('\n'.join(lines))

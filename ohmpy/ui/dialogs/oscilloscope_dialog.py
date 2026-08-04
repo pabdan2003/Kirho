@@ -184,7 +184,7 @@ class _Screen(QWidget):
 
         # ── Leyenda superior (Time/Div, V/Div) ──────────────────────────
         p.setPen(QPen(QColor(180, 200, 190), 1))
-        p.setFont(_qfont('Consolas', 8))
+        p.setFont(_qfont('Menlo', 8))
         info = (f"  T={self._fmt_time(self.time_div)}/div    "
                 f"A={self._fmt_volts(self.v_div_a)}/div    "
                 f"B={self._fmt_volts(self.v_div_b)}/div")
