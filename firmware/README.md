@@ -1,13 +1,13 @@
-# Firmware de referencia — Osciloscopio físico
+# Reference firmware — Physical oscilloscope
 
-El osciloscopio del simulador (`OSC`) puede mostrar muestras de un
-microcontrolador conectado por **USB-CDC serial**. Este directorio
-documenta el protocolo binario que el firmware debe implementar e
-incluye ejemplos de referencia para adaptar a una placa.
+The simulator oscilloscope (`OSC`) can display samples from a microcontroller
+connected over **USB-CDC serial**. This directory documents the binary
+protocol the firmware must implement and includes reference examples to adapt
+for a board.
 
-## Hardware de referencia
+## Reference hardware
 
-| MCU | ADC | Nota |
+| MCU | ADC | Note |
 |-----|-----|------|
 | Raspberry Pi Pico (RP2040) | 12-bit | Compatible con el ejemplo C y el de MicroPython de este documento. |
 | Raspberry Pi Pico 2 (RP2350) | 12-bit | Requiere adaptar el proyecto al SDK y placa seleccionados. |

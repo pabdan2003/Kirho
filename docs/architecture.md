@@ -1,15 +1,14 @@
-# Arquitectura de OhmPy
+# OhmPy architecture
 
-Este documento explica cómo encajan las piezas del proyecto. Está pensado
-para alguien que clona el repositorio por primera vez y quiere saber:
-qué módulo hace qué, qué convenciones asume, y dónde están los puntos de
-extensión.
+This document explains how the project pieces fit together. It is intended for
+someone cloning the repository for the first time who wants to know which
+module does what, which conventions it assumes, and where extension points are.
 
-Para detalles de cada clase o método, ir directo al docstring del código.
+For details about each class or method, go straight to the code docstrings.
 
 ---
 
-## 1. Tres motores, una UI
+## 1. Three engines, one UI
 
 OhmPy tiene tres subsistemas de simulación separados: MNA analógico,
 eventos digitales y coordinación mixta. No comparten matrices; el
