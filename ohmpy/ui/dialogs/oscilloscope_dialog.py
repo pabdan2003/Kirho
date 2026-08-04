@@ -209,7 +209,7 @@ class OscilloscopeDialog(QDialog):
     def __init__(self, item: 'ComponentItem', parent=None):
         super().__init__(parent)
         self.item = item
-        self.setWindowTitle(f"Osciloscopio — {item.name}")
+        self.setWindowTitle(self.tr("Oscilloscope — {name}").format(name=item.name))
         self.setModal(False)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.Tool)
         # Tamaño cómodo por defecto, redimensionable
@@ -238,21 +238,21 @@ class OscilloscopeDialog(QDialog):
         right.setSpacing(6)
 
         # Time base
-        gb_time = QGroupBox("Time base")
+        gb_time = QGroupBox(self.tr("Time base"))
         f_time = QFormLayout(gb_time)
         self.cb_time = QComboBox()
         for v, lbl in _TIME_DIV_PRESETS:
             self.cb_time.addItem(lbl, v)
-        f_time.addRow("Time/Div:", self.cb_time)
+        f_time.addRow(self.tr("Time/Div:"), self.cb_time)
         right.addWidget(gb_time)
 
         # Canal A
-        gb_a = QGroupBox("Canal A (amarillo)")
+        gb_a = QGroupBox(self.tr("Channel A (yellow)"))
         f_a = QFormLayout(gb_a)
         self.cb_va = QComboBox()
         for v, lbl in _V_DIV_PRESETS:
             self.cb_va.addItem(lbl, v)
-        f_a.addRow("V/Div:", self.cb_va)
+        f_a.addRow(self.tr("V/Div:"), self.cb_va)
         self.sb_pos_a = QDoubleSpinBox()
         self.sb_pos_a.setRange(-4.0, 4.0)
         self.sb_pos_a.setDecimals(2)
@@ -262,12 +262,12 @@ class OscilloscopeDialog(QDialog):
         right.addWidget(gb_a)
 
         # Canal B
-        gb_b = QGroupBox("Canal B (celeste)")
+        gb_b = QGroupBox(self.tr("Channel B (cyan)"))
         f_b = QFormLayout(gb_b)
         self.cb_vb = QComboBox()
         for v, lbl in _V_DIV_PRESETS:
             self.cb_vb.addItem(lbl, v)
-        f_b.addRow("V/Div:", self.cb_vb)
+        f_b.addRow(self.tr("V/Div:"), self.cb_vb)
         self.sb_pos_b = QDoubleSpinBox()
         self.sb_pos_b.setRange(-4.0, 4.0)
         self.sb_pos_b.setDecimals(2)
@@ -277,16 +277,18 @@ class OscilloscopeDialog(QDialog):
         right.addWidget(gb_b)
 
         # Trigger (controles visibles pero sin lógica todavía)
-        gb_trig = QGroupBox("Trigger (auto)")
+        gb_trig = QGroupBox(self.tr("Trigger (auto)"))
         f_trig = QFormLayout(gb_trig)
         self.cb_trig_src = QComboBox(); self.cb_trig_src.addItems(['A', 'B'])
-        self.cb_trig_edge = QComboBox(); self.cb_trig_edge.addItems(['rising', 'falling'])
+        self.cb_trig_edge = QComboBox()
+        self.cb_trig_edge.addItem(self.tr('Rising'), 'rising')
+        self.cb_trig_edge.addItem(self.tr('Falling'), 'falling')
         self.sb_trig_lvl = QDoubleSpinBox()
         self.sb_trig_lvl.setRange(-1e6, 1e6); self.sb_trig_lvl.setSuffix(" V")
         self.sb_trig_lvl.setDecimals(3)
-        f_trig.addRow("Source:", self.cb_trig_src)
-        f_trig.addRow("Edge:",   self.cb_trig_edge)
-        f_trig.addRow("Level:",  self.sb_trig_lvl)
+        f_trig.addRow(self.tr("Source:"), self.cb_trig_src)
+        f_trig.addRow(self.tr("Edge:"),   self.cb_trig_edge)
+        f_trig.addRow(self.tr("Level:"),  self.sb_trig_lvl)
         right.addWidget(gb_trig)
 
         # Botones
@@ -294,7 +296,7 @@ class OscilloscopeDialog(QDialog):
         self.btn_clear = QPushButton(self.tr("Clear"))
         self.btn_clear.clicked.connect(self._on_clear)
         btn_row.addWidget(self.btn_clear)
-        self.btn_hw = QPushButton("Hardware…")
+        self.btn_hw = QPushButton(self.tr("Hardware…"))
         self.btn_hw.setToolTip(
             self.tr("Connect the oscilloscope to a microcontroller (RP2040 / STM32 / …) "
                     "via USB-CDC, or use Mock device to test without hardware."))
@@ -346,7 +348,8 @@ class OscilloscopeDialog(QDialog):
             self.sb_pos_a.setValue(float(it.osc_pos_a))
             self.sb_pos_b.setValue(float(it.osc_pos_b))
             self.cb_trig_src.setCurrentText(it.osc_trig_source)
-            self.cb_trig_edge.setCurrentText(it.osc_trig_edge)
+            index = self.cb_trig_edge.findData(it.osc_trig_edge)
+            self.cb_trig_edge.setCurrentIndex(index if index >= 0 else 0)
             self.sb_trig_lvl.setValue(float(it.osc_trig_level))
         finally:
             for w in widgets: w.blockSignals(False)
@@ -359,7 +362,7 @@ class OscilloscopeDialog(QDialog):
         it.osc_pos_a    = float(self.sb_pos_a.value())
         it.osc_pos_b    = float(self.sb_pos_b.value())
         it.osc_trig_source = self.cb_trig_src.currentText()
-        it.osc_trig_edge   = self.cb_trig_edge.currentText()
+        it.osc_trig_edge   = self.cb_trig_edge.currentData()
         it.osc_trig_level  = float(self.sb_trig_lvl.value())
         self._sync_screen()
         self.changed.emit()
@@ -420,8 +423,8 @@ class OscilloscopeDialog(QDialog):
         if is_connected:
             # Botón funciona como "Desconectar" cuando ya hay stream
             self._stop_hw_thread()
-            self._set_hw_status(False, msg='HW desconectado')
-            self.btn_hw.setText('Hardware…')
+            self._set_hw_status(False, msg=self.tr('HW disconnected'))
+            self.btn_hw.setText(self.tr('Hardware…'))
             return
         dlg = HardwareSourceDialog(self._hw_cfg, COLORS, parent=self)
         if dlg.exec() != QDialog.DialogCode.Accepted:
@@ -445,7 +448,7 @@ class OscilloscopeDialog(QDialog):
         self._hw_thread.error_occurred.connect(self._on_hw_error)
         self._hw_thread.connection_state.connect(self._on_hw_state)
         self._hw_thread.start()
-        self.btn_hw.setText('Desconectar HW')
+        self.btn_hw.setText(self.tr('Disconnect HW'))
 
     def _stop_hw_thread(self):
         if self._hw_thread is None:
@@ -462,18 +465,18 @@ class OscilloscopeDialog(QDialog):
 
     def _on_hw_state(self, connected: bool):
         if connected:
-            self._set_hw_status(True, msg='HW conectado')
+            self._set_hw_status(True, msg=self.tr('HW connected'))
         else:
-            self._set_hw_status(False, msg='HW desconectado')
-            self.btn_hw.setText('Hardware…')
+            self._set_hw_status(False, msg=self.tr('HW disconnected'))
+            self.btn_hw.setText(self.tr('Hardware…'))
 
     def _on_hw_error(self, msg: str):
-        self._set_hw_status(False, msg=f'Error HW: {msg}')
-        self.btn_hw.setText('Hardware…')
+        self._set_hw_status(False, msg=self.tr('HW error: {message}').format(message=msg))
+        self.btn_hw.setText(self.tr('Hardware…'))
 
     def _set_hw_status(self, connected: bool, msg: str):
         color = '#27ae60' if connected else '#888888'
-        if msg.startswith('Error'):
+        if msg.startswith(self.tr('HW error:').rstrip(':')):
             color = '#e94560'
         self.lbl_hw_status.setStyleSheet(f'color: {color};')
         self.lbl_hw_status.setText(msg)

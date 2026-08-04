@@ -213,7 +213,7 @@ class ResistorCalcDialog(QDialog):
     def __init__(self, colors=None, parent=None):
         super().__init__(parent)
         self.colors = colors or {}
-        self.setWindowTitle("Resistor Color Code")
+        self.setWindowTitle(self.tr("Resistor Color Code"))
         self.setMinimumSize(580, 540)
         self._n_bands = 4
         self._combos: List[Tuple[QLabel, QComboBox, str]] = []
@@ -266,7 +266,7 @@ class ResistorCalcDialog(QDialog):
 
         # Selector de número de bandas
         sel_row = QHBoxLayout()
-        sel_row.addWidget(QLabel("<b>Number of bands:</b>"))
+        sel_row.addWidget(QLabel(self.tr("<b>Number of bands:</b>")))
         self._band_btn_group = QButtonGroup(self)
         for n in (3, 4, 5, 6):
             rb = QRadioButton(str(n))
@@ -308,7 +308,7 @@ class ResistorCalcDialog(QDialog):
         # Cerrar
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
-        btn_close = QPushButton("Close")
+        btn_close = QPushButton(self.tr("Close"))
         btn_close.clicked.connect(self.accept)
         btn_row.addWidget(btn_close)
         main.addLayout(btn_row)
@@ -379,24 +379,34 @@ class ResistorCalcDialog(QDialog):
         if role == 'digit':
             digit_count = roles.count('digit')
             digit_idx = roles[:idx + 1].count('digit')
-            return f"<b>Band {idx + 1}</b> – Digit {digit_idx} of {digit_count}"
+            return self.tr("<b>Band {band}</b> – Digit {digit} of {count}").format(
+                band=idx + 1, digit=digit_idx, count=digit_count)
         if role == 'mult':
-            return f"<b>Band {idx + 1}</b> – Multiplier"
+            return self.tr("<b>Band {band}</b> – Multiplier").format(band=idx + 1)
         if role == 'tol':
-            return f"<b>Band {idx + 1}</b> – Tolerance"
+            return self.tr("<b>Band {band}</b> – Tolerance").format(band=idx + 1)
         if role == 'tempco':
-            return f"<b>Band {idx + 1}</b> – Temperature coefficient"
-        return f"Band {idx + 1}"
+            return self.tr("<b>Band {band}</b> – Temperature coefficient").format(band=idx + 1)
+        return self.tr("Band {band}").format(band=idx + 1)
 
     def _populate_combo(self, combo: QComboBox, role: str):
         """Llena el combo con todas las opciones válidas para `role`."""
+        color_labels = {
+            'black': self.tr("Black"), 'brown': self.tr("Brown"),
+            'red': self.tr("Red"), 'orange': self.tr("Orange"),
+            'yellow': self.tr("Yellow"), 'green': self.tr("Green"),
+            'blue': self.tr("Blue"), 'violet': self.tr("Violet"),
+            'gray': self.tr("Gray"), 'white': self.tr("White"),
+            'gold': self.tr("Gold"), 'silver': self.tr("Silver"),
+            'none': self.tr("(none)"),
+        }
         for key, label, hex_color, digit, mult, tol, tc in COLOR_TABLE:
             if role == 'digit'  and digit  is None: continue
             if role == 'mult'   and mult   is None: continue
             if role == 'tol'    and tol    is None: continue
             if role == 'tempco' and tc     is None: continue
             descr = self._describe_value(role, digit, mult, tol, tc)
-            text  = f"{label}    {descr}"
+            text  = f"{color_labels[key]}    {descr}"
             combo.addItem(_make_color_icon(hex_color), text, key)
 
     def _describe_value(self, role, digit, mult, tol, tc) -> str:
@@ -475,24 +485,28 @@ class ResistorCalcDialog(QDialog):
                        tc: Optional[int]) -> str:
         accent = self._result_accent
         dim    = self._result_dim
+        select_colors = self.tr("Select colors…")
+        unspecified = self.tr("(unspecified)")
+        range_label = self.tr("Range:")
+        tempco_label = self.tr("Temperature coefficient:")
         if R is None:
             return (f"<div style='color:{dim}; font-size:14pt;'>"
-                    "Select colors…</div>")
+                    f"{select_colors}</div>")
         val_str = _format_resistance(R)
-        tol_str = f"±{tol:g}%" if tol is not None else "(unspecified)"
+        tol_str = f"±{tol:g}%" if tol is not None else unspecified
         # Rango por tolerancia
         if tol is not None:
             R_min = R * (1 - tol / 100)
             R_max = R * (1 + tol / 100)
             range_str = (f"<span style='color:{dim}; font-size:9pt;'>"
-                         f"Range: {_format_resistance(R_min)} … "
+                         f"{range_label} {_format_resistance(R_min)} … "
                          f"{_format_resistance(R_max)}</span>")
         else:
             range_str = ""
         tc_str = ""
         if tc is not None:
             tc_str = (f"<br><span style='color:{dim}; font-size:9pt;'>"
-                      f"Temperature coefficient: {tc} ppm/°C</span>")
+                      f"{tempco_label} {tc} ppm/°C</span>")
         return (
             f"<div style='font-family:Menlo;'>"
             f"<span style='color:{accent}; font-size:20pt; font-weight:bold;'>"

@@ -331,6 +331,37 @@ class ThemeManager:
         except OSError:
             return False
 
+    def load_language(self) -> str:
+        """Return the saved UI language, defaulting to English."""
+        try:
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                language = json.load(f).get('language', 'en')
+            return language if language in ('es', 'en') else 'en'
+        except (OSError, json.JSONDecodeError, AttributeError):
+            return 'en'
+
+    def save_language(self, language: str) -> bool:
+        """Persist the UI language alongside the selected theme."""
+        if language not in ('es', 'en'):
+            return False
+        try:
+            os.makedirs(self.user_dir, exist_ok=True)
+            cfg = {}
+            if os.path.exists(self.config_path):
+                try:
+                    with open(self.config_path, 'r', encoding='utf-8') as f:
+                        cfg = json.load(f)
+                    if not isinstance(cfg, dict):
+                        cfg = {}
+                except (OSError, json.JSONDecodeError):
+                    pass
+            cfg['language'] = language
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+            return True
+        except OSError:
+            return False
+
     # ── Helpers para el usuario ─────────────────────────────────────────────
     def ensure_user_themes_dir(self) -> str:
         """Crea ~/.ohmpy/themes/ si no existe y la devuelve."""

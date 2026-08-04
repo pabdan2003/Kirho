@@ -20,13 +20,17 @@ class SettingsDialog(QDialog):
 
     def __init__(self, theme_manager, colors, parent=None,
                  current_theme_id: str = 'dark',
-                 on_theme_change=None):
+                 on_theme_change=None,
+                 current_language: str = 'en',
+                 on_language_change=None):
         super().__init__(parent)
         self.theme_manager = theme_manager
         self.colors = colors
         self._current_theme_id = current_theme_id
         self._on_theme_change = on_theme_change
-        self.setWindowTitle("Settings")
+        self._current_language = current_language
+        self._on_language_change = on_language_change
+        self.setWindowTitle(self.tr("Settings"))
         self.setMinimumSize(560, 380)
         self._build_ui()
 
@@ -34,16 +38,16 @@ class SettingsDialog(QDialog):
         main = QVBoxLayout(self)
         main.setSpacing(10)
 
-        gb_theme = QGroupBox("Appearance")
+        gb_theme = QGroupBox(self.tr("Appearance"))
         gl = QVBoxLayout(gb_theme)
 
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("Theme:"))
+        row1.addWidget(QLabel(self.tr("Theme:")))
         self.theme_combo = QComboBox()
         self.theme_combo.setMinimumWidth(240)
         self.theme_combo.setToolTip(
-            "Changes the app color scheme.\n"
-            "It applies immediately and is remembered between sessions.")
+            self.tr("Changes the app color scheme.\n"
+                    "It applies immediately and is remembered between sessions."))
         self._populate_theme_combo()
         self.theme_combo.currentIndexChanged.connect(self._on_combo_changed)
         row1.addWidget(self.theme_combo)
@@ -57,24 +61,24 @@ class SettingsDialog(QDialog):
         gl.addWidget(self.theme_desc)
 
         row2 = QHBoxLayout()
-        btn_open = QPushButton("📁  Open themes folder")
+        btn_open = QPushButton(self.tr("📁  Open themes folder"))
         btn_open.setToolTip(
-            "Opens the folder where you can place .json files\n"
-            "to add your own themes.")
+            self.tr("Opens the folder where you can place .json files\n"
+                    "to add your own themes."))
         btn_open.clicked.connect(self._open_themes_folder)
         row2.addWidget(btn_open)
 
-        btn_reload = QPushButton("🔄  Reload list")
+        btn_reload = QPushButton(self.tr("🔄  Reload list"))
         btn_reload.setToolTip(
-            "Rescans theme folders after adding or removing\n"
-            ".json files without restarting the app.")
+            self.tr("Rescans theme folders after adding or removing\n"
+                    ".json files without restarting the app."))
         btn_reload.clicked.connect(self._reload_themes)
         row2.addWidget(btn_reload)
 
-        btn_export = QPushButton("💾  Export current theme…")
+        btn_export = QPushButton(self.tr("💾  Export current theme…"))
         btn_export.setToolTip(
-            "Saves the selected theme as a .json template\n"
-            "that you can modify to create your own.")
+            self.tr("Saves the selected theme as a .json template\n"
+                    "that you can modify to create your own."))
         btn_export.clicked.connect(self._export_current_theme)
         row2.addWidget(btn_export)
 
@@ -82,9 +86,9 @@ class SettingsDialog(QDialog):
         gl.addLayout(row2)
 
         hint = QLabel(
-            "To add a separately installable theme, place a .json file\n"
-            "using the format described in themes/README.md in that folder,\n"
-            "then click “Reload list” (or restart the app)."
+            self.tr("To add a separately installable theme, place a .json file\n"
+                    "using the format described in themes/README.md in that folder,\n"
+                    "then click “Reload list” (or restart the app).")
         )
         hint.setWordWrap(True)
         hint.setFont(QFont('Menlo', 8))
@@ -92,16 +96,37 @@ class SettingsDialog(QDialog):
         gl.addWidget(hint)
 
         main.addWidget(gb_theme)
+
+        gb_language = QGroupBox(self.tr("Language"))
+        language_layout = QHBoxLayout(gb_language)
+        language_layout.addWidget(QLabel(self.tr("Interface language:")))
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("English", "en")
+        self.language_combo.addItem("Español", "es")
+        self.language_combo.setCurrentIndex(
+            max(0, self.language_combo.findData(self._current_language)))
+        self.language_combo.currentIndexChanged.connect(self._on_language_changed)
+        language_layout.addWidget(self.language_combo)
+        language_layout.addStretch()
+        main.addWidget(gb_language)
         main.addStretch()
 
         bbox = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.close_button = bbox.button(QDialogButtonBox.StandardButton.Close)
-        self.close_button.setText("Close")
+        self.close_button.setText(self.tr("Close"))
         bbox.rejected.connect(self.accept)
         bbox.accepted.connect(self.accept)
         main.addWidget(bbox)
 
         self._refresh_theme_description()
+
+    def _on_language_changed(self, _index: int):
+        language = self.language_combo.currentData()
+        if not language or language == self._current_language:
+            return
+        self._current_language = language
+        if self._on_language_change:
+            self._on_language_change(language)
 
     def _populate_theme_combo(self):
         self.theme_combo.blockSignals(True)
@@ -109,7 +134,7 @@ class SettingsDialog(QDialog):
         for entry in self.theme_manager.list_themes():
             label = entry['name']
             if entry['source'] != 'builtin':
-                label += '  (external)'
+                label += self.tr('  (external)')
             self.theme_combo.addItem(label, entry['id'])
         idx = self.theme_combo.findData(self._current_theme_id)
         if idx < 0:
@@ -133,8 +158,8 @@ class SettingsDialog(QDialog):
         if meta is None:
             self.theme_desc.setText("")
             return
-        src = ("Source: built-in" if meta['source'] == 'builtin'
-               else f"Source: {meta['source']}")
+        src = (self.tr("Source: built-in") if meta['source'] == 'builtin'
+               else self.tr("Source: {path}").format(path=meta['source']))
         desc = meta.get('description', '')
         self.theme_desc.setText(f"  {desc}\n  {src}" if desc else f"  {src}")
 
@@ -147,29 +172,30 @@ class SettingsDialog(QDialog):
         self._populate_theme_combo()
         self._refresh_theme_description()
         QMessageBox.information(
-            self, "Themes reloaded",
-            f"Discovered {len(self.theme_manager.list_themes())} themes in total."
-        )
+            self, self.tr("Themes reloaded"),
+            self.tr("Discovered {count} themes in total.").format(
+                count=len(self.theme_manager.list_themes())))
 
     def _export_current_theme(self):
         tid = self.theme_combo.currentData()
         if not tid:
             return
-        suggested = f"{tid}_copia.json"
+        copy_label = self.tr("copy")
+        suggested = f'{tid}_{copy_label}.json'
         default_dir = self.theme_manager.ensure_user_themes_dir()
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export theme as template",
+            self, self.tr("Export theme as template"),
             os.path.join(default_dir, suggested),
-            "JSON Theme (*.json)")
+            self.tr("JSON Theme (*.json)"))
         if not path:
             return
         ok = self.theme_manager.export_theme_template(tid, path)
         if ok:
             QMessageBox.information(
-                self, "Theme exported",
-                f"Template saved to:\n{path}\n\n"
-                "Edit the colors and click “Reload list” to see it in the selector.")
+                self, self.tr("Theme exported"),
+                self.tr("Template saved to:\n{path}\n\n"
+                        "Edit the colors and click “Reload list” to see it in the selector.").format(path=path))
         else:
             QMessageBox.warning(
-                self, "Error",
-                f"Could not save the file:\n{path}")
+                self, self.tr("Error"),
+                self.tr("Could not save the file:\n{path}").format(path=path))

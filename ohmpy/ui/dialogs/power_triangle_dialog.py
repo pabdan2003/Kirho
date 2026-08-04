@@ -141,7 +141,7 @@ class PowerTriangleDialog(QDialog):
         main.addWidget(splitter)
 
         btn_row = QHBoxLayout()
-        reset_btn = QPushButton(self.tr("🔍 Reset view"))
+        reset_btn = QPushButton(self.tr("Reset view"))
         reset_btn.clicked.connect(self.canvas.reset_view)
         btn_row.addWidget(reset_btn)
         btn_row.addStretch()
@@ -161,7 +161,7 @@ class PowerTriangleDialog(QDialog):
             total, freq, fp_tgt, target_type=target_type)
 
         if 'error' in res:
-            self.corr_label.setText(f"⚠ {res['error']}")
+            self.corr_label.setText(res['error'])
             return
 
         tipo = res['type']
@@ -169,29 +169,40 @@ class PowerTriangleDialog(QDialog):
         Q_corr = res['Q_corr']
         fp_new = res['fp_new']
         fp_type_new = res.get('fp_type_new', '')
-        note = res.get('note', '')
         form = res['formula']
         tt_used = res.get('target_type', 'auto')
 
         if tipo == 'capacitor':
-            val_str = f"C = {val*1e6:.{decsel}f} µF  (normalized to 1 Vrms)"
-            emoji = "⚡ Capacitor"
+            val_str = self.tr("C = {value:.{decimals}f} µF  (normalized to 1 Vrms)").format(
+                value=val * 1e6, decimals=decsel)
+            emoji = self.tr("Capacitor")
+            note = self.tr(
+                "Multiply C by (1/Vrms²) using your actual line voltage. "
+                "E.g., for Vrms=120V → C_real = C_norm / 120²")
         else:
-            val_str = f"L = {val*1e3:.{decsel}f} mH  (normalized to 1 Vrms)"
-            emoji = "🔄 Inductor"
+            val_str = self.tr("L = {value:.{decimals}f} mH  (normalized to 1 Vrms)").format(
+                value=val * 1e3, decimals=decsel)
+            emoji = self.tr("Inductor")
+            note = self.tr(
+                "Multiply L by Vrms² using your actual line voltage. "
+                "E.g., for Vrms=120V → L_real = L_norm · 120²")
 
-        modo_map = {'auto': 'Auto', 'inductive': 'Inductive',
-                    'capacitive': 'Capacitive'}
+        modo_map = {'auto': self.tr('Auto'), 'inductive': self.tr('Inductive'),
+                    'capacitive': self.tr('Capacitive')}
+        fp_type_map = {'inductive': self.tr('inductive'),
+                       'capacitive': self.tr('capacitive'),
+                       'unity': self.tr('unity')}
         modo_str = modo_map.get(tt_used, tt_used)
+        fp_type_str = fp_type_map.get(fp_type_new, fp_type_new)
 
         text = (
-            f"  Target mode:        {modo_str}\n"
-            f"  Correction element: {emoji} in PARALLEL\n"
-            f"  {val_str}\n"
-            f"  Q to compensate:    {Q_corr:.4f} VAR\n"
-            f"  Resulting PF:       {fp_new:.4f}  ({fp_type_new})\n"
-            f"  Formula:            {form}\n"
-            f"  📌 {note}"
+            self.tr("  Target mode:        {mode}\n").format(mode=modo_str)
+            + self.tr("  Correction element: {element} in PARALLEL\n").format(element=emoji)
+            + f"  {val_str}\n"
+            + self.tr("  Q to compensate:    {value:.4f} VAR\n").format(value=Q_corr)
+            + self.tr("  Resulting PF:       {value:.4f}  ({type})\n").format(value=fp_new, type=fp_type_str)
+            + self.tr("  Formula:            {formula}\n").format(formula=form)
+            + f"  {note}"
         )
         self.corr_label.setText(text)
         self.canvas.set_correction(res)
@@ -347,11 +358,11 @@ class _PowerTriangleCanvas(QWidget):
 
         arrow(painter, pen_ax, ox - 20, oy, ox + ax_len, oy, '', 'end')
         painter.setPen(QPen(self._color('text_dim', '#666688'), 1))
-        painter.drawText(ox + ax_len + 4, oy + 4, "P (W)")
+        painter.drawText(ox + ax_len + 4, oy + 4, self.tr("P (W)"))
 
         arrow(painter, pen_ax, ox, oy + 20, ox, oy - ax_len, '', 'end')
-        painter.drawText(ox + 4, oy - ax_len - 4, "Q+ inductive")
-        painter.drawText(ox + 4, oy + 28, "Q− capacitive")
+        painter.drawText(ox + 4, oy - ax_len - 4, self.tr("Q+ inductive"))
+        painter.drawText(ox + 4, oy + 28, self.tr("Q− capacitive"))
 
         painter.setPen(QPen(self._color('grid_line', '#333355'), 1, Qt.PenStyle.DotLine))
         painter.drawLine(ox, oy, ox, oy + ax_len)
@@ -370,9 +381,14 @@ class _PowerTriangleCanvas(QWidget):
         painter.drawArc(ox - r_arc, oy - r_arc, 2 * r_arc, 2 * r_arc,
                         0, int(phi_deg * 16))
         label_y = oy - 14 if Q >= 0 else oy + 22
+        fp_type = {
+            'inductive': self.tr('inductive'),
+            'capacitive': self.tr('capacitive'),
+            'unity': self.tr('unity'),
+        }.get(self.total.get('fp_type', ''), self.total.get('fp_type', ''))
         painter.drawText(ox + r_arc + 4, label_y,
                          f"φ = {phi_deg:+.1f}°  fp={fp:.3f}  "
-                         f"({self.total.get('fp_type','')})")
+                         f"({fp_type})")
 
         if self._correction:
             q_new = self._correction.get('Q_new', Q)

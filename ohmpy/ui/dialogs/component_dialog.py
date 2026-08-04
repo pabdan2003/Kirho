@@ -151,7 +151,13 @@ class ComponentDialog(QDialog):
         layout.addRow(self.tr("Name:"), self.name_edit)
 
         self.value_spin = SIValueEdit(self.item.value)
-        layout.addRow(VALUE_LABELS.get(self.item.comp_type, self.tr('Value:')), self.value_spin)
+        value_labels = {
+            'R': self.tr('Resistance (Ω)'),
+            'LED': self.tr('Value (unused — Vf by color)'),
+        }
+        layout.addRow(value_labels.get(
+            self.item.comp_type, VALUE_LABELS.get(self.item.comp_type, self.tr('Value:'))),
+            self.value_spin)
 
         if self.item.comp_type in DIGITAL_GATE_TYPES:
             n_in = self.item.dig_inputs if self.item.comp_type != 'NOT' else 1
@@ -259,8 +265,13 @@ class ComponentDialog(QDialog):
                 layout.addRow("Nodo +" + ':', self.node2_edit)  # Nodo +
                 layout.addRow("Nodo -" + ':', self.node1_edit)  # Nodo −
             else:
-                layout.addRow(lbl1 + ':', self.node1_edit)
-                layout.addRow(lbl2 + ':', self.node2_edit)
+                node_labels = {
+                    'Node 1': self.tr('Node 1'), 'Node 2': self.tr('Node 2'),
+                    'Anode (A)': self.tr('Anode (A)'),
+                    'Cathode (K)': self.tr('Cathode (K)'),
+                }
+                layout.addRow(node_labels.get(lbl1, lbl1) + ':', self.node1_edit)
+                layout.addRow(node_labels.get(lbl2, lbl2) + ':', self.node2_edit)
     
             if lbl3 is not None:
                 self.node3_edit = QLineEdit(self.item.node3)
@@ -269,9 +280,16 @@ class ComponentDialog(QDialog):
         self._led_color_combo = None
         if self.item.comp_type == 'LED':
             self._led_color_combo = QComboBox()
-            self._led_color_combo.addItems(['red', 'green', 'blue', 'yellow', 'white', 'orange'])
-            self._led_color_combo.setCurrentText(getattr(self.item, 'led_color', 'red'))
-            layout.addRow('Color del LED:', self._led_color_combo)
+            colors = {
+                'red': self.tr('red'), 'green': self.tr('green'),
+                'blue': self.tr('blue'), 'yellow': self.tr('yellow'),
+                'white': self.tr('white'), 'orange': self.tr('orange'),
+            }
+            for color, label in colors.items():
+                self._led_color_combo.addItem(label, color)
+            self._led_color_combo.setCurrentIndex(
+                self._led_color_combo.findData(getattr(self.item, 'led_color', 'red')))
+            layout.addRow(self.tr('LED color:'), self._led_color_combo)
 
         self._freq_spin = None
         self._phase_spin = None
@@ -415,6 +433,8 @@ class ComponentDialog(QDialog):
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self.tr('OK'))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr('Cancel'))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
@@ -429,7 +449,7 @@ class ComponentDialog(QDialog):
             'frequency': self._freq_spin.value() if self._freq_spin else 60.0,
             'phase_deg': self._phase_spin.value() if self._phase_spin else 0.0,
             'ac_mode': self._mode_combo.currentText() if self._mode_combo else 'rms',
-            'led_color': self._led_color_combo.currentText() if self._led_color_combo else 'red',
+            'led_color': self._led_color_combo.currentData() if self._led_color_combo else 'red',
         }
         if self.item.comp_type == 'Z' and self._z_mode_combo is not None:
             data['z_mode'] = 'rect' if self._z_mode_combo.currentIndex() == 0 else 'phasor'

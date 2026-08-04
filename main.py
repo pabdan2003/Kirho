@@ -46,6 +46,7 @@ from ohmpy.ui.dialogs.component_picker_dialog import ComponentPickerDialog
 from ohmpy.ui.dialogs.power_triangle_dialog import PowerTriangleDialog
 from ohmpy.ui.dialogs.resistor_calc_dialog import ResistorCalcDialog
 from ohmpy.ui.dialogs.settings_dialog import SettingsDialog
+from ohmpy.i18n import load_translator
 
 
 # ══════════════════════════════════════════════════════════════
@@ -582,20 +583,20 @@ class MainWindow(QMainWindow):
         tb.setObjectName("main_toolbar")
 
         actions = [
-            ("New",             "Ctrl+N",          self._new_circuit),
-            ("Open",            "Ctrl+O",          self._open_circuit),
-            ("Save",            "Ctrl+S",          self._save_circuit),
-            ("Save As…",        "Ctrl+Shift+S",    self._save_circuit_as),
-            ("Export SPICE",    "Ctrl+E",          self._export_spice),
+            (self.tr("New"),             "Ctrl+N",          self._new_circuit),
+            (self.tr("Open"),            "Ctrl+O",          self._open_circuit),
+            (self.tr("Save"),            "Ctrl+S",          self._save_circuit),
+            (self.tr("Save As…"),        "Ctrl+Shift+S",    self._save_circuit_as),
+            (self.tr("Export SPICE"),    "Ctrl+E",          self._export_spice),
             ("|", None, None),
-            ("+ Sheet",      "Ctrl+T", lambda: self._add_sheet()),
+            (self.tr("+ Sheet"),      "Ctrl+T", lambda: self._add_sheet()),
             ("__TOOLS__", None, None),                    # placeholder Herramientas
-            ("Clear",        "Ctrl+L", self._clear_circuit),
+            (self.tr("Clear"),        "Ctrl+L", self._clear_circuit),
             # Zoom: sin atajo para no chocar con la rotación Ctrl++/Ctrl+-.
             # El zoom sigue disponible vía botón en la toolbar y Ctrl+rueda.
-            ("Zoom +",       None,     lambda: self.view.scale(1.2, 1.2)),
-            ("Zoom −",       None,     lambda: self.view.scale(1/1.2, 1/1.2)),
-            ("Reset",        "Ctrl+0", self._reset_zoom),
+            (self.tr("Zoom +"),       None,     lambda: self.view.scale(1.2, 1.2)),
+            (self.tr("Zoom −"),       None,     lambda: self.view.scale(1/1.2, 1/1.2)),
+            (self.tr("Reset"),        "Ctrl+0", self._reset_zoom),
         ]
         for name, shortcut, fn in actions:
             if name == '|':
@@ -604,7 +605,7 @@ class MainWindow(QMainWindow):
             if name == '__TOOLS__':
                 tb.addWidget(self._build_tools_button())
                 continue
-            act = QAction(self.tr(name), self)
+            act = QAction(name, self)
             if shortcut:
                 act.setShortcut(shortcut)
             act.triggered.connect(fn)
@@ -639,7 +640,9 @@ class MainWindow(QMainWindow):
         dlg = SettingsDialog(THEME_MANAGER, COLORS,
                              parent=self,
                              current_theme_id=THEME_MANAGER.load_selection(),
-                             on_theme_change=self._apply_theme_change)
+                             on_theme_change=self._apply_theme_change,
+                             current_language=THEME_MANAGER.load_language(),
+                             on_language_change=self._apply_language_change)
         dlg.exec()
 
     def _apply_theme_change(self, theme_id: str):
@@ -650,6 +653,13 @@ class MainWindow(QMainWindow):
         meta = THEME_MANAGER.get_theme_meta(applied)
         if meta:
             self.statusBar().showMessage(self.tr("Theme applied: {name}").format(name=meta['name']), 3000)
+
+    def _apply_language_change(self, language: str):
+        """Save the language selection; Qt reloads translated widgets at startup."""
+        if THEME_MANAGER.save_language(language):
+            QMessageBox.information(
+                self, self.tr("Language"),
+                self.tr("Language saved. Restart OhmPy to apply it."))
 
     def _refresh_theme_in_ui(self):
         """Re-aplica stylesheet y fuerza redibujo del canvas tras cambiar tema."""
@@ -671,7 +681,7 @@ class MainWindow(QMainWindow):
 
         # ── Categorías de componentes ────────────────────────────────────
         categories = [
-            ("Passive", [
+            (self.tr("Passive"), [
                 ('R',    'Resistor',      '━┤ZZZ├━'),
                 ('POT',  'Potentiometer', '━┤Z↗├━'),
                 ('C',    'Capacitor',     '━┤  ├━'),
@@ -679,12 +689,12 @@ class MainWindow(QMainWindow):
                 ('Z',    'Impedance',     '━┤▭├━'),
                 ('XFMR', 'Transformer',   '⌇⌇'),
             ]),
-            ("Sources", [
+            (self.tr("Sources"), [
                 ('V',   'DC Voltage Source',  '━(+)━'),
                 ('VAC', 'AC Voltage Source',  '━(~)━'),
                 ('I',   'Current Source',     '━(→)━'),
             ]),
-            ("Semiconductors", [
+            (self.tr("Semiconductors"), [
                 ('D',       'Diode',                 '━|▷|━'),
                 ('LED',     'LED',                   '━|▷|★'),
                 ('BRIDGE',  'Bridge rectifier',      '◇'),
@@ -695,18 +705,18 @@ class MainWindow(QMainWindow):
                 ('OPAMP',   'Op-Amp (ideal)',         '━[▷]━'),
                 ('TL082',   'TL082 (op-amp dual)',   '━[▷²]━'),
             ]),
-            ("Reference", [
+            (self.tr("Reference"), [
                 ('GND',          'Ground',          '⏚'),
                 ('NODE',         'Node',            '•'),
                 ('NET_LABEL_IN',  'Input Net Label', '→▷'),
                 ('NET_LABEL_OUT', 'Output Net Label', '◁→'),
             ]),
-            ("Instruments", [
+            (self.tr("Instruments"), [
                 ('FGEN', 'Function generator', '⎍'),
                 ('OSC',  'Oscilloscope (2 channels)', '∿▥'),
                 ('MULTIMETER', 'Multimeter', '[V/A]'),
             ]),
-            ("Digital", [
+            (self.tr("Digital"), [
                 ('AND',       'AND Gate',       '&'),
                 ('OR',        'OR Gate',        '≥1'),
                 ('NOT',       'NOT Gate',       '○'),
@@ -719,7 +729,7 @@ class MainWindow(QMainWindow):
                 ('SRFF',      'Flip-flop SR',   '▣SR'),
                 ('COUNTER',   'Contador binario','#'),
                 ('MUX2',      'Multiplexor 2:1','⊞'),
-                ('IC555',     'NE555 Timer',    '⌛'),
+                ('IC555',     'NE555 Timer',    '▣555'),
                 ('LOGIC_STATE','Logic State',   '0/1'),
                 ('CLK',       'Clock (CLK)',    '⏲'),
             ]),
@@ -1114,20 +1124,20 @@ class MainWindow(QMainWindow):
         #    converge al instante en cada paso, no necesita transient).
         if flags.has_bridges or bool(flags.implicit_boundary_nodes):
             self.run_btn.setChecked(False)
-            self.run_btn.setText("▶  SIMULAR")
+            self.run_btn.setText(self.tr("▶  SIMULATE"))
             self._run_simulation_auto(flags, pin_node)
         elif flags.has_ac:
             self._start_live_transient(flags, pin_node)
         elif flags.has_dc or flags.has_digital:
             self._sim_running = True
             self._sim_mode    = 'dc_tick'
-            self.run_btn.setText("■  DETENER")
+            self.run_btn.setText(self.tr("■  STOP"))
             self._sim_timer.setInterval(self._DC_TICK_MS)
             self._sim_timer.start()
             self._run_simulation_dc()
         else:
             self.run_btn.setChecked(False)
-            self.run_btn.setText("▶  SIMULAR")
+            self.run_btn.setText(self.tr("▶  SIMULATE"))
             self.results_text.setPlainText(self.tr(
                 "⚠  No components were found to simulate.\n"
                 "Add components to the canvas and connect them to ground."))
@@ -1147,7 +1157,7 @@ class MainWindow(QMainWindow):
         self._live_tick_count     = 0
         self._live_phasor_summary = ""
         self.run_btn.setChecked(False)
-        self.run_btn.setText("▶  SIMULAR")
+        self.run_btn.setText(self.tr("▶  SIMULATE"))
         for sheet in self._sheets:
             for item in sheet['scene'].components:
                 if item.comp_type == 'LED':
@@ -1257,7 +1267,7 @@ class MainWindow(QMainWindow):
         # circuito puramente lineal.
         self._live_nr_max = 40 if flags.has_nonlinear else 20
 
-        self.run_btn.setText("■  DETENER")
+        self.run_btn.setText(self.tr("■  STOP"))
         self.run_btn.setChecked(True)
         self._sim_timer.setInterval(self._LIVE_TICK_MS)
         self._sim_timer.start()
@@ -1581,15 +1591,23 @@ class MainWindow(QMainWindow):
                          f"∠{_cmath.phase(V)*180/_cmath.pi:.2f}°")
         tot = ac_result.get('total', {})
         if tot:
+            fp_type = self._localized_power_factor_type(tot.get('fp_type', ''))
             lines += [
                 "",
-                "── Total power ──",
+                self.tr("── Total power ──"),
                 f"  P={tot.get('P',0):+.4f} W  Q={tot.get('Q',0):+.4f} VAR",
                 f"  S={tot.get('S',0):.4f} VA  fp={tot.get('fp',0):.4f} "
-                f"({tot.get('fp_type','')})",
+                f"({fp_type})",
             ]
         lines.append("")
         return "\n".join(lines)
+
+    def _localized_power_factor_type(self, value: str) -> str:
+        return {
+            'inductive': self.tr('inductive'),
+            'capacitive': self.tr('capacitive'),
+            'unity': self.tr('unity'),
+        }.get(value, value)
 
     def _run_simulation_auto(self, flags=None, pin_node=None):
         """Corre DC + AC + mixto según flags y muestra todo en un panel."""
@@ -1726,9 +1744,10 @@ class MainWindow(QMainWindow):
                         out.append(f"  V({node}) = {abs(V):.4f} V  ∠{_cmath.phase(V)*180/_cmath.pi:.2f}°")
                     t = ac.get("total", {})
                     if t:
-                        out += ["", "── Total power ──",
+                        fp_type = self._localized_power_factor_type(t.get('fp_type', ''))
+                        out += ["", self.tr("── Total power ──"),
                                 f"  P={t.get('P',0):+.4f} W  Q={t.get('Q',0):+.4f} VAR",
-                                f"  S={t.get('S',0):.4f} VA  fp={t.get('fp',0):.4f} ({t.get('fp_type','')})"]
+                                f"  S={t.get('S',0):.4f} VA  fp={t.get('fp',0):.4f} ({fp_type})"]
                     self._last_ac_result = ac
                     self.btn_power_triangle.setVisible(True)
                 else:
@@ -2624,7 +2643,7 @@ class MainWindow(QMainWindow):
         out.append(f"  P  = {t['P']:+.4f} W      (real/active power)")
         out.append(f"  Q  = {t['Q']:+.4f} VAR    (reactive power)")
         out.append(f"  S  = {t['S']:.4f} VA     (apparent power)")
-        out.append(f"  fp = {t['fp']:.4f}  ({t['fp_type']})")
+        out.append(f"  fp = {t['fp']:.4f}  ({self._localized_power_factor_type(t['fp_type'])})")
         out.append("")
         out.append(self.tr("  [Click '📐 View Power Triangle']"))
 
@@ -3261,6 +3280,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("OhmPy")
     app.setStyle("Fusion")
+    load_translator(app, THEME_MANAGER.load_language())
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

@@ -112,7 +112,7 @@ class HardwareStreamThread(QThread):
         """Genera una onda configurable y la entrega como si viniera de un
         puerto real. Útil para desarrollar/depurar sin hardware. La forma
         de onda se selecciona en `cfg['mock_wave']`."""
-        wave = self.cfg.get('mock_wave', 'Senoidal')
+        wave = self.cfg.get('mock_wave', 'sine')
         f = float(self.cfg.get('mock_freq', 1000.0))
         amp = float(self.cfg.get('mock_amp', 1.0))
         rate = float(self.cfg.get('mock_rate', 50_000.0))
@@ -133,18 +133,18 @@ class HardwareStreamThread(QThread):
             vb = []
             for t in ts:
                 phase = (t / period) % 1.0
-                if wave.startswith('Cuadr'):
+                if wave == 'square':
                     y = amp if phase < 0.5 else -amp
-                elif wave.startswith('Triang'):
+                elif wave == 'triangle':
                     y = (4.0 * amp) * (phase if phase < 0.5 else (1.0 - phase)) - amp
                 else:
                     y = amp * math.sin(2.0 * math.pi * phase)
                 va.append(y)
                 # Canal B: misma onda con desfase de 90° (cuadratura)
                 phase_b = (t / period + 0.25) % 1.0
-                if wave.startswith('Cuadr'):
+                if wave == 'square':
                     yb = amp if phase_b < 0.5 else -amp
-                elif wave.startswith('Triang'):
+                elif wave == 'triangle':
                     yb = (4.0 * amp) * (phase_b if phase_b < 0.5 else (1.0 - phase_b)) - amp
                 else:
                     yb = amp * math.sin(2.0 * math.pi * phase_b)

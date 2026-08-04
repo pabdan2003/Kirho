@@ -95,7 +95,7 @@ class FunctionGeneratorDialog(QDialog):
     def __init__(self, item: 'ComponentItem', parent=None):
         super().__init__(parent)
         self.item = item
-        self.setWindowTitle(f"Generador de funciones — {item.name}")
+        self.setWindowTitle(self.tr("Function Generator — {name}").format(name=item.name))
         # No-modal y siempre on top para imitar al instrumento de Multisim.
         self.setModal(False)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.Tool)
@@ -112,7 +112,7 @@ class FunctionGeneratorDialog(QDialog):
         root.setSpacing(8)
 
         # Cabecera con nombre
-        header = QLabel(f"<b>{self.item.name}</b> — Function Generator")
+        header = QLabel(self.tr("<b>{name}</b> — Function Generator").format(name=self.item.name))
         header.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
         root.addWidget(header)
 
@@ -165,14 +165,14 @@ class FunctionGeneratorDialog(QDialog):
         self.sb_offset.setRange(-1e6, 1e6)
         self.sb_offset.setDecimals(3)
         self.sb_offset.setSuffix(" V")
-        form.addRow("Offset DC:", self.sb_offset)
+        form.addRow(self.tr("DC offset:"), self.sb_offset)
 
         # Duty (% — habilitado sólo si waveform == 'square')
         self.sb_duty = QDoubleSpinBox()
         self.sb_duty.setRange(1.0, 99.0)
         self.sb_duty.setDecimals(1)
         self.sb_duty.setSuffix(" %")
-        form.addRow("Duty cycle:", self.sb_duty)
+        form.addRow(self.tr("Duty cycle:"), self.sb_duty)
 
         # Fase
         self.sb_phase = QDoubleSpinBox()

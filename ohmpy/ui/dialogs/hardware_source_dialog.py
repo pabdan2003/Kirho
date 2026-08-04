@@ -55,7 +55,7 @@ class HardwareSourceDialog(QDialog):
     def __init__(self, current_config: dict, colors: dict, parent=None):
         super().__init__(parent)
         self.colors = colors
-        self.setWindowTitle('Hardware — Osciloscopio')
+        self.setWindowTitle(self.tr('Hardware — Oscilloscope'))
         self.setModal(True)
         self._result: Optional[dict] = None
         self._cfg = dict(current_config) if current_config else {}
@@ -67,25 +67,25 @@ class HardwareSourceDialog(QDialog):
     def _build_ui(self):
         root = QVBoxLayout(self)
 
-        gb_port = QGroupBox('Puerto')
+        gb_port = QGroupBox(self.tr('Port'))
         form_port = QFormLayout(gb_port)
         self.cb_port = QComboBox()
         self.cb_port.setMinimumWidth(160)
         self._refresh_ports()
         self.btn_refresh = QPushButton('↻')
         self.btn_refresh.setFixedWidth(28)
-        self.btn_refresh.setToolTip('Refrescar lista de puertos')
+        self.btn_refresh.setToolTip(self.tr('Refresh port list'))
         self.btn_refresh.clicked.connect(self._refresh_ports)
         port_row = QHBoxLayout()
         port_row.addWidget(self.cb_port, 1)
         port_row.addWidget(self.btn_refresh)
         port_w = QWidget(); port_w.setLayout(port_row)
-        form_port.addRow('Puerto:', port_w)
+        form_port.addRow(self.tr('Port:'), port_w)
 
         self.cb_baud = QComboBox()
         for b in ('115200', '230400', '460800', '921600', '1000000', '2000000'):
             self.cb_baud.addItem(b, int(b))
-        form_port.addRow('Baudrate:', self.cb_baud)
+        form_port.addRow(self.tr('Baud rate:'), self.cb_baud)
 
         info = QLabel(
             self.tr('<small>For USB-CDC (Pico / STM32 / native USB Arduino), '
@@ -122,10 +122,12 @@ class HardwareSourceDialog(QDialog):
         root.addWidget(gb_cal)
 
         # Mock device: ajuste rápido de forma de onda para pruebas sin HW.
-        gb_mock = QGroupBox('Mock device (si elegiste ⟨Mock device⟩)')
+        gb_mock = QGroupBox(self.tr('Mock device (when ⟨Mock device⟩ is selected)'))
         form_mock = QFormLayout(gb_mock)
         self.cb_mock_wave = QComboBox()
-        self.cb_mock_wave.addItems([self.tr('Sine'), self.tr('Square'), self.tr('Triangle')])
+        self.cb_mock_wave.addItem(self.tr('Sine'), 'sine')
+        self.cb_mock_wave.addItem(self.tr('Square'), 'square')
+        self.cb_mock_wave.addItem(self.tr('Triangle'), 'triangle')
         form_mock.addRow(self.tr('Waveform A:'), self.cb_mock_wave)
         self.sb_mock_freq = QDoubleSpinBox()
         self.sb_mock_freq.setRange(0.1, 1e6); self.sb_mock_freq.setDecimals(2)
@@ -134,11 +136,11 @@ class HardwareSourceDialog(QDialog):
         self.sb_mock_amp = QDoubleSpinBox()
         self.sb_mock_amp.setRange(0.0, 100.0); self.sb_mock_amp.setDecimals(3)
         self.sb_mock_amp.setValue(1.0); self.sb_mock_amp.setSuffix(' V')
-        form_mock.addRow('Amplitud A:', self.sb_mock_amp)
+        form_mock.addRow(self.tr('Channel A amplitude:'), self.sb_mock_amp)
         self.sb_mock_rate = QDoubleSpinBox()
         self.sb_mock_rate.setRange(100.0, 1e6); self.sb_mock_rate.setDecimals(0)
         self.sb_mock_rate.setValue(50000.0); self.sb_mock_rate.setSuffix(' Sps')
-        form_mock.addRow('Sample rate:', self.sb_mock_rate)
+        form_mock.addRow(self.tr('Sample rate:'), self.sb_mock_rate)
         root.addWidget(gb_mock)
 
         # Si pyserial no está instalado, deshabilitamos puerto/baud y
@@ -187,25 +189,25 @@ class HardwareSourceDialog(QDialog):
         """)
 
     def _refresh_ports(self):
-        current = self.cb_port.currentText() if self.cb_port.count() else ''
+        current = self.cb_port.currentData() if self.cb_port.count() else ''
         self.cb_port.clear()
-        self.cb_port.addItem(MOCK_PORT_LABEL)
+        self.cb_port.addItem(MOCK_PORT_LABEL, MOCK_PORT_LABEL)
         for p in _list_serial_ports():
-            self.cb_port.addItem(p)
+            self.cb_port.addItem(p, p)
         # Restaurar selección previa si todavía existe
-        idx = self.cb_port.findText(current) if current else -1
+        idx = self.cb_port.findData(current) if current else -1
         if idx >= 0:
             self.cb_port.setCurrentIndex(idx)
 
     def _load_from_cfg(self):
         c = self._cfg
         port = c.get('port', MOCK_PORT_LABEL)
-        idx = self.cb_port.findText(port)
+        idx = self.cb_port.findData(port)
         if idx >= 0:
             self.cb_port.setCurrentIndex(idx)
         else:
             # Puerto guardado ya no existe: agregarlo deshabilitado en el combo
-            self.cb_port.addItem(f'{port} (no disponible)')
+            self.cb_port.addItem(self.tr('{port} (unavailable)').format(port=port), port)
             self.cb_port.setCurrentIndex(self.cb_port.count() - 1)
         baud = c.get('baud', 921600)
         i = self.cb_baud.findData(int(baud))
@@ -216,8 +218,9 @@ class HardwareSourceDialog(QDialog):
         self.sb_gain_b.setValue(float(c.get('gain_b', 1.0)))
         self.sb_off_b.setValue(float(c.get('offset_b', 0.0)))
         # Mock
-        wave = c.get('mock_wave', 'Senoidal')
-        i = self.cb_mock_wave.findText(wave)
+        wave = {'Senoidal': 'sine', 'Cuadrada': 'square', 'Triangular': 'triangle'}.get(
+            c.get('mock_wave', 'sine'), c.get('mock_wave', 'sine'))
+        i = self.cb_mock_wave.findData(wave)
         if i >= 0:
             self.cb_mock_wave.setCurrentIndex(i)
         self.sb_mock_freq.setValue(float(c.get('mock_freq', 1000.0)))
@@ -225,10 +228,7 @@ class HardwareSourceDialog(QDialog):
         self.sb_mock_rate.setValue(float(c.get('mock_rate', 50000.0)))
 
     def _accept(self):
-        port_text = self.cb_port.currentText()
-        if port_text.endswith('(no disponible)'):
-            # Limpiar el sufijo informativo
-            port_text = port_text.split(' (')[0]
+        port_text = self.cb_port.currentData() or self.cb_port.currentText()
         self._result = {
             'port':       port_text,
             'baud':       int(self.cb_baud.currentData()),
@@ -236,7 +236,7 @@ class HardwareSourceDialog(QDialog):
             'offset_a':   float(self.sb_off_a.value()),
             'gain_b':     float(self.sb_gain_b.value()),
             'offset_b':   float(self.sb_off_b.value()),
-            'mock_wave':  self.cb_mock_wave.currentText(),
+            'mock_wave':  self.cb_mock_wave.currentData(),
             'mock_freq':  float(self.sb_mock_freq.value()),
             'mock_amp':   float(self.sb_mock_amp.value()),
             'mock_rate':  float(self.sb_mock_rate.value()),

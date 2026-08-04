@@ -65,8 +65,34 @@ class ComponentPickerDialog(QDialog):
         left = QVBoxLayout()
         self.list_widget = QListWidget()
         self.list_widget.setFont(QFont('Menlo', 10))
+        names = {
+            'AND Gate': self.tr('AND Gate'), 'OR Gate': self.tr('OR Gate'),
+            'NOT Gate': self.tr('NOT Gate'), 'NAND Gate': self.tr('NAND Gate'),
+            'NOR Gate': self.tr('NOR Gate'), 'XOR Gate': self.tr('XOR Gate'),
+            'Flip-flop D': self.tr('Flip-flop D'), 'Flip-flop JK': self.tr('Flip-flop JK'),
+            'Flip-flop T': self.tr('Flip-flop T'), 'Flip-flop SR': self.tr('Flip-flop SR'),
+            'Binary counter': self.tr('Binary counter'),
+            'Multiplexer 2:1': self.tr('Multiplexer 2:1'),
+            'Logic State': self.tr('Logic State'), 'Clock (CLK)': self.tr('Clock (CLK)'),
+            'Resistor': self.tr('Resistor'), 'Potentiometer': self.tr('Potentiometer'),
+            'Capacitor': self.tr('Capacitor'), 'Inductor': self.tr('Inductor'),
+            'Impedance': self.tr('Impedance'), 'Transformer': self.tr('Transformer'),
+            'DC Voltage Source': self.tr('DC Voltage Source'),
+            'AC Voltage Source': self.tr('AC Voltage Source'),
+            'Current Source': self.tr('Current Source'), 'Diode': self.tr('Diode'),
+            'Bridge rectifier': self.tr('Bridge rectifier'), 'BJT NPN': self.tr('BJT NPN'),
+            'BJT PNP': self.tr('BJT PNP'), 'MOSFET N': self.tr('MOSFET N'),
+            'MOSFET P': self.tr('MOSFET P'), 'Op-Amp (ideal)': self.tr('Op-Amp (ideal)'),
+            'TL082 (op-amp dual)': self.tr('TL082 (op-amp dual)'),
+            'Ground': self.tr('Ground'), 'Node': self.tr('Node'),
+            'Input Net Label': self.tr('Input Net Label'),
+            'Output Net Label': self.tr('Output Net Label'),
+            'Function generator': self.tr('Function generator'),
+            'Oscilloscope (2 channels)': self.tr('Oscilloscope (2 channels)'),
+            'Multimeter': self.tr('Multimeter'), 'NE555 Timer': self.tr('NE555 Timer'),
+        }
         for ctype, label, sym in self._components:
-            item = QListWidgetItem(f"{sym}   {label}")
+            item = QListWidgetItem(f"{sym}   {names.get(label, label)}")
             item.setData(Qt.ItemDataRole.UserRole, ctype)
             self.list_widget.addItem(item)
         self.list_widget.currentRowChanged.connect(self._update_preview)
