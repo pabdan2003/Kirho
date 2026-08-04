@@ -1097,6 +1097,15 @@ class MainWindow(QMainWindow):
         # motores (DC/AC/digital/mixto). No-op si no hay subcircuitos.
         return expand_subcircuits(comps, pin_node)
 
+    @staticmethod
+    def _is_digital_indicator_circuit(items) -> bool:
+        return bool(items) and all(
+            item.comp_type in ComponentItem.DIGITAL_TYPES | {
+                'LED', 'GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT'
+            }
+            for item in items
+        )
+
     def _toggle_simulation(self, checked: bool):
         """Analiza el circuito y despacha automáticamente al solver correcto."""
         if not checked:
@@ -1122,7 +1131,10 @@ class MainWindow(QMainWindow):
         #    live transient continuo (estilo Multisim interactivo).
         # 3. Solo DC o digital: tick DC continuo (más rápido — el sistema
         #    converge al instante en cada paso, no necesita transient).
-        if flags.has_bridges or bool(flags.implicit_boundary_nodes):
+        digital_indicator_circuit = (
+            flags.has_digital and self._is_digital_indicator_circuit(all_comps)
+        )
+        if (flags.has_bridges or bool(flags.implicit_boundary_nodes)) and not digital_indicator_circuit:
             self.run_btn.setChecked(False)
             self.run_btn.setText(self.tr("▶  SIMULATE"))
             self._run_simulation_auto(flags, pin_node)
