@@ -1,5 +1,5 @@
 """
-PyNode — Simulador de circuitos open source
+OhmPy — Simulador de circuitos open source
 GUI principal con canvas drag-and-drop, PyQt6
 """
 
@@ -30,22 +30,22 @@ from PyQt6.QtCore import (
 )
 
 # Motor MNA
-from pynode.engine import Resistor, VoltageSource, VoltageSourceAC, CurrentSource, MNASolver
-from pynode.circuit_analyzer import (
+from ohmpy.engine import Resistor, VoltageSource, VoltageSourceAC, CurrentSource, MNASolver
+from ohmpy.circuit_analyzer import (
     CircuitAnalyzer, DEFAULT_STANDARD,
 )
-from pynode.ui.component_metadata import (
+from ohmpy.ui.component_metadata import (
     COMPONENT_NODE_LABELS,
     DEFAULT_NODE_LABELS,
     DIGITAL_FLIPFLOP_TYPES,
     DIGITAL_GATE_TYPES,
     FOUR_PIN_NODE_LABELS,
 )
-from pynode.ui.dialogs.component_dialog import ComponentDialog
-from pynode.ui.dialogs.component_picker_dialog import ComponentPickerDialog
-from pynode.ui.dialogs.power_triangle_dialog import PowerTriangleDialog
-from pynode.ui.dialogs.resistor_calc_dialog import ResistorCalcDialog
-from pynode.ui.dialogs.settings_dialog import SettingsDialog
+from ohmpy.ui.dialogs.component_dialog import ComponentDialog
+from ohmpy.ui.dialogs.component_picker_dialog import ComponentPickerDialog
+from ohmpy.ui.dialogs.power_triangle_dialog import PowerTriangleDialog
+from ohmpy.ui.dialogs.resistor_calc_dialog import ResistorCalcDialog
+from ohmpy.ui.dialogs.settings_dialog import SettingsDialog
 
 
 # ══════════════════════════════════════════════════════════════
@@ -54,8 +54,8 @@ from pynode.ui.dialogs.settings_dialog import SettingsDialog
 # Reexportados desde ui.style para mantener compatibilidad con el resto
 # del código de main.py (y para que el import de este módulo dispare la
 # carga del tema inicial).
-from pynode.ui import style as _style
-from pynode.ui.style import (
+from ohmpy.ui import style as _style
+from ohmpy.ui.style import (
     GRID_SIZE, COMP_W, COMP_H, PIN_RADIUS,
     COLORS, THEME_MANAGER, apply_theme_to_colors,
     _qfont, theme_revision,
@@ -66,14 +66,14 @@ from pynode.ui.style import (
 # ══════════════════════════════════════════════════════════════
 # ÍTEMS GRÁFICOS DEL CANVAS (extraídos)
 # ══════════════════════════════════════════════════════════════
-from pynode.ui.items.component_item import ComponentItem
-from pynode.ui.items.wire_item import WireItem
+from ohmpy.ui.items.component_item import ComponentItem
+from ohmpy.ui.items.wire_item import WireItem
 
         
 # ══════════════════════════════════════════════════════════════
 # ESCENA DEL CIRCUITO (extraída)
 # ══════════════════════════════════════════════════════════════
-from pynode.ui.scene import (
+from ohmpy.ui.scene import (
     CircuitScene, build_engine_components_for_item, expand_subcircuits,
 )
 
@@ -145,7 +145,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PyNode — Simulador de Circuitos")
+        self.setWindowTitle("OhmPy — Simulador de Circuitos")
         self.resize(1280, 800)
         self.solver = MNASolver()
         self._sim_running = False
@@ -365,7 +365,7 @@ class MainWindow(QMainWindow):
         # Import perezoso: el diálogo importa símbolos de main.py (ComponentItem,
         # WireItem, COLORS, etc.), por eso se carga en el momento de uso para
         # evitar una importación circular en tiempo de carga del módulo.
-        from pynode.ui.dialogs.circuit_analyzer_dialog import CircuitAnalyzerDialog
+        from ohmpy.ui.dialogs.circuit_analyzer_dialog import CircuitAnalyzerDialog
         state = getattr(self, '_analyzer_state', None)
         dlg = CircuitAnalyzerDialog(parent=self, initial_state=state)
         dlg.exec()
@@ -379,7 +379,7 @@ class MainWindow(QMainWindow):
         """Abre el analizador de Bode (barrido AC + plots de magnitud y fase).
         No-modal: se puede dejar abierto mientras editas el circuito y
         recalcular al gusto."""
-        from pynode.ui.dialogs.bode_dialog import BodeDialog
+        from ohmpy.ui.dialogs.bode_dialog import BodeDialog
         dlg = BodeDialog(self.scene, COLORS, parent=self)
         dlg.show()
 
@@ -859,7 +859,7 @@ class MainWindow(QMainWindow):
 
     def _show_subcircuit_picker(self):
         """Lista los subcircuitos de la biblioteca y activa colocación."""
-        from pynode.subcircuit_manager import SUBCIRCUIT_MANAGER
+        from ohmpy.subcircuit_manager import SUBCIRCUIT_MANAGER
         SUBCIRCUIT_MANAGER.refresh()
         subs = SUBCIRCUIT_MANAGER.list_subcircuits()
         if not subs:
@@ -885,7 +885,7 @@ class MainWindow(QMainWindow):
         `sheet_label` único se convierte en un pin (NET_LABEL_IN → entrada,
         NET_LABEL_OUT → salida, ambos → bidireccional).
         """
-        from pynode.subcircuit_manager import SUBCIRCUIT_MANAGER
+        from ohmpy.subcircuit_manager import SUBCIRCUIT_MANAGER
         scene = self.scene
         _LBL = ('NET_LABEL_IN', 'NET_LABEL_OUT')
         label_items = [c for c in scene.components if c.comp_type in _LBL
@@ -1166,7 +1166,7 @@ class MainWindow(QMainWindow):
         self._toggle_simulation(True)
 
     def _build_analog_components(self, items, pin_node):
-        from pynode.engine.components import Timer555Analog
+        from ohmpy.engine.components import Timer555Analog
         components, errors = [], []
         for item in items:
             if item.comp_type == 'IC555':
@@ -1583,11 +1583,11 @@ class MainWindow(QMainWindow):
     def _run_simulation_auto(self, flags=None, pin_node=None):
         """Corre DC + AC + mixto según flags y muestra todo en un panel."""
         from PyQt6.QtWidgets import QApplication
-        from pynode.engine.digital_engine import (
+        from ohmpy.engine.digital_engine import (
             DigitalSimulator, Gate, Timer555, DFF, JKFF, TFF, SRFF, BinaryCounter, MUX,
         )
-        from pynode.engine.bridges import ADC, DAC, ComparatorBridge, PWMBridge
-        from pynode.engine.mixed_signal import MixedSignalInterface
+        from ohmpy.engine.bridges import ADC, DAC, ComparatorBridge, PWMBridge
+        from ohmpy.engine.mixed_signal import MixedSignalInterface
         import cmath as _cmath
 
         if pin_node is None:
@@ -2836,7 +2836,7 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self._clear_all_sheets()
             self._current_file = None
-            self.setWindowTitle("PyNode — Simulador de Circuitos")
+            self.setWindowTitle("OhmPy — Simulador de Circuitos")
             self._load_demo_circuit()
 
     def _clear_circuit(self):
@@ -2862,7 +2862,7 @@ class MainWindow(QMainWindow):
         self._add_sheet(name="Hoja 1")
         self.results_text.clear()
         self._current_file = None
-        self.setWindowTitle("PyNode — Simulador de Circuitos")
+        self.setWindowTitle("OhmPy — Simulador de Circuitos")
 
     # ── Serialización de una hoja ─────────────────
     def _serialize_sheet(self, scene: CircuitScene) -> dict:
@@ -3089,7 +3089,7 @@ class MainWindow(QMainWindow):
         if not path:
             path, _ = QFileDialog.getSaveFileName(
                 self, "Guardar circuito", "",
-                "PyNode (*.csin);;Todos los archivos (*)"
+                "OhmPy (*.csin);;Todos los archivos (*)"
             )
         if not path:
             return
@@ -3108,14 +3108,14 @@ class MainWindow(QMainWindow):
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         self._current_file = path
-        self.setWindowTitle(f"PyNode — {os.path.basename(path)}")
+        self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
         self.statusBar().showMessage(f"Guardado: {path}")
 
     # ── Guardar como (.csin) ─────────────────────
     def _save_circuit_as(self):
         path, _ = QFileDialog.getSaveFileName(
             self, "Guardar circuito como", "",
-            "PyNode (*.csin);;Todos los archivos (*)"
+            "OhmPy (*.csin);;Todos los archivos (*)"
         )
         if not path:
             return
@@ -3128,7 +3128,7 @@ class MainWindow(QMainWindow):
     def _open_circuit(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Abrir circuito", "",
-            "PyNode (*.csin);;Todos los archivos (*)"
+            "OhmPy (*.csin);;Todos los archivos (*)"
         )
         if not path:
             return
@@ -3159,7 +3159,7 @@ class MainWindow(QMainWindow):
             self._load_sheet_data(scene, sd)
 
         self._current_file = path
-        self.setWindowTitle(f"PyNode — {os.path.basename(path)}")
+        self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
         self.statusBar().showMessage(f"Abierto: {path}")
 
     # ── Exportar netlist SPICE (.net) ────────────
@@ -3174,7 +3174,7 @@ class MainWindow(QMainWindow):
             path += '.net'
 
         lines = []
-        lines.append(f"* PyNode — Netlist exportado")
+        lines.append(f"* OhmPy — Netlist exportado")
         lines.append(f"* Archivo: {os.path.basename(path)}")
         lines.append("")
 
@@ -3243,7 +3243,7 @@ class MainWindow(QMainWindow):
 # ══════════════════════════════════════════════════════════════
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("PyNode")
+    app.setApplicationName("OhmPy")
     app.setStyle("Fusion")
     window = MainWindow()
     window.show()

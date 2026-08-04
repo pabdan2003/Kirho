@@ -1,0 +1,24 @@
+{
+  "name": "Scarlet Web",
+  "description": "Tema nocturno de alto contraste con escarlata, azul eléctrico y acentos dorados.",
+  "colors": {
+    "bg":         "#080B14",
+    "grid":       "#10192B",
+    "grid_line":  "#1B2B47",
+    "component":  "#EF233C",
+    "comp_body":  "#121A2B",
+    "comp_sel":   "#48BFE3",
+    "wire":       "#48BFE3",
+    "wire_sel":   "#FFD166",
+    "node_dot":   "#48BFE3",
+    "text":       "#F7F9FC",
+    "text_dim":   "#8B9BB4",
+    "pin":        "#FFD166",
+    "gnd":        "#77DDF2",
+    "toolbar":    "#101827",
+    "panel":      "#121A2B",
+    "panel_brd":  "#293B5B",
+    "voltage":    "#FFD166",
+    "current":    "#48BFE3"
+  }
+}

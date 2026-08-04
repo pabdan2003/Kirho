@@ -14,12 +14,12 @@ Para crear un tema instalable por separado basta con:
      `mi_tema.json`, y modificar los colores que quieras.
   2. Colocarlo en una de las carpetas de búsqueda:
        - `<directorio_del_programa>/themes/`
-       - `~/.pynode/themes/`
+       - `~/.ohmpy/themes/`
   3. Reiniciar la app — el tema aparecerá en el selector "Tema".
 
 Uso desde código:
 
-    from pynode.theme_manager import ThemeManager
+    from ohmpy.theme_manager import ThemeManager
     tm = ThemeManager()
     tm.refresh()                        # descubre temas externos
     tm.list_themes()                    # [{'id', 'name', 'source'}, …]
@@ -195,7 +195,7 @@ class ThemeManager:
 
     Búsqueda de temas externos en (en orden):
         1. <directorio_del_programa>/themes/*.json
-        2. ~/.pynode/themes/*.json
+        2. ~/.ohmpy/themes/*.json
     Si dos temas externos comparten id (nombre del archivo sin extensión)
     gana el primero encontrado.
     """
@@ -204,13 +204,13 @@ class ThemeManager:
 
     def __init__(self, app_dir: Optional[str] = None):
         if app_dir is None:
-            # theme_manager.py vive dentro del paquete `pynode/`. La carpeta
+            # theme_manager.py vive dentro del paquete `ohmpy/`. La carpeta
             # `themes/` está al lado del paquete, en la raíz del proyecto,
             # así que subimos un nivel.
             app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.app_dir = app_dir
 
-        self.user_dir   = os.path.join(os.path.expanduser('~'), '.pynode')
+        self.user_dir   = os.path.join(os.path.expanduser('~'), '.ohmpy')
         self.config_path = os.path.join(self.user_dir, self.CONFIG_FILENAME)
 
         # Caché de temas externos {id: theme_dict}
@@ -333,7 +333,7 @@ class ThemeManager:
 
     # ── Helpers para el usuario ─────────────────────────────────────────────
     def ensure_user_themes_dir(self) -> str:
-        """Crea ~/.pynode/themes/ si no existe y la devuelve."""
+        """Crea ~/.ohmpy/themes/ si no existe y la devuelve."""
         path = os.path.join(self.user_dir, 'themes')
         os.makedirs(path, exist_ok=True)
         return path

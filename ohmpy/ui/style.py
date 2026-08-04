@@ -9,7 +9,7 @@ from typing import Dict, Tuple, Optional
 
 from PyQt6.QtGui import QFont
 
-from pynode.theme_manager import ThemeManager, DEFAULT_THEME_ID
+from ohmpy.theme_manager import ThemeManager, DEFAULT_THEME_ID
 
 
 # ── Constantes geométricas ───────────────────────────────────────────────

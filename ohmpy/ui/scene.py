@@ -19,10 +19,10 @@ from PyQt6.QtWidgets import QGraphicsScene, QMenu, QDialog
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
 from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF, pyqtSignal
 
-from pynode.ui.style import COLORS, GRID_SIZE, PIN_RADIUS, theme_revision
-from pynode.ui.items.component_item import ComponentItem
-from pynode.ui.dialogs.component_dialog import ComponentDialog
-from pynode.ui.items.wire_item import WireItem
+from ohmpy.ui.style import COLORS, GRID_SIZE, PIN_RADIUS, theme_revision
+from ohmpy.ui.items.component_item import ComponentItem
+from ohmpy.ui.dialogs.component_dialog import ComponentDialog
+from ohmpy.ui.items.wire_item import WireItem
 
 
 # ══════════════════════════════════════════════════════════════
@@ -253,7 +253,7 @@ class CircuitScene(QGraphicsScene):
         # ── Selector de unidad para CIs duales (TL082) ──────────────────
         _tl082_unit = 'A'
         if comp_type == 'TL082' and not name:
-            from pynode.ui.dialogs.tl082_unit_dialog import TL082UnitDialog
+            from ohmpy.ui.dialogs.tl082_unit_dialog import TL082UnitDialog
             _parent = self.views()[0].parent() if self.views() else None
             dlg = TL082UnitDialog(_parent)
             if dlg.exec() != QDialog.DialogCode.Accepted:
@@ -339,7 +339,7 @@ class CircuitScene(QGraphicsScene):
     def _init_subckt_appearance(self, item):
         """Rellena ic_pins / ic_label de una instancia SUBCKT desde su
         definición en la biblioteca (si los overrides aún no existen)."""
-        from pynode.subcircuit_manager import SUBCIRCUIT_MANAGER
+        from ohmpy.subcircuit_manager import SUBCIRCUIT_MANAGER
         defn = SUBCIRCUIT_MANAGER.get(item.subckt_name)
         if not defn:
             return
@@ -605,14 +605,14 @@ class CircuitScene(QGraphicsScene):
                     self._open_instrument_panel(item)
                     return
                 if item.comp_type == 'PORT':
-                    from pynode.ui.dialogs.subcircuit_edit_dialog import PortEditDialog
+                    from ohmpy.ui.dialogs.subcircuit_edit_dialog import PortEditDialog
                     dlg = PortEditDialog(item, self.views()[0] if self.views() else None)
                     if dlg.exec() == QDialog.DialogCode.Accepted:
                         self.push_undo()
                         dlg.apply()
                     return
                 if item.comp_type == 'SUBCKT':
-                    from pynode.ui.dialogs.subcircuit_edit_dialog import SubcircuitAppearanceDialog
+                    from ohmpy.ui.dialogs.subcircuit_edit_dialog import SubcircuitAppearanceDialog
                     dlg = SubcircuitAppearanceDialog(item, self.views()[0] if self.views() else None)
                     if dlg.exec() == QDialog.DialogCode.Accepted:
                         self.push_undo()
@@ -1142,7 +1142,7 @@ class CircuitScene(QGraphicsScene):
             return
 
         if item.comp_type == 'FGEN':
-            from pynode.ui.dialogs.function_generator_dialog import FunctionGeneratorDialog
+            from ohmpy.ui.dialogs.function_generator_dialog import FunctionGeneratorDialog
             self.push_undo()
             dlg = FunctionGeneratorDialog(item, parent=None)
             item._panel_dialog = dlg
@@ -1151,7 +1151,7 @@ class CircuitScene(QGraphicsScene):
             return
 
         if item.comp_type == 'OSC':
-            from pynode.ui.dialogs.oscilloscope_dialog import OscilloscopeDialog
+            from ohmpy.ui.dialogs.oscilloscope_dialog import OscilloscopeDialog
             self.push_undo()
             dlg = OscilloscopeDialog(item, parent=None)
             item._panel_dialog = dlg
@@ -1162,7 +1162,7 @@ class CircuitScene(QGraphicsScene):
             return
 
         if item.comp_type == 'MULTIMETER':
-            from pynode.ui.dialogs.multimeter_dialog import MultimeterDialog
+            from ohmpy.ui.dialogs.multimeter_dialog import MultimeterDialog
             self.push_undo()
             dlg = MultimeterDialog(item, parent=None)
             item._panel_dialog = dlg
@@ -1298,7 +1298,7 @@ def _flatten_subckt(item, pin_node, _depth: int = 0) -> list:
     renombrando cada nodo interno con un prefijo por instancia y mapeando los
     nodos de puerto a la red externa conectada a cada pin del IC.
     """
-    from pynode.subcircuit_manager import SUBCIRCUIT_MANAGER
+    from ohmpy.subcircuit_manager import SUBCIRCUIT_MANAGER
     if _depth > 16:
         return []  # protección anti-recursión infinita
     defn = SUBCIRCUIT_MANAGER.get(getattr(item, 'subckt_name', ''))
@@ -1370,7 +1370,7 @@ def _expand_subckt_instance(item, pin_node: dict, _depth: int = 0):
     espaciados por instancia. Sirve para AMBOS motores (analógico y digital)
     porque produce ComponentItem normales con node1..5 y entradas en pin_node.
     """
-    from pynode.subcircuit_manager import SUBCIRCUIT_MANAGER
+    from ohmpy.subcircuit_manager import SUBCIRCUIT_MANAGER
     if _depth > 16:
         return [], {}
     defn = SUBCIRCUIT_MANAGER.get(getattr(item, 'subckt_name', ''))
@@ -1486,7 +1486,7 @@ def build_engine_components_for_item(item, pin_node):
       • XFMR    → 1 Transformer  (4 nodos).
       • BRIDGE  → 4 Diodes interconectados como puente.
     """
-    from pynode.engine import (
+    from ohmpy.engine import (
         Resistor, VoltageSource, VoltageSourceAC, CurrentSource,
         Capacitor, Inductor, Diode, BJT, MOSFET, OpAmp, Impedance,
         Potentiometer, Transformer,

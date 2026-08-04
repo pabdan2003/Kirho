@@ -1,8 +1,8 @@
-# OhmPy
+# OhmPy (legacy Spanish README)
 
 **Simulador de circuitos electrónicos open source — analógico, digital y señal mixta.**
 
-[Read in English](../README.md)
+[Read the English documentation in the project README](../README.md).
 
 OhmPy es un entorno de captura de esquemáticos y simulación construido en Python + PyQt6, con un motor MNA (Modified Nodal Analysis) propio que resuelve DC, AC y transitorios sobre el mismo netlist, e instrumentos virtuales (multímetro, osciloscopio de 2 canales y generador de funciones) integrados en el canvas.
 
@@ -54,7 +54,7 @@ puentes A/D. No todos están conectados al editor de esquemáticos.
 **Requisitos:** Python 3.10 o superior, Windows / Linux / macOS.
 
 ```bash
-git clone https://github.com/pabdan2003/PyNode.git OhmPy
+git clone https://github.com/pabdan2003/OhmPy.git OhmPy
 cd OhmPy
 python -m venv .venv
 # Windows
@@ -78,7 +78,7 @@ python main.py
 ### Ejemplo mínimo (motor desde Python)
 
 ```python
-from pynode.engine import Resistor, VoltageSource, MNASolver
+from ohmpy.engine import Resistor, VoltageSource, MNASolver
 
 solver = MNASolver()
 circuit = [
@@ -97,7 +97,7 @@ print(result["voltages"]["out"])  # 5.0 V
 ```
 OhmPy/
 ├── main.py                  # Entrypoint (lanza la ventana principal)
-├── pynode/                  # Paquete principal
+├── ohmpy/                  # Paquete principal
 │   ├── circuit_analyzer.py  # Clasificación del modo y detección de fronteras mixtas
 │   ├── theme_manager.py     # Carga y persistencia de temas
 │   ├── engine/
@@ -155,8 +155,8 @@ Las contribuciones son bienvenidas. Antes de abrir un PR:
 
 Mapas rápidos por paquete:
 
-- [`pynode/engine/README.md`](../pynode/engine/README.md) — qué hace cada archivo del motor.
-- [`pynode/ui/README.md`](../pynode/ui/README.md) — qué hace cada archivo de la UI.
+- [`ohmpy/engine/README.md`](../ohmpy/engine/README.md) — qué hace cada archivo del motor.
+- [`ohmpy/ui/README.md`](../ohmpy/ui/README.md) — qué hace cada archivo de la UI.
 - [`themes/README.md`](../themes/README.md) — formato JSON de los temas y cómo crear el tuyo.
 - [`firmware/README.md`](../firmware/README.md) — protocolo binario para la sonda física del osciloscopio.
 

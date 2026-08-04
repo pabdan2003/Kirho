@@ -2,7 +2,7 @@
 
 **Open-source electronic circuit simulator — analog, digital, and mixed-signal.**
 
-[Leer en español](docs/README.es.md)
+[Architecture guide](docs/architecture.md)
 
 OhmPy is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
 
@@ -55,7 +55,7 @@ into the schematic editor.
 **Requirements:** Python 3.10 or later; Windows, Linux, or macOS.
 
 ```bash
-git clone https://github.com/pabdan2003/PyNode.git OhmPy
+git clone https://github.com/pabdan2003/OhmPy.git OhmPy
 cd OhmPy
 python -m venv .venv
 # Windows
@@ -79,7 +79,7 @@ python main.py
 ### Minimal example (engine from Python)
 
 ```python
-from pynode.engine import Resistor, VoltageSource, MNASolver
+from ohmpy.engine import Resistor, VoltageSource, MNASolver
 
 solver = MNASolver()
 circuit = [
@@ -98,7 +98,7 @@ print(result["voltages"]["out"])  # 5.0 V
 ```
 OhmPy/
 ├── main.py                  # Entrypoint (opens the main window)
-├── pynode/                  # Main package
+├── ohmpy/                  # Main package
 │   ├── circuit_analyzer.py  # Simulation-mode classification and mixed-boundary detection
 │   ├── theme_manager.py     # Theme loading and persistence
 │   ├── engine/
@@ -156,8 +156,8 @@ Contributions are welcome. Before opening a pull request:
 
 Quick package maps:
 
-- [`pynode/engine/README.md`](pynode/engine/README.md) — purpose of each engine file.
-- [`pynode/ui/README.md`](pynode/ui/README.md) — purpose of each UI file.
+- [`ohmpy/engine/README.md`](ohmpy/engine/README.md) — purpose of each engine file.
+- [`ohmpy/ui/README.md`](ohmpy/ui/README.md) — purpose of each UI file.
 - [`themes/README.md`](themes/README.md) — JSON theme format and how to create one.
 - [`firmware/README.md`](firmware/README.md) — binary protocol for the physical oscilloscope probe.
 

@@ -4,7 +4,7 @@ Tests del motor MNA — DC y AC contra soluciones analíticas conocidas.
 import numpy as np
 import pytest
 
-from pynode.engine import (
+from ohmpy.engine import (
     Resistor, VoltageSource, VoltageSourceAC, CurrentSource,
     Capacitor, Impedance, MNASolver,
 )

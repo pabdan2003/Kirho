@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QSpinBox, QSplitter, QVBoxLayout, QWidget,
 )
 
-from pynode.engine import MNASolver
+from ohmpy.engine import MNASolver
 
 
 class PowerTriangleDialog(QDialog):

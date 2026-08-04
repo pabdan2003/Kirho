@@ -7,7 +7,7 @@ hoja como un único bloque tipo circuito integrado (componente 'SUBCKT').
 
 Carpetas de búsqueda (en orden):
     1. <directorio_del_programa>/subcircuits/*.sub.json
-    2. ~/.pynode/subcircuits/*.sub.json
+    2. ~/.ohmpy/subcircuits/*.sub.json
 
 Formato del archivo `.sub.json`:
 
@@ -45,7 +45,7 @@ class SubcircuitManager:
         if app_dir is None:
             app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.app_dir = app_dir
-        self.user_dir = os.path.join(os.path.expanduser('~'), '.pynode')
+        self.user_dir = os.path.join(os.path.expanduser('~'), '.ohmpy')
         self._cache: Dict[str, Dict] = {}   # name -> definition dict
         self._paths: Dict[str, str] = {}    # name -> source path
 

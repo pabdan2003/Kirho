@@ -4,14 +4,14 @@ Tests del motor digital, puentes A/D y simulación mixta.
 import pytest
 import numpy as np
 
-from pynode.engine import (
+from ohmpy.engine import (
     MNASolver, Resistor, VoltageSource, Capacitor,
     DigitalSimulator, AND, DFF, Timer555, BinaryCounter, ShiftRegister, Bus,
     ADC, DAC, ComparatorBridge, PWMBridge,
     MixedSignalInterface, TimingAnalyzer,
 )
-from pynode.engine.components import Timer555Analog
-from pynode.circuit_analyzer import CircuitAnalyzer
+from ohmpy.engine.components import Timer555Analog
+from ohmpy.circuit_analyzer import CircuitAnalyzer
 from types import SimpleNamespace
 
 

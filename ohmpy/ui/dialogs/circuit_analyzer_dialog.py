@@ -18,9 +18,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QColor, QPen, QBrush, QFont
 from PyQt6.QtCore import Qt, QPointF
 
-from pynode.ui.style import COLORS, GRID_SIZE, _qfont
-from pynode.ui.items.component_item import ComponentItem
-from pynode.ui.items.wire_item import WireItem
+from ohmpy.ui.style import COLORS, GRID_SIZE, _qfont
+from ohmpy.ui.items.component_item import ComponentItem
+from ohmpy.ui.items.wire_item import WireItem
 
 
 

@@ -29,10 +29,10 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 
-from pynode.ui.style import COLORS
+from ohmpy.ui.style import COLORS
 
 if TYPE_CHECKING:
-    from pynode.ui.items.component_item import ComponentItem
+    from ohmpy.ui.items.component_item import ComponentItem
 
 
 _AC_SOURCE_TYPES = ('VAC', 'FGEN')
@@ -270,9 +270,9 @@ class BodeDialog(QDialog):
     # ── Barrido de frecuencia ────────────────────────────────────────────
     def _run_sweep(self):
         """Ejecuta el AC sweep y dibuja los plots."""
-        from pynode.ui.scene import build_engine_components_for_item
-        from pynode.ui.items.component_item import ComponentItem
-        from pynode.engine import MNASolver, VoltageSourceAC, Resistor
+        from ohmpy.ui.scene import build_engine_components_for_item
+        from ohmpy.ui.items.component_item import ComponentItem
+        from ohmpy.engine import MNASolver, VoltageSourceAC, Resistor
 
         idx = self.cb_input.currentIndex()
         if idx < 0:

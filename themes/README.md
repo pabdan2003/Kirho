@@ -1,21 +1,21 @@
-# Temas externos de OhmPy
+# External OhmPy themes
 
-Esta carpeta contiene **temas instalables por separado**.  Cada archivo
-`*.json` que dejes aquí aparecerá automáticamente en el menú
-**Tema** de la app la próxima vez que la abras.
+This directory contains **separately installable themes**. Every `*.json`
+file placed here will automatically appear in the app's **Theme** menu the
+next time you open it.
 
-## Cómo crear tu propio tema
+## Create your own theme
 
-1. Copia `solarized_dark.json` a, por ejemplo, `mi_tema.json`.
-2. Edita los colores (formato hex `#rrggbb`).
-3. Reinicia la app — `Mi Tema` aparecerá en el selector.
+1. Copy `solarized_dark.json` to, for example, `my_theme.json`.
+2. Edit the colors (hex format: `#rrggbb`).
+3. Restart the app — `My Theme` will appear in the selector.
 
-## Formato
+## Format
 
 ```json
 {
-  "name":        "Nombre visible",
-  "description": "Descripción opcional",
+    "name":        "Display name",
+    "description": "Optional description",
   "colors": {
     "bg":         "#…",
     "grid":       "#…",
@@ -39,10 +39,10 @@ Esta carpeta contiene **temas instalables por separado**.  Cada archivo
 }
 ```
 
-Todas las claves de `colors` son obligatorias; si falta alguna, el
-tema se ignora silenciosamente.
+All `colors` keys are required; if any are missing, the theme is silently
+ignored.
 
-## Carpetas alternativas
+## Alternative directories
 
-OhmPy también lee temas desde `~/.pynode/themes/`
-(útil si quieres compartir un tema entre instalaciones).
+OhmPy also reads themes from `~/.ohmpy/themes/`, which is useful when you
+want to share a theme between installations.

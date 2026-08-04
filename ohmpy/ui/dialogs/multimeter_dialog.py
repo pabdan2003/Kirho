@@ -22,10 +22,10 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QVBoxLayout,
 )
 
-from pynode.ui.style import COLORS, _qfont
+from ohmpy.ui.style import COLORS, _qfont
 
 if TYPE_CHECKING:
-    from pynode.ui.items.component_item import ComponentItem
+    from ohmpy.ui.items.component_item import ComponentItem
 
 
 class MultimeterDialog(QDialog):

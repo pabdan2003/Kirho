@@ -18,7 +18,7 @@ coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
 ```
        ┌────────────────────────────────────────────────────────────┐
        │                        UI (PyQt6)                          │
-       │   main.py + pynode/ui/                                     │
+       │   main.py + ohmpy/ui/                                     │
        │   - Canvas, paleta, instrumentos, diálogos                 │
        └─────────┬─────────────────────────┬────────────────────────┘
                  │ build_engine_components │
@@ -26,7 +26,7 @@ coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
        ┌──────────────────┐      ┌──────────────────┐
        │  MNA Solver      │      │ DigitalSimulator │
        │  (analógico)     │      │  (digital)       │
-       │  pynode/engine/  │      │  pynode/engine/  │
+       │  ohmpy/engine/  │      │  ohmpy/engine/  │
        │    mna.py        │      │  digital_engine  │
        │    components.py │      │      .py         │
        └────────┬─────────┘      └──────────┬───────┘
@@ -36,7 +36,7 @@ coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
                 ┌────────────────────────┐
                 │ MixedSignalInterface   │
                 │ + bridges (ADC/DAC/…)  │
-                │ pynode/engine/         │
+                │ ohmpy/engine/         │
                 │   mixed_signal.py      │
                 │   bridges.py           │
                 └────────────────────────┘
@@ -50,7 +50,7 @@ coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
 
 ---
 
-## 2. Motor MNA (`pynode/engine/mna.py`)
+## 2. Motor MNA (`ohmpy/engine/mna.py`)
 
 ### Idea
 
@@ -94,7 +94,7 @@ resolución del sistema.
 
 ### Convenciones
 
-Documentadas en el docstring de [pynode/engine/components.py](../pynode/engine/components.py).
+Documentadas en el docstring de [ohmpy/engine/components.py](../ohmpy/engine/components.py).
 Lo más importante:
 
 - Nodo "0" es siempre GND.
@@ -105,7 +105,7 @@ Lo más importante:
 
 ---
 
-## 3. Motor digital (`pynode/engine/digital_engine.py`)
+## 3. Motor digital (`ohmpy/engine/digital_engine.py`)
 
 ### Idea
 
@@ -142,7 +142,7 @@ sim.waveform("Y")        # [(t, valor), ...]
 
 ---
 
-## 4. Coordinación mixta (`pynode/engine/mixed_signal.py` + `bridges.py`)
+## 4. Coordinación mixta (`ohmpy/engine/mixed_signal.py` + `bridges.py`)
 
 ### Algoritmo
 
@@ -171,22 +171,22 @@ iteración entre dominios dentro de una ventana.
 
 ---
 
-## 5. UI (`main.py` + `pynode/ui/`)
+## 5. UI (`main.py` + `ohmpy/ui/`)
 
 ### Capas
 
 | Capa | Archivo(s) | Responsabilidad |
 |---|---|---|
-| Ítems gráficos | `pynode/ui/items/` | `ComponentItem`, `WireItem` — dibujo y picking |
-| Escena | `pynode/ui/scene.py` | `CircuitScene` — grid, snapping, conexión de pines, ruteo, construcción del netlist (`build_engine_components_for_item`) |
-| Diálogos | `pynode/ui/dialogs/` | Editor de valores, instrumentos (multímetro, osciloscopio, generador), análisis digital, calculadoras y ajustes |
-| Estilo | `pynode/ui/style.py` | Colores del tema activo, fuentes, constantes geométricas, parseo SI |
-| Metadata | `pynode/ui/component_metadata.py` | Etiquetas de pines, prefijos, listas de tipos digitales |
+| Ítems gráficos | `ohmpy/ui/items/` | `ComponentItem`, `WireItem` — dibujo y picking |
+| Escena | `ohmpy/ui/scene.py` | `CircuitScene` — grid, snapping, conexión de pines, ruteo, construcción del netlist (`build_engine_components_for_item`) |
+| Diálogos | `ohmpy/ui/dialogs/` | Editor de valores, instrumentos (multímetro, osciloscopio, generador), análisis digital, calculadoras y ajustes |
+| Estilo | `ohmpy/ui/style.py` | Colores del tema activo, fuentes, constantes geométricas, parseo SI |
+| Metadata | `ohmpy/ui/component_metadata.py` | Etiquetas de pines, prefijos, listas de tipos digitales |
 | Ventana | `main.py` | `MainWindow`, toolbar, loop de simulación live, persistencia de circuitos |
 
 ### El puente UI → motor
 
-`build_engine_components_for_item` en `pynode/ui/scene.py` traduce un
+`build_engine_components_for_item` en `ohmpy/ui/scene.py` traduce un
 `ComponentItem` de la escena al objeto correspondiente del motor
 (`Resistor`, `VoltageSource`, etc.) usando los pines conectados como
 nombres de nodo.
@@ -200,15 +200,15 @@ por período, cota de pasos por tick).
 
 ---
 
-## 6. Temas (`pynode/theme_manager.py` + `themes/`)
+## 6. Temas (`ohmpy/theme_manager.py` + `themes/`)
 
 `ThemeManager` carga colores desde JSON. Hay dos fuentes:
 
 - Built-ins definidos en el propio módulo.
-- Archivos `*.json` en `themes/` o `~/.pynode/themes/`.
+- Archivos `*.json` en `themes/` o `~/.ohmpy/themes/`.
 
 Cualquier módulo de UI accede a la paleta vía
-`from pynode.ui.style import COLORS`. Los colores son **propiedades**
+`from ohmpy.ui.style import COLORS`. Los colores son **propiedades**
 del módulo de estilo, no constantes capturadas — al cambiar de tema
 se actualizan transparentemente.
 
@@ -221,9 +221,9 @@ el osciloscopio con muestras reales desde un microcontrolador por USB-CDC.
 El directorio contiene la especificación y ejemplos de referencia;
 `firmware/README.md` explica cómo adaptarlos.
 
-El receptor vive en `pynode/engine/hw_stream.py` (decoder del frame
+El receptor vive en `ohmpy/engine/hw_stream.py` (decoder del frame
 `0xAA 0x55 …`) y la integración con el dialogo del osciloscopio en
-`pynode/ui/dialogs/hardware_source_dialog.py`.
+`ohmpy/ui/dialogs/hardware_source_dialog.py`.
 
 ---
 
@@ -250,24 +250,24 @@ esperado tiene el signo que tiene.
 
 ### Añadir un componente analógico
 
-1. Crear clase en `pynode/engine/components.py` heredando de `Component`.
+1. Crear clase en `ohmpy/engine/components.py` heredando de `Component`.
 2. Implementar `stamp` (DC) y opcionalmente `stamp_ac`, `stamp_transient`,
    `stamp_linear` según corresponda.
-3. Exportar en `pynode/engine/__init__.py`.
+3. Exportar en `ohmpy/engine/__init__.py`.
 4. Añadir tests en `tests/test_engine.py` con un caso analítico cerrado.
 5. Para que aparezca en la UI: definir su entrada en
-   `pynode/ui/component_metadata.py` y registrar el dibujo en
+   `ohmpy/ui/component_metadata.py` y registrar el dibujo en
    `ComponentItem`.
 
 ### Añadir una compuerta digital
 
-1. Subclase de `Gate` en `pynode/engine/digital_engine.py`.
+1. Subclase de `Gate` en `ohmpy/engine/digital_engine.py`.
 2. Implementar `_evaluate(inputs)`.
 3. Exportar en `__init__.py` del paquete.
 4. Test en `tests/test_mixed.py`.
 
 ### Añadir un instrumento
 
-Diálogo nuevo en `pynode/ui/dialogs/`. Si lee del circuito (multímetro,
+Diálogo nuevo en `ohmpy/ui/dialogs/`. Si lee del circuito (multímetro,
 scope) consume el resultado del último `solve_*`. Si inyecta señal
 (función generator), registra una `VoltageSourceAC` en la lista activa.
