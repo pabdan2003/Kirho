@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QStackedWidget,
     QWidget,
 )
+from PyQt6.QtCore import Qt
 
 from ohmpy.ui.style import parse_si_value, format_si_value
 from ohmpy.ui.component_metadata import (
@@ -40,6 +41,7 @@ class SIValueEdit(QLineEdit):
         "  k=1e3  M=1e6  G=1e9  T=1e12\n\n"
         "Ejemplos:  4.7k  100n  1.5M  22u  1e-9  -47m"
     )
+
 
     def __init__(self, initial: float = 0.0, parent=None):
         super().__init__(parent)
@@ -81,6 +83,16 @@ class SIValueEdit(QLineEdit):
     def focusOutEvent(self, event):
         self._reformat()
         super().focusOutEvent(event)
+
+
+class KeyCaptureEdit(QLineEdit):
+    """Campo que muestra la tecla física pulsada, incluso Space."""
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Space:
+            self.setText('Space')
+        elif event.text() and not event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.setText(event.text().upper())
+        event.accept()
 
 
 class ComponentDialog(QDialog):
@@ -155,9 +167,17 @@ class ComponentDialog(QDialog):
             'R': self.tr('Resistance (Ω)'),
             'LED': self.tr('Value (unused — Vf by color)'),
         }
-        layout.addRow(value_labels.get(
-            self.item.comp_type, VALUE_LABELS.get(self.item.comp_type, self.tr('Value:'))),
-            self.value_spin)
+        self._switch_key_edit = None
+        if self.item.comp_type in ('SPST', 'SPDT'):
+            self._switch_key_edit = KeyCaptureEdit(getattr(self.item, 'switch_key', ''))
+            self._switch_key_edit.setPlaceholderText(self.tr('e.g. A or Space'))
+            layout.addRow(self.tr('Toggle key:'), self._switch_key_edit)
+        elif self.item.comp_type == 'RELAY':
+            layout.addRow(self.tr('Coil resistance (Ω):'), self.value_spin)
+        else:
+            layout.addRow(value_labels.get(
+                self.item.comp_type, VALUE_LABELS.get(self.item.comp_type, self.tr('Value:'))),
+                self.value_spin)
 
         if self.item.comp_type in DIGITAL_GATE_TYPES:
             n_in = self.item.dig_inputs if self.item.comp_type != 'NOT' else 1
@@ -200,10 +220,16 @@ class ComponentDialog(QDialog):
         elif self.item.comp_type in DIGITAL_FLIPFLOP_TYPES:
             self.node1_edit = QLineEdit(self.item.node1)
             self.node2_edit = QLineEdit(self.item.node2)
+            input_labels = {
+                'DFF': ('Data (D):', 'CLK:'),
+                'JKFF': ('Input J:', 'Input K:'),
+                'TFF': ('Input T:', 'CLK:'),
+                'SRFF': ('Set (S):', 'Reset (R):'),
+            }[self.item.comp_type]
             layout.addRow(self.tr('Output Q:'), self.node1_edit)
-            layout.addRow('Dato D / J:', self.node2_edit)
+            layout.addRow(input_labels[0], self.node2_edit)
             self.node3_edit = QLineEdit(self.item.node3 if hasattr(self.item, 'node3') else '')
-            layout.addRow('CLK:', self.node3_edit)
+            layout.addRow(input_labels[1], self.node3_edit)
             self._extra_node_edits = []
         elif self.item.comp_type == 'IC555':
             labels = ('1 GND', '2 TRIG', '3 OUT', '4 RESET',
@@ -451,6 +477,8 @@ class ComponentDialog(QDialog):
             'ac_mode': self._mode_combo.currentText() if self._mode_combo else 'rms',
             'led_color': self._led_color_combo.currentData() if self._led_color_combo else 'red',
         }
+        if self._switch_key_edit is not None:
+            data['switch_key'] = self._switch_key_edit.text().strip()
         if self.item.comp_type == 'Z' and self._z_mode_combo is not None:
             data['z_mode'] = 'rect' if self._z_mode_combo.currentIndex() == 0 else 'phasor'
             data['z_real'] = self._z_real.value()

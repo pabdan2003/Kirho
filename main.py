@@ -273,6 +273,14 @@ class MainWindow(QMainWindow):
         no recibe el evento (envío sintético desde QTest, etc.), aún
         capturamos las rotaciones aquí."""
         mod = event.modifiers()
+        sc = self.scene
+        if (sc is not None and event.key() == Qt.Key.Key_Space
+                and not event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            # La vista consume Space para navegación; reenviarlo al canvas
+            # permite usarlo como tecla de un interruptor.
+            sc.keyPressEvent(event)
+            if event.isAccepted():
+                return
         if mod & Qt.KeyboardModifier.ControlModifier:
             sc = self.scene
             if sc is not None:
@@ -690,6 +698,9 @@ class MainWindow(QMainWindow):
                 ('XFMR', 'Transformer',   '⌇⌇'),
             ]),
             (self.tr("Sources"), [
+                ('SPST', 'SPST switch',   '━o/ o━'),
+                ('SPDT', 'SPDT switch',   '━o/ o━'),
+                ('RELAY','Relay',         '⌁'),
                 ('V',   'DC Voltage Source',  '━(+)━'),
                 ('VAC', 'AC Voltage Source',  '━(~)━'),
                 ('I',   'Current Source',     '━(→)━'),
@@ -727,8 +738,8 @@ class MainWindow(QMainWindow):
                 ('JKFF',      'Flip-flop JK',   '▣JK'),
                 ('TFF',       'Flip-flop T',    '▣T'),
                 ('SRFF',      'Flip-flop SR',   '▣SR'),
-                ('COUNTER',   'Contador binario','#'),
-                ('MUX2',      'Multiplexor 2:1','⊞'),
+                ('COUNTER',   'Binary counter', '#'),
+                ('MUX2',      'Multiplexer 2:1','⊞'),
                 ('IC555',     'NE555 Timer',    '▣555'),
                 ('LOGIC_STATE','Logic State',   '0/1'),
                 ('CLK',       'Clock (CLK)',    '⏲'),
@@ -1824,8 +1835,35 @@ class MainWindow(QMainWindow):
                     elif ct == "DFF":
                         dsim.add(DFF(item.name, d=net(item, 2, 'node2'),
                                      clk=net(item, 3, 'node3') or item.dig_clk,
-                                     q=net(item, 1, 'node1'),
-                                     qn=net(item, 6), t_pd=tpd))
+                                     q=net(item, 1, 'node1'), qn=net(item, 6),
+                                     reset=net(item, 5), set_=net(item, 4), t_pd=tpd))
+                    elif ct == "JKFF":
+                        dsim.add(JKFF(item.name, j=net(item, 2, 'node2'),
+                                      k=net(item, 3, 'node3'), clk=item.dig_clk,
+                                      q=net(item, 1, 'node1'), qn=net(item, 6),
+                                      reset=net(item, 5), set_=net(item, 4), t_pd=tpd))
+                    elif ct == "TFF":
+                        dsim.add(TFF(item.name, t_in=net(item, 2, 'node2'),
+                                     clk=net(item, 3, 'node3') or item.dig_clk,
+                                     q=net(item, 1, 'node1'), qn=net(item, 6),
+                                     reset=net(item, 5), set_=net(item, 4), t_pd=tpd))
+                    elif ct == "SRFF":
+                        dsim.add(SRFF(item.name, s=net(item, 2, 'node2'),
+                                      r=net(item, 3, 'node3'),
+                                      q=net(item, 1, 'node1'), qn=net(item, 6), t_pd=tpd))
+                    elif ct == "MUX2":
+                        dsim.add(MUX(item.name, [net(item, 2, 'node2'),
+                                                 net(item, 3, 'node3')],
+                                     [net(item, 4)], net(item, 1, 'node1'), t_pd=tpd))
+                    elif ct == "COUNTER":
+                        q_outputs = [net(item, 1, 'node1') or f'{item.name}_Q0']
+                        q_outputs.extend(
+                            net(item, pin) or f'{item.name}_Q{pin - 2}'
+                            for pin in range(3, item.dig_bits + 2))
+                        dsim.add(BinaryCounter(item.name, max(1, item.dig_bits),
+                                               net(item, 2, 'node2') or item.dig_clk,
+                                               q_outputs=q_outputs,
+                                               t_pd=tpd))
                     elif ct == "IC555":
                         p = lambda n: (item.timer_nodes[n - 1].strip()
                                        or pin_node.get(f"{item.name}__p{n}", f"{item.name}_P{n}"))
@@ -1979,7 +2017,12 @@ class MainWindow(QMainWindow):
         _dig_out_nodes = set()
         for _item in sim_comps:
             if _item.comp_type in _gate_types_dc:
-                _pins = (3, 7) if _item.comp_type == 'IC555' else (1,)
+                if _item.comp_type == 'IC555':
+                    _pins = (3, 7)
+                elif _item.comp_type == 'COUNTER':
+                    _pins = (1, *range(3, max(1, _item.dig_bits) + 2))
+                else:
+                    _pins = (1,)
                 for _pin in _pins:
                     _on = (_item.node1.strip() if _pin == 1 else '') or pin_node.get(
                         f"{_item.name}__p{_pin}", "")
@@ -2279,7 +2322,8 @@ class MainWindow(QMainWindow):
             n_i0  = item.node2.strip() or pin_node.get(f'{item.name}__p2', '')
             n_i1  = (item.node3.strip() if hasattr(item, 'node3') else '') \
                     or pin_node.get(f'{item.name}__p3', '')
-            n_sel = pin_node.get(f'{item.name}__p4', '')
+            n_sel = (item.node4.strip() if hasattr(item, 'node4') else '') \
+                or pin_node.get(f'{item.name}__p4', '')
             n_out = item.node1.strip() or pin_node.get(f'{item.name}__p1', '')
             sel = 1 if _v(n_sel) >= std.Vih else 0
             chosen = n_i1 if sel else n_i0
@@ -2395,6 +2439,42 @@ class MainWindow(QMainWindow):
 
     # ── Panel de propiedades ─────────────────────
     def _run_simulation_ac(self):
+        # ── Contadores binarios ─────────────────────────────────────────
+        # El símbolo actual expone Q0 por p1 y CLK por p2. Conservamos el
+        # conteo completo para el indicador visual aunque sólo Q0 esté cableado.
+        counter_items = [it for it in _all if it.comp_type == 'COUNTER']
+        if counter_items and out is not None and not silent:
+            out.append('\n── Contadores binarios ──')
+        for item in counter_items:
+            q_nodes = [item.node1.strip() or pin_node.get(f'{item.name}__p1', '')]
+            q_nodes.extend(pin_node.get(f'{item.name}__p{pin}', '')
+                           for pin in range(3, max(1, item.dig_bits) + 2))
+            n_clk = item.node2.strip() or pin_node.get(f'{item.name}__p2', '') \
+                or item.dig_clk
+            clk_now = _logic_at(n_clk)
+            last_clk = getattr(item, '_last_clk_seen', 0)
+            mask = (1 << max(1, item.dig_bits)) - 1
+            count = int(getattr(item, 'dig_count_state', 0))
+            if clk_now and not last_clk:
+                count = (count + 1) & mask
+            item._last_clk_seen = clk_now
+            item.dig_count_state = count
+            for bit, node in enumerate(q_nodes):
+                if node and node not in ('0', 'gnd', 'GND'):
+                    dc_voltages[node] = std.Voh if (count >> bit) & 1 else std.Vol
+            for led in _all:
+                if led.comp_type != 'LED':
+                    continue
+                anode = led.node1.strip() or pin_node.get(f'{led.name}__p1', '')
+                for bit, node in enumerate(q_nodes):
+                    if anode == node:
+                        led.led_on = bool((count >> bit) & 1)
+                        led.update()
+                        break
+            item.update()
+            if out is not None and not silent:
+                out.append(f"  {item.name} = {count:0{max(1, item.dig_bits)}b}")
+
         """Análisis AC de frecuencia única con triángulo de potencia."""
         from PyQt6.QtWidgets import QInputDialog
 
@@ -3109,6 +3189,8 @@ class MainWindow(QMainWindow):
                     item.dig_inputs = 1
                 item.dig_bits = int(c.get('dig_bits', item.dig_bits))
                 item.dig_bits_adc = int(c.get('dig_bits_adc', item.dig_bits_adc))
+                if c['type'] == 'COUNTER':
+                    item.prepareGeometryChange()
                 item.dig_vref = float(c.get('dig_vref', item.dig_vref))
                 item.dig_clk = c.get('dig_clk', item.dig_clk)
                 item.dig_tpd_ns = float(c.get('dig_tpd_ns', item.dig_tpd_ns))

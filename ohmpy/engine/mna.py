@@ -26,7 +26,7 @@ from scipy.linalg import lu_factor, lu_solve
 
 from .components import (
     Component, VoltageSource, VoltageSourceAC, CurrentSource, Timer555Analog,
-    Capacitor, Inductor, Diode, BJT, MOSFET, OpAmp, Impedance,
+    Capacitor, Inductor, Diode, BJT, MOSFET, OpAmp, Impedance, Relay,
 )
 from .components import Resistor as Resistor_cls
 
@@ -137,7 +137,7 @@ class MNASolver:
         Detecta automáticamente si el circuito tiene componentes no-lineales
         y usa Newton-Raphson en ese caso.
         """
-        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog)
+        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog, Relay)
         has_nonlinear = any(isinstance(c, _nonlinear_types) for c in components)
 
         if has_nonlinear:
@@ -163,7 +163,7 @@ class MNASolver:
           2. Newton-Raphson con damping adaptativo: si la norma crece,
              reducir el paso a la mitad hasta 8 veces antes de continuar
         """
-        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog)
+        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog, Relay)
 
         try:
             node_map, branch_map, size = self._build_maps(components)

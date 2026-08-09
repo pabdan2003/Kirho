@@ -126,6 +126,45 @@ class Resistor(Component):
             G[n2, n1] -= g
 
 
+class Switch(Component):
+    """Interruptor ideal resistivo; abierto=1 GΩ, cerrado=1 mΩ."""
+    def __init__(self, name, n1, n2, closed=False):
+        super().__init__(name); self.n1, self.n2, self.closed = n1, n2, closed
+    def stamp(self, G, I, node_map, branch_idx=None):
+        g = 1.0 / (1e-3 if self.closed else 1e9)
+        a, b = node_map.get(self.n1), node_map.get(self.n2)
+        if a is not None: G[a, a] += g
+        if b is not None: G[b, b] += g
+        if a is not None and b is not None: G[a,b] -= g; G[b,a] -= g
+
+
+class SPDT(Component):
+    """Conmutador: COM se une a NC (position=0) o NO (position=1)."""
+    def __init__(self, name, com, nc, no, position=False):
+        super().__init__(name); self.name, self.com, self.nc, self.no, self.position = name, com, nc, no, position
+    def stamp(self, G, I, node_map, branch_idx=None):
+        Switch(self.name + '_NC', self.com, self.nc, not self.position).stamp(G,I,node_map)
+        Switch(self.name + '_NO', self.com, self.no, self.position).stamp(G,I,node_map)
+
+
+class Relay(Component):
+    """Relé DC: bobina resistiva y contacto NO que cierra al superar threshold."""
+    def __init__(self, name, coil_p, coil_n, com, no, coil_r=100.0, threshold=5.0):
+        super().__init__(name); self.coil_p,self.coil_n,self.com,self.no=coil_p,coil_n,com,no; self.coil_r,self.threshold=coil_r,threshold; self.active=False
+    def stamp(self, G, I, node_map, branch_idx=None):
+        Switch(self.name+'_coil', self.coil_p, self.coil_n, True).stamp(G,I,node_map)
+        # ajustar la resistencia de bobina
+        a,b=node_map.get(self.coil_p),node_map.get(self.coil_n); g=1/1e-3-1/max(self.coil_r,1e-3)
+        if a is not None: G[a,a]-=g
+        if b is not None: G[b,b]-=g
+        if a is not None and b is not None: G[a,b]+=g; G[b,a]+=g
+        Switch(self.name+'_contact', self.com, self.no, self.active).stamp(G,I,node_map)
+    def stamp_linear(self, G, I, node_map, V):
+        a,b=node_map.get(self.coil_p),node_map.get(self.coil_n)
+        vp=V[a] if a is not None else 0; vn=V[b] if b is not None else 0
+        self.active = abs(vp-vn) >= self.threshold; self.stamp(G,I,node_map)
+
+
 # ──────────────────────────────────────────────
 # Fuente de voltaje independiente
 # ──────────────────────────────────────────────

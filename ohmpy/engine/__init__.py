@@ -1,6 +1,6 @@
 from .components import Resistor, VoltageSource, VoltageSourceAC, CurrentSource, Capacitor, Inductor, Impedance
 from .components import Diode, BJT, MOSFET, OpAmp
-from .components import Potentiometer, Transformer
+from .components import Potentiometer, Transformer, Switch, SPDT, Relay
 from .mna import MNASolver
 from .digital_engine import (
     DigitalSimulator, DigitalComponent,

@@ -602,6 +602,13 @@ class CircuitScene(QGraphicsScene):
                     item.update()
                     self.logic_state_toggled.emit(item)
                     return
+                if item.comp_type in ('SPST', 'SPDT'):
+                    # Interruptores mecánicos: doble clic cambia de posición.
+                    self.push_undo()
+                    item.value = 0.0 if item.value else 1.0
+                    item.update()
+                    self.logic_state_toggled.emit(item)
+                    return
                 if item.comp_type in ComponentItem.INSTRUMENT_TYPES:
                     self._open_instrument_panel(item)
                     return
@@ -627,6 +634,20 @@ class CircuitScene(QGraphicsScene):
         mod = event.modifiers()
         has_ctrl = bool(mod & Qt.KeyboardModifier.ControlModifier)
         key = event.key()
+
+        if not has_ctrl:
+            pressed = 'SPACE' if key == Qt.Key.Key_Space else event.text().upper()
+            switches = [item for item in self.components
+                        if item.comp_type in ('SPST', 'SPDT')
+                        and getattr(item, 'switch_key', '').upper() == pressed]
+            if switches:
+                self.push_undo()
+                for item in switches:
+                    item.value = 0.0 if item.value else 1.0
+                    item.update()
+                self.logic_state_toggled.emit(switches[0])
+                event.accept()
+                return
 
         if key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             sel = list(self.selectedItems())
@@ -690,7 +711,7 @@ class CircuitScene(QGraphicsScene):
         'frequency', 'phase_deg', 'ac_mode',
         'z_real', 'z_imag', 'z_mag', 'z_phase', 'z_mode',
         'xfmr_ratio', 'xfmr_imax', 'bridge_vf',
-        'node4', 'node5', 'tl082_unit', 'clk_running',
+        'node4', 'node5', 'tl082_unit', 'clk_running', 'switch_key',
         'timer_nodes',
         'dig_inputs', 'dig_tpd_ns', 'dig_clk', 'dig_analog_node',
         'dig_bits', 'dig_bits_adc', 'dig_vref',
@@ -977,8 +998,14 @@ class CircuitScene(QGraphicsScene):
                 for i, pt in enumerate(comp.all_pin_positions_scene(), 1):
                     pins[f"{comp.name}__p{i}"] = pt
                 continue
+            if comp.comp_type == 'COUNTER':
+                for i, pt in enumerate(comp.all_pin_positions_scene(), 1):
+                    pins[f"{comp.name}__p{i}"] = pt
+                continue
             # Registrar pin3 para dispositivos de 3 terminales
             if comp.comp_type in ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP'):
+                pins[f"{comp.name}__p3"] = comp.pin3_position_scene()
+            elif comp.comp_type == 'SPDT':
                 pins[f"{comp.name}__p3"] = comp.pin3_position_scene()
             elif comp.comp_type in ComponentItem.FLIPFLOP_TYPES:
                 pins[f"{comp.name}__p3"] = comp.pin3_position_scene()
@@ -1185,6 +1212,8 @@ class CircuitScene(QGraphicsScene):
             item.node1     = data['node1']
             item.node2     = data['node2']
             item.node3     = data['node3']
+            if 'switch_key' in data:
+                item.switch_key = data['switch_key']
             if item.comp_type == 'VAC':
                 item.frequency = data['frequency']
                 item.phase_deg = data['phase_deg']
@@ -1220,7 +1249,9 @@ class CircuitScene(QGraphicsScene):
             if item.comp_type in ComponentItem.DIGITAL_TYPES:
                 if 'dig_inputs'  in data: item.dig_inputs      = data['dig_inputs']
                 if item.comp_type == 'NOT': item.dig_inputs = 1
-                if 'dig_bits'    in data: item.dig_bits         = data['dig_bits']
+                if 'dig_bits'    in data:
+                    if item.comp_type == 'COUNTER': item.prepareGeometryChange()
+                    item.dig_bits = data['dig_bits']
                 if 'dig_bits_adc'in data: item.dig_bits_adc    = data['dig_bits_adc']
                 if 'dig_vref'    in data: item.dig_vref         = data['dig_vref']
                 if 'dig_tpd_ns'  in data: item.dig_tpd_ns      = data['dig_tpd_ns']
@@ -1236,6 +1267,8 @@ class CircuitScene(QGraphicsScene):
                         neg.extend([False] * (n_in_now - len(neg)))
                     item.dig_input_neg = neg[:n_in_now]
             item.update()
+            if item.comp_type == 'COUNTER':
+                self.update_wires_for_component(item)
 
 # ══════════════════════════════════════════════════════════════
 # Helper: convertir un ComponentItem analógico a objetos del engine
@@ -1490,7 +1523,7 @@ def build_engine_components_for_item(item, pin_node):
     from ohmpy.engine import (
         Resistor, VoltageSource, VoltageSourceAC, CurrentSource,
         Capacitor, Inductor, Diode, BJT, MOSFET, OpAmp, Impedance,
-        Potentiometer, Transformer,
+        Potentiometer, Transformer, Switch, SPDT, Relay,
     )
 
     if item.comp_type == 'SUBCKT':
@@ -1531,6 +1564,12 @@ def build_engine_components_for_item(item, pin_node):
             return [Potentiometer(item.name, n1, n2,
                                   R_total=max(item.value, 1.0),
                                   wiper=item.pot_wiper)]
+        if ct == 'SPST':
+            return [Switch(item.name, n1, n2, closed=bool(item.value))]
+        if ct == 'SPDT':
+            return [SPDT(item.name, n1, n2, n3, position=bool(item.value))]
+        if ct == 'RELAY':
+            return [Relay(item.name, n1, n2, n3, n4, coil_r=max(item.value, 1e-3))]
         if ct == 'V':
             return [VoltageSource(item.name, n2, n1, item.value)]
         if ct == 'VAC':

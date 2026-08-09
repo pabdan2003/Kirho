@@ -28,7 +28,7 @@ class ComponentItem(QGraphicsItem):
     COMP_TYPES = ['R', 'POT', 'V', 'VAC', 'I', 'C', 'L', 'Z', 'GND', 'NODE',
                   'D', 'LED', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP',
                   'TL082',
-                  'XFMR', 'BRIDGE',
+                  'XFMR', 'BRIDGE', 'SPST', 'SPDT', 'RELAY',
                   # ── Instrumentos ──
                   'FGEN', 'OSC', 'MULTIMETER',
                   # ── Digital ──
@@ -46,7 +46,7 @@ class ComponentItem(QGraphicsItem):
     INSTRUMENT_TYPES = {'FGEN', 'OSC', 'MULTIMETER'}
 
     # Tipos analógicos con 4 terminales (necesitan p3 y p4)
-    FOUR_PIN_TYPES = {'XFMR', 'BRIDGE', 'OSC'}
+    FOUR_PIN_TYPES = {'XFMR', 'BRIDGE', 'OSC', 'RELAY'}
 
     # Tipos analógicos con 5 terminales (necesitan p3, p4 y p5)
     FIVE_PIN_TYPES = {'TL082'}
@@ -128,6 +128,7 @@ class ComponentItem(QGraphicsItem):
         self.bridge_vf: float = 0.7
         # Cuarto nodo para componentes de 4 terminales
         self.node4: str = ''
+        self.switch_key: str = ''
 
         # Etiqueta de net label inalámbrico
         self.sheet_label: str = ''
@@ -244,6 +245,17 @@ class ComponentItem(QGraphicsItem):
         return self.mapToScene(p1_local), self.mapToScene(p2_local)
 
     # ── Geometría ──────────────────────────────
+    def _counter_height(self) -> float:
+        """Altura necesaria para separar claramente las salidas Q0…Qn."""
+        return max(COMP_H // 2 + 6, 12 + 9 * max(1, self.dig_bits))
+
+    def _counter_output_positions(self) -> list[QPointF]:
+        """Posiciones de Q0…Qn, centradas verticalmente en el lateral derecho."""
+        n = max(1, self.dig_bits)
+        step = 18
+        return [QPointF(COMP_W // 2 + 10, (i - (n - 1) / 2) * step)
+                for i in range(n)]
+
     def boundingRect(self) -> QRectF:
         if self.comp_type == 'GND':
             return QRectF(-20, -5, 40, 30)
@@ -262,6 +274,10 @@ class ComponentItem(QGraphicsItem):
                           w + 24 + 2 * m, h + 2 * m)
         if self.comp_type in self.TIMER_TYPES:
             return QRectF(-95, -85, 190, 170)
+        if self.comp_type == 'COUNTER':
+            hh = self._counter_height()
+            return QRectF(-COMP_W // 2 - 20, -hh - 20,
+                         COMP_W + 40, hh * 2 + 40)
         # Flip-flops: cuerpo + cables horizontales + pines SET/RESET arriba/abajo
         if self.comp_type in self.FLIPFLOP_TYPES:
             hw_f = COMP_W // 2
@@ -310,6 +326,10 @@ class ComponentItem(QGraphicsItem):
         # ── Transformador: p1=PRI+ (sup-izq), p2=PRI- (inf-izq) ─────────
         if self.comp_type == 'XFMR':
             return QPointF(-60, -20), QPointF(-60, 20)
+        if self.comp_type == 'SPDT':
+            return QPointF(-40, 0), QPointF(40, -20)
+        if self.comp_type == 'RELAY':
+            return QPointF(-45, -20), QPointF(-45, 20)
         # ── Puente rectificador (diamante):
         #     p1 = AC1 (izq),  p2 = AC2 (der)
         #     p3 = DC+ (sup),  p4 = DC− (inf)
@@ -337,9 +357,7 @@ class ComponentItem(QGraphicsItem):
             return QPointF(hw_f + 10, -(hh_f // 2)), QPointF(-hw_f - 10, -(hh_f // 2))
         # ── Contador: p1=Q0 (der-arriba), p2=CLK (izq-centro) ───────────
         if self.comp_type == 'COUNTER':
-            hw_f = COMP_W // 2
-            hh_f = COMP_H // 2 + 8
-            return QPointF(hw_f + 10, -(hh_f // 2)), QPointF(-hw_f - 10, 0)
+            return self._counter_output_positions()[0], QPointF(-COMP_W // 2 - 10, 0)
         # ── MUX2: p1=salida (der), p2=I0 (izq-arriba) ───────────────────
         if self.comp_type == 'MUX2':
             gw, gh, step, _ = self._gate_geometry()
@@ -451,9 +469,14 @@ class ComponentItem(QGraphicsItem):
             gw, gh, step, _ = self._gate_geometry()
             ys = self._gate_pin_ys()
             return QPointF(-gw - 10, ys[1] if len(ys) > 1 else 0)
+        if self.comp_type == 'COUNTER':
+            outputs = self._counter_output_positions()
+            return outputs[1] if len(outputs) > 1 else QPointF(0, 0)
         # Transformador: p3 = SEC+ (sup-der)
         if self.comp_type == 'XFMR':
             return QPointF(60, -20)
+        if self.comp_type == 'SPDT': return QPointF(40, 20)
+        if self.comp_type == 'RELAY': return QPointF(45, -20)
         # Puente: p3 = DC+ (sup)
         if self.comp_type == 'BRIDGE':
             return QPointF(0, -60)
@@ -478,6 +501,7 @@ class ComponentItem(QGraphicsItem):
             return QPointF(0, -44)
         if self.comp_type == 'XFMR':
             return QPointF(60, 20)
+        if self.comp_type == 'RELAY': return QPointF(45, 20)
         if self.comp_type == 'BRIDGE':
             return QPointF(0, 60)
         if self.comp_type == 'OSC':
@@ -486,6 +510,9 @@ class ComponentItem(QGraphicsItem):
             # p4 = línea de selección (abajo-centro)
             _, hh, _, _ = self._gate_geometry()
             return QPointF(0, hh + 10)
+        if self.comp_type == 'COUNTER':
+            outputs = self._counter_output_positions()
+            return outputs[2] if len(outputs) > 2 else QPointF(0, 0)
         if self.comp_type in self.FLIPFLOP_TYPES:
             hh_f = COMP_H // 2 + 8
             return QPointF(0, -hh_f - 10)
@@ -506,6 +533,9 @@ class ComponentItem(QGraphicsItem):
         if self.comp_type in self.FLIPFLOP_TYPES:
             hh_f = COMP_H // 2 + 8
             return QPointF(0, hh_f + 10)
+        if self.comp_type == 'COUNTER':
+            outputs = self._counter_output_positions()
+            return outputs[3] if len(outputs) > 3 else QPointF(0, 0)
         return QPointF(0, 0)
 
     def pin5_position_scene(self) -> QPointF:
@@ -538,6 +568,10 @@ class ComponentItem(QGraphicsItem):
             return [p1]
         if self.comp_type in self.TIMER_TYPES:
             return [self.mapToScene(p) for p in self._timer_pin_positions()]
+        if self.comp_type == 'COUNTER':
+            outputs = [self.mapToScene(p) for p in self._counter_output_positions()]
+            clock = self.mapToScene(QPointF(-COMP_W // 2 - 10, 0))
+            return [outputs[0], clock, *outputs[1:]]
         p1, p2 = self.pin_positions_scene()
         pins = [p1, p2]
         # Pines adicionales según tipo
@@ -546,6 +580,8 @@ class ComponentItem(QGraphicsItem):
             pins.append(self.pin4_position_scene())  # V+
             pins.append(self.pin5_position_scene())  # V−
         elif self.comp_type in ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP'):
+            pins.append(self.pin3_position_scene())
+        elif self.comp_type == 'SPDT':
             pins.append(self.pin3_position_scene())
         elif self.comp_type in ('AND', 'OR', 'NAND', 'NOR', 'XOR', 'COMPARATOR'):
             gw, gh, step, n = self._gate_geometry()
@@ -610,6 +646,8 @@ class ComponentItem(QGraphicsItem):
             self._draw_transformer(painter, pen_body, pen_wire, body_color)
         elif self.comp_type == 'BRIDGE':
             self._draw_bridge_rectifier(painter, pen_body, pen_wire, body_color)
+        elif self.comp_type in ('SPST', 'SPDT', 'RELAY'):
+            self._draw_switch(painter, pen_body, pen_wire, body_color)
         # ── Instrumentos ─────────────────────────────────────────────────
         elif self.comp_type == 'FGEN':
             self._draw_fgen(painter, pen_body, pen_wire, body_color)
@@ -660,7 +698,8 @@ class ComponentItem(QGraphicsItem):
         # internamente con etiquetas; solo dibujar pines genéricos para el resto
         three_terminal = ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP', 'TL082',
                           'NET_LABEL_IN', 'NET_LABEL_OUT',
-                          'DFF', 'JKFF', 'TFF', 'SRFF',
+                          'DFF', 'JKFF', 'TFF', 'SRFF', 'COUNTER',
+                          'SPST', 'SPDT', 'RELAY',
                           'IC555',
                           'PORT', 'SUBCKT',   # dibujan sus propios pines
                           'MULTIMETER')   # _draw_multimeter pinta sus pines
@@ -691,6 +730,38 @@ class ComponentItem(QGraphicsItem):
             pts.append(QPointF(x, y))
         for i in range(len(pts) - 1):
             painter.drawLine(pts[i], pts[i+1])
+
+    def _draw_switch(self, painter, pen_body, pen_wire, body_color):
+        """Símbolos para SPST, SPDT y relé con pines coincidentes con el netlist."""
+        pin = QColor(COLORS['pin'])
+        painter.setPen(pen_wire)
+        painter.setBrush(QBrush(body_color))
+        if self.comp_type == 'SPST':
+            painter.drawLine(QPointF(-40, 0), QPointF(-8, 0))
+            painter.drawLine(QPointF(8, 0), QPointF(40, 0))
+            painter.setPen(pen_body)
+            painter.drawLine(QPointF(-8, 0), QPointF(8, 0) if self.value else QPointF(8, -18))
+            points = [QPointF(-40, 0), QPointF(40, 0)]
+        elif self.comp_type == 'SPDT':
+            painter.drawLine(QPointF(-40, 0), QPointF(-8, 0))
+            painter.drawLine(QPointF(8, -20), QPointF(40, -20))
+            painter.drawLine(QPointF(8, 20), QPointF(40, 20))
+            painter.setPen(pen_body)
+            painter.drawLine(QPointF(-8, 0), QPointF(8, 20 if self.value else -20))
+            points = [QPointF(-40, 0), QPointF(40, -20), QPointF(40, 20)]
+        else:
+            painter.drawEllipse(QRectF(-32, -25, 24, 50))
+            painter.drawLine(QPointF(-45, -20), QPointF(-32, -20))
+            painter.drawLine(QPointF(-45, 20), QPointF(-32, 20))
+            painter.drawLine(QPointF(8, -20), QPointF(45, -20))
+            painter.drawLine(QPointF(8, 20), QPointF(45, 20))
+            painter.setPen(pen_body)
+            active = bool(getattr(self, 'relay_active', False))
+            painter.drawLine(QPointF(8, 20), QPointF(8, -20) if active else QPointF(25, -8))
+            points = [QPointF(-45, -20), QPointF(-45, 20), QPointF(45, -20), QPointF(45, 20)]
+        painter.setPen(QPen(pin, 2)); painter.setBrush(QBrush(pin))
+        for point in points:
+            painter.drawEllipse(point, PIN_RADIUS, PIN_RADIUS)
 
     def _draw_potentiometer(self, painter, pen_body, pen_wire, body_color):
         """Resistor + flecha diagonal que lo atraviesa (cursor variable)."""
@@ -1936,25 +2007,35 @@ class ComponentItem(QGraphicsItem):
 
     def _draw_counter(self, painter, pen_body, pen_wire, body_color):
         """Contador binario N-bit."""
-        hw, hh = COMP_W // 2, COMP_H // 2 + 6
+        hw, hh = COMP_W // 2, self._counter_height()
         painter.setPen(pen_body)
         painter.setBrush(QBrush(body_color))
         painter.drawRect(QRectF(-hw, -hh, hw * 2, hh * 2))
         font = _qfont('Menlo', 7, QFont.Weight.Bold)
         painter.setFont(font)
         painter.setPen(QPen(QColor(COLORS['component']), 2))
-        bits_lbl = f'CNT {self.dig_bits}b'
+        count = int(getattr(self, 'dig_count_state', 0))
+        bits_lbl = f'CNT {count:0{max(1, self.dig_bits)}b}'
         painter.drawText(QRectF(-hw, -hh, hw * 2, hh * 2),
                          Qt.AlignmentFlag.AlignCenter, bits_lbl)
-        # CLK pin izquierda, salidas derecha
+        # CLK a la izquierda, una salida Q por cada bit a la derecha.
         painter.setPen(pen_wire)
         painter.drawLine(QPointF(-hw - 10, 0), QPointF(-hw, 0))
-        painter.drawLine(QPointF(hw, 0), QPointF(hw + 10, 0))
+        outputs = self._counter_output_positions()
+        for i, p in enumerate(outputs):
+            painter.drawLine(QPointF(hw, p.y()), p)
+            painter.setFont(_qfont('Menlo', 6))
+            painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
+            painter.drawText(QRectF(hw - 19, p.y() - 6, 16, 12),
+                             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                             f'Q{i}')
+            painter.setPen(pen_wire)
         pin_color = QColor(COLORS['pin'])
-        for px in [-hw - 10, hw + 10]:
-            painter.setPen(QPen(pin_color, 2))
-            painter.setBrush(QBrush(pin_color))
-            painter.drawEllipse(QPointF(px, 0), PIN_RADIUS, PIN_RADIUS)
+        painter.setPen(QPen(pin_color, 2))
+        painter.setBrush(QBrush(pin_color))
+        painter.drawEllipse(QPointF(-hw - 10, 0), PIN_RADIUS, PIN_RADIUS)
+        for p in outputs:
+            painter.drawEllipse(p, PIN_RADIUS, PIN_RADIUS)
 
     def _draw_mux(self, painter, pen_body, pen_wire, body_color):
         """MUX 2:1 — geometría consistente con pin_positions/pin3/pin4."""
@@ -2158,7 +2239,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, self.name)
 
         # Valor abajo
-        if self.value != 0:
+        if self.value != 0 and self.comp_type not in ('COUNTER', 'SPST', 'SPDT', 'RELAY'):
             val_str = self._format_value()
             val_rect = QRectF(-COMP_W//2, COMP_H//2 + 2, COMP_W, 16)
             painter.setPen(QPen(QColor(COLORS['text_dim'])))

@@ -631,6 +631,7 @@ class BinaryCounter(DigitalComponent):
     def __init__(self, name: str, n: int, clk: str,
                  en: str = None, reset: str = None,
                  q_prefix: str = 'Q', carry: str = None,
+                 q_outputs: List[str] = None,
                  t_pd: float = 2e-9):
         self.n         = n
         self.clk_net   = clk
@@ -643,7 +644,8 @@ class BinaryCounter(DigitalComponent):
         self._max      = (1 << n) - 1
 
         inputs  = [clk] + ([en] if en else []) + ([reset] if reset else [])
-        outputs = [f'{q_prefix}{i}' for i in range(n)] + ([carry] if carry else [])
+        self.q_outputs = q_outputs or [f'{q_prefix}{i}' for i in range(n)]
+        outputs = self.q_outputs + ([carry] if carry else [])
         super().__init__(name, inputs, outputs, t_pd)
 
     def reset(self):
@@ -662,7 +664,8 @@ class BinaryCounter(DigitalComponent):
 
             for i in range(self.n):
                 bit = (self._count >> i) & 1
-                events.append(self._emit(t, f'{self.q_prefix}{i}', bit))
+                if i < len(self.q_outputs):
+                    events.append(self._emit(t, self.q_outputs[i], bit))
             if self.carry_net:
                 events.append(self._emit(t, self.carry_net,
                                          int(self._count == self._max and en)))

@@ -8,6 +8,8 @@ DEFAULT_NODE_LABELS = ('Node +', 'Node −', None)
 COMPONENT_NODE_LABELS: Dict[str, Tuple[str, str, Optional[str]]] = {
     'R':       ('Node 1',       'Node 2',            None),
     'POT':     ('Node 1',       'Node 2 (wiper)',    None),
+    'SPST':    ('Terminal 1',   'Terminal 2',         None),
+    'SPDT':    ('Common (COM)', 'Normally closed (NC)', 'Normally open (NO)'),
     'C':       ('Node 1',       'Node 2',            None),
     'L':       ('Node 1',       'Node 2',            None),
     'V':       ('Node + (anode)',  'Node − (cathode)', None),
@@ -31,6 +33,7 @@ FIVE_PIN_NODE_LABELS: Dict[str, Tuple[str, str, str, str, str]] = {
 }
 
 FOUR_PIN_NODE_LABELS: Dict[str, Tuple[str, str, str, str]] = {
+    'RELAY':  ('Coil +', 'Coil −', 'Common (COM)', 'Normally open (NO)'),
     'XFMR':   ('Primary + (P1)', 'Primary − (P2)',
                'Secondary + (S1)', 'Secondary − (S2)'),
     'BRIDGE': ('AC1 (input ~)', 'AC2 (input ~)',

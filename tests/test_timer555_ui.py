@@ -34,3 +34,18 @@ def test_pin_on_existing_wire_is_part_of_its_net():
     nets = scene.extract_netlist()
 
     assert nets['U1__p4'] == nets['R1__p1']
+
+
+def test_counter_grows_one_output_pin_per_bit():
+    app = QApplication.instance() or QApplication([])
+    item = ComponentItem('COUNTER', 'CNT1')
+    item.prepareGeometryChange()
+    item.dig_bits = 4
+
+    pins = item.all_pin_positions_scene()
+
+    # p1=Q0, p2=CLK y p3…p5=Q1…Q3; no hay pines superpuestos.
+    assert len(pins) == 5
+    assert len({(p.x(), p.y()) for p in pins}) == 5
+    assert pins[0].x() > 0 and pins[1].x() < 0
+    assert all(p.x() > 0 for p in pins[2:])
