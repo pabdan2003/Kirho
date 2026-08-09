@@ -66,6 +66,38 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### macOS application
+
+To create the distributable macOS application, install the optional build
+tool and run:
+
+```bash
+python -m pip install ".[build]"
+sh scripts/build_macos.sh
+```
+
+This produces `dist/OhmPy.app` and `dist/OhmPy-<version>-macOS.dmg`. Distribute
+the DMG and ask users to drag **OhmPy.app** to **Applications**. For each new
+release, build it with an increased `version` in `pyproject.toml`; replacing
+the existing app in Applications updates it in place, without duplicating the
+application. User preferences and custom themes remain in `~/.ohmpy`.
+
+Before distributing outside a small trusted group, sign and notarize the app
+with an Apple Developer certificate; otherwise macOS will show a security
+warning on first launch.
+
+## Downloads
+
+| Platform | Status | Download |
+| --- | --- | --- |
+| macOS (Apple Silicon) | Available | [Latest release](https://github.com/pabdan2003/OhmPy/releases/latest) |
+| Windows | Coming soon | — |
+| Linux | Coming soon | — |
+
+For macOS, download the `.dmg` asset from the release, open it, and drag
+**OhmPy.app** to **Applications**. The current build is for Apple Silicon
+(M1, M2, M3, M4, or M5); an Intel macOS build is not available yet.
+
 ---
 
 ## Quick start

@@ -47,31 +47,41 @@ REQUIRED_KEYS = (
     'voltage', 'current',
 )
 
+USER_THEMES_README = """# OhmPy themes
+
+Place one `*.json` theme file in this folder, then return to OhmPy and choose
+**Reload themes** in Settings.
+
+To create one, copy `theme-template.json.example` to a name ending in `.json`,
+then edit its colors. You can also download community themes and place their
+JSON files here. This folder is preserved when OhmPy is updated.
+"""
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Temas integrados
 # ──────────────────────────────────────────────────────────────────────────────
 
-#: Tema oscuro original — paleta azul-medianoche con acentos rojo/verde.
+#: Tema oscuro oficial — carbón neutro y alto contraste.
 THEME_DARK: Dict[str, str] = {
-    'bg':         '#1a1a2e',
-    'grid':       '#16213e',
-    'grid_line':  '#0f3460',
-    'component':  '#e94560',
-    'comp_body':  '#16213e',
-    'comp_sel':   '#f5a623',
-    'wire':       '#4ecca3',
-    'wire_sel':   '#f5a623',
-    'node_dot':   '#4ecca3',
-    'text':       '#e0e0e0',
-    'text_dim':   '#7f8c8d',
-    'pin':        '#4ecca3',
-    'gnd':        '#a0a0ff',
-    'toolbar':    '#0f3460',
-    'panel':      '#16213e',
-    'panel_brd':  '#0f3460',
-    'voltage':    '#f5a623',
-    'current':    '#4ecca3',
+    'bg':         '#101010',
+    'grid':       '#181818',
+    'grid_line':  '#292929',
+    'component':  '#d6d6d6',
+    'comp_body':  '#222222',
+    'comp_sel':   '#f0f0f0',
+    'wire':       '#bdbdbd',
+    'wire_sel':   '#f0f0f0',
+    'node_dot':   '#d6d6d6',
+    'text':       '#f5f5f5',
+    'text_dim':   '#a0a0a0',
+    'pin':        '#d6d6d6',
+    'gnd':        '#e0e0e0',
+    'toolbar':    '#161616',
+    'panel':      '#1d1d1d',
+    'panel_brd':  '#353535',
+    'voltage':    '#d6d6d6',
+    'current':    '#bdbdbd',
 }
 
 #: Tema Python  — azul y amarillo característicos del logo de Python.
@@ -121,13 +131,13 @@ THEME_LIGHT: Dict[str, str] = {
 
 BUILTIN_THEMES: Dict[str, Dict] = {
     'python': {
-        'name':        'Python (predeterminado)',
+        'name':        'Python',
         'description': 'Python’s signature blue and yellow.',
         'colors':      THEME_PYTHON,
     },
     'dark': {
-        'name':        'Oscuro',
-        'description': 'Midnight-blue palette with high contrast.',
+        'name':        'Oscuro (predeterminado)',
+        'description': 'Official charcoal palette with high contrast.',
         'colors':      THEME_DARK,
     },
     'light': {
@@ -138,7 +148,7 @@ BUILTIN_THEMES: Dict[str, Dict] = {
 }
 
 #: Id del tema que se usa cuando no hay configuración previa.
-DEFAULT_THEME_ID = 'python'
+DEFAULT_THEME_ID = 'dark'
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -364,9 +374,24 @@ class ThemeManager:
 
     # ── Helpers para el usuario ─────────────────────────────────────────────
     def ensure_user_themes_dir(self) -> str:
-        """Crea ~/.ohmpy/themes/ si no existe y la devuelve."""
+        """Crea la carpeta de temas del usuario con su guía y plantilla."""
         path = os.path.join(self.user_dir, 'themes')
         os.makedirs(path, exist_ok=True)
+        readme_path = os.path.join(path, 'README.md')
+        template_path = os.path.join(path, 'theme-template.json.example')
+        try:
+            if not os.path.exists(readme_path):
+                with open(readme_path, 'w', encoding='utf-8') as f:
+                    f.write(USER_THEMES_README)
+            if not os.path.exists(template_path):
+                with open(template_path, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        'name': 'My Theme',
+                        'description': 'My custom OhmPy theme.',
+                        'colors': BUILTIN_THEMES[DEFAULT_THEME_ID]['colors'],
+                    }, f, indent=2, ensure_ascii=False)
+        except OSError:
+            pass
         return path
 
     def export_theme_template(self, theme_id: str, dest_path: str) -> bool:

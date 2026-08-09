@@ -148,6 +148,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(self.tr("OhmPy — Circuit Simulator"))
         self.resize(1280, 800)
+        self._active_theme_id = _INITIAL_THEME_ID
         self.solver = MNASolver()
         self._sim_running = False
         self._sim_mode    = 'idle'   # 'idle' | 'dc_tick' | 'live_transient'
@@ -272,7 +273,6 @@ class MainWindow(QMainWindow):
         """Segunda red de seguridad: si por algún motivo el event filter
         no recibe el evento (envío sintético desde QTest, etc.), aún
         capturamos las rotaciones aquí."""
-        mod = event.modifiers()
         sc = self.scene
         if (sc is not None and event.key() == Qt.Key.Key_Space
                 and not event.modifiers() & Qt.KeyboardModifier.ControlModifier):
@@ -281,6 +281,7 @@ class MainWindow(QMainWindow):
             sc.keyPressEvent(event)
             if event.isAccepted():
                 return
+        mod = event.modifiers()
         if mod & Qt.KeyboardModifier.ControlModifier:
             sc = self.scene
             if sc is not None:
@@ -647,7 +648,7 @@ class MainWindow(QMainWindow):
         """Abre el diálogo de configuración."""
         dlg = SettingsDialog(THEME_MANAGER, COLORS,
                              parent=self,
-                             current_theme_id=THEME_MANAGER.load_selection(),
+                             current_theme_id=self._active_theme_id,
                              on_theme_change=self._apply_theme_change,
                              current_language=THEME_MANAGER.load_language(),
                              on_language_change=self._apply_language_change)
@@ -656,6 +657,7 @@ class MainWindow(QMainWindow):
     def _apply_theme_change(self, theme_id: str):
         """Callback que el SettingsDialog invoca al elegir un tema."""
         applied = apply_theme_to_colors(theme_id)
+        self._active_theme_id = applied
         THEME_MANAGER.save_selection(applied)
         self._refresh_theme_in_ui()
         meta = THEME_MANAGER.get_theme_meta(applied)
@@ -696,11 +698,11 @@ class MainWindow(QMainWindow):
                 ('L',    'Inductor',      '━⌒⌒⌒━'),
                 ('Z',    'Impedance',     '━┤▭├━'),
                 ('XFMR', 'Transformer',   '⌇⌇'),
-            ]),
-            (self.tr("Sources"), [
                 ('SPST', 'SPST switch',   '━o/ o━'),
                 ('SPDT', 'SPDT switch',   '━o/ o━'),
                 ('RELAY','Relay',         '⌁'),
+            ]),
+            (self.tr("Sources"), [
                 ('V',   'DC Voltage Source',  '━(+)━'),
                 ('VAC', 'AC Voltage Source',  '━(~)━'),
                 ('I',   'Current Source',     '━(→)━'),
@@ -2437,8 +2439,6 @@ class MainWindow(QMainWindow):
             if out is not None and not silent:
                 out.append(f"  {item.name}.Q = {q_new}")
 
-    # ── Panel de propiedades ─────────────────────
-    def _run_simulation_ac(self):
         # ── Contadores binarios ─────────────────────────────────────────
         # El símbolo actual expone Q0 por p1 y CLK por p2. Conservamos el
         # conteo completo para el indicador visual aunque sólo Q0 esté cableado.
@@ -2475,6 +2475,8 @@ class MainWindow(QMainWindow):
             if out is not None and not silent:
                 out.append(f"  {item.name} = {count:0{max(1, item.dig_bits)}b}")
 
+    # ── Panel de propiedades ─────────────────────
+    def _run_simulation_ac(self):
         """Análisis AC de frecuencia única con triángulo de potencia."""
         from PyQt6.QtWidgets import QInputDialog
 
@@ -3187,10 +3189,10 @@ class MainWindow(QMainWindow):
                 item.dig_inputs = int(c.get('dig_inputs', item.dig_inputs))
                 if c['type'] == 'NOT':
                     item.dig_inputs = 1
-                item.dig_bits = int(c.get('dig_bits', item.dig_bits))
-                item.dig_bits_adc = int(c.get('dig_bits_adc', item.dig_bits_adc))
                 if c['type'] == 'COUNTER':
                     item.prepareGeometryChange()
+                item.dig_bits = int(c.get('dig_bits', item.dig_bits))
+                item.dig_bits_adc = int(c.get('dig_bits_adc', item.dig_bits_adc))
                 item.dig_vref = float(c.get('dig_vref', item.dig_vref))
                 item.dig_clk = c.get('dig_clk', item.dig_clk)
                 item.dig_tpd_ns = float(c.get('dig_tpd_ns', item.dig_tpd_ns))

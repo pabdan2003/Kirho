@@ -1,0 +1,24 @@
+{
+  "name": "Netherglass",
+  "description": "Black, violet, and lilac palette inspired by a Nether portal.",
+  "colors": {
+    "bg": "#121018",
+    "grid": "#1b1728",
+    "grid_line": "#2b2340",
+    "component": "#c4b5fd",
+    "comp_body": "#211a33",
+    "comp_sel": "#a78bfa",
+    "wire": "#a78bfa",
+    "wire_sel": "#e9d5ff",
+    "node_dot": "#c4b5fd",
+    "text": "#f5f3ff",
+    "text_dim": "#a9a0bd",
+    "pin": "#c4b5fd",
+    "gnd": "#ddd6fe",
+    "toolbar": "#171221",
+    "panel": "#1c1729",
+    "panel_brd": "#36294e",
+    "voltage": "#c4b5fd",
+    "current": "#a78bfa"
+  }
+}

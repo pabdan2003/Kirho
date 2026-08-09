@@ -1,14 +1,16 @@
 # External OhmPy themes
 
-This directory contains **separately installable themes**. Every `*.json`
-file placed here will automatically appear in the app's **Theme** menu the
-next time you open it.
+This directory contains themes that can be distributed separately from OhmPy.
+They are not included in the macOS DMG. To install one, copy its `*.json` file
+to `~/.ohmpy/themes/`, then choose **Reload themes** in the app settings.
 
 ## Create your own theme
 
-1. Copy `solarized_dark.json` to, for example, `my_theme.json`.
-2. Edit the colors (hex format: `#rrggbb`).
-3. Restart the app — `My Theme` will appear in the selector.
+1. Open the themes folder from OhmPy Settings; it includes a README and
+   `theme-template.json.example`.
+2. Copy the template to, for example, `my_theme.json` and edit the colors
+   (hex format: `#rrggbb`).
+3. Choose **Reload themes** — `My Theme` will appear in the selector.
 
 ## Format
 
@@ -42,7 +44,7 @@ next time you open it.
 All `colors` keys are required; if any are missing, the theme is silently
 ignored.
 
-## Alternative directories
+## Development directory
 
-OhmPy also reads themes from `~/.ohmpy/themes/`, which is useful when you
-want to share a theme between installations.
+When running OhmPy from its source repository, it also reads this directory,
+which makes it convenient to develop and share downloadable themes.
