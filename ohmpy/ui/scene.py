@@ -73,10 +73,13 @@ class CircuitScene(QGraphicsScene):
         self._group_drag_active: bool = False
         self._group_drag_start_pos: Optional[QPointF] = None
         self._group_drag_wires: List[dict] = []
+        self._hover_pos: Optional[QPointF] = None
 
         # Stack de Ctrl+Z (undo). Cada entrada es un snapshot serializado.
         self._undo_stack: List[dict] = []
+        self._redo_stack: List[dict] = []
         self._undo_max: int = 50
+        self.snap_enabled: bool = True
 
     @staticmethod
     def _counter_key_for_type(comp_type: str) -> str:
@@ -182,15 +185,69 @@ class CircuitScene(QGraphicsScene):
                 counts[key] = counts.get(key, 0) + 1
                 positions.setdefault(key, p)
 
-        if not counts:
-            return
-
         color = QColor(COLORS['pin'])
         painter.setPen(QPen(color, 2))
         painter.setBrush(QBrush(color))
         for key, n in counts.items():
             if n > 3:
                 painter.drawEllipse(positions[key], PIN_RADIUS, PIN_RADIUS)
+
+        # Un extremo libre que no toca otro cable ni un pin suele indicar un
+        # cable incompleto. Se marca discretamente para detectarlo al editar.
+        warning = QColor('#e59a3a')
+        painter.setPen(QPen(warning, 2))
+        for wire in self.wires:
+            for point, connected in ((wire.line().p1(), wire.start_comp),
+                                     (wire.line().p2(), wire.end_comp)):
+                if connected is None and not self._free_endpoint_connected(point, wire):
+                    painter.drawLine(point + QPointF(-4, -4), point + QPointF(4, 4))
+                    painter.drawLine(point + QPointF(-4, 4), point + QPointF(4, -4))
+
+        # Bajo el cursor se iluminan todos los pines de la misma red. Es un
+        # feedback ligero y no altera el esquema ni el netlist.
+        if self._hover_pos is not None:
+            net = self._net_at(self._hover_pos)
+            if net:
+                nets = self.extract_netlist()
+                painter.setPen(QPen(QColor(COLORS['comp_sel']), 2))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                for comp in self.components:
+                    for index, point in enumerate(comp.all_pin_positions_scene(), 1):
+                        if nets.get(f'{comp.name}__p{index}') == net:
+                            painter.drawEllipse(point, PIN_RADIUS + 4, PIN_RADIUS + 4)
+
+    @staticmethod
+    def _point_on_segment(point: QPointF, a: QPointF, b: QPointF, tolerance: float = 10.0) -> bool:
+        dx, dy = b.x() - a.x(), b.y() - a.y()
+        length_sq = dx * dx + dy * dy
+        if length_sq == 0:
+            return QLineF(point, a).length() < tolerance
+        t = max(0.0, min(1.0, ((point.x() - a.x()) * dx + (point.y() - a.y()) * dy) / length_sq))
+        projected = QPointF(a.x() + t * dx, a.y() + t * dy)
+        return QLineF(point, projected).length() < tolerance
+
+    def _free_endpoint_connected(self, point: QPointF, owner: WireItem) -> bool:
+        for comp in self.components:
+            if any(QLineF(point, pin).length() < 12 for pin in comp.all_pin_positions_scene()):
+                return True
+        for wire in self.wires:
+            if wire is owner:
+                continue
+            line = wire.line()
+            if self._point_on_segment(point, line.p1(), line.p2()):
+                return True
+        return False
+
+    def _net_at(self, pos: QPointF) -> Optional[str]:
+        closest = (16.0, None)
+        for comp in self.components:
+            for index, point in enumerate(comp.all_pin_positions_scene(), 1):
+                distance = QLineF(pos, point).length()
+                if distance < closest[0]:
+                    closest = (distance, f'{comp.name}__p{index}')
+        if closest[1] is None:
+            return None
+        return self.extract_netlist().get(closest[1])
 
     # ── Modo ────────────────────────────────────
     def set_mode(self, mode: str):
@@ -218,6 +275,8 @@ class CircuitScene(QGraphicsScene):
                     best_pt   = pt
         if best_pt is not None:
             return best_pt
+        if not self.snap_enabled:
+            return QPointF(pos)
         return QPointF(round(pos.x()/GRID_SIZE)*GRID_SIZE,
                         round(pos.y()/GRID_SIZE)*GRID_SIZE)
 
@@ -329,10 +388,10 @@ class CircuitScene(QGraphicsScene):
         if comp_type == 'SUBCKT':
             item.subckt_name = _subckt_name
             self._init_subckt_appearance(item)
-        snap_x = round(pos.x() / GRID_SIZE) * GRID_SIZE
-        snap_y = round(pos.y() / GRID_SIZE) * GRID_SIZE
-        item.setPos(snap_x, snap_y)
+        snap_x = round(pos.x() / GRID_SIZE) * GRID_SIZE if self.snap_enabled else pos.x()
+        snap_y = round(pos.y() / GRID_SIZE) * GRID_SIZE if self.snap_enabled else pos.y()
         self.addItem(item)
+        item.setPos(snap_x, snap_y)
         self.components.append(item)
         return item
 
@@ -388,6 +447,8 @@ class CircuitScene(QGraphicsScene):
                     
         if best_pt is not None:
             return best_pt, best_comp, best_pin_idx
+        if not self.snap_enabled:
+            return QPointF(pos), None, 0
         return QPointF(round(pos.x()/GRID_SIZE)*GRID_SIZE,
                        round(pos.y()/GRID_SIZE)*GRID_SIZE), None, 0
 
@@ -550,6 +611,8 @@ class CircuitScene(QGraphicsScene):
             self.component_selected.emit(None)
 
     def mouseMoveEvent(self, event):
+        self._hover_pos = QPointF(event.scenePos())
+        self.update()
         if self._mode == 'wire' and self._wire_start and self._wire_preview:
             pos  = event.scenePos()
             snap = self._snap_to_pin_or_grid(pos)
@@ -584,6 +647,11 @@ class CircuitScene(QGraphicsScene):
 
     def mouseDoubleClickEvent(self, event):
         items = self.items(event.scenePos())
+        if self._mode == 'select':
+            wire = next((item for item in items if isinstance(item, WireItem)), None)
+            if wire is not None:
+                if self._toggle_wire_vertex(wire, event.scenePos()):
+                    return
         for item in items:
             if isinstance(item, ComponentItem):
                 if item.comp_type == 'LOGIC_STATE':
@@ -629,6 +697,60 @@ class CircuitScene(QGraphicsScene):
                 self._edit_component(item)
                 return
         super().mouseDoubleClickEvent(event)
+
+    def _toggle_wire_vertex(self, wire: WireItem, pos: QPointF) -> bool:
+        """Convierte un cable diagonal en dos tramos ortogonales.
+
+        Un doble clic sobre el vértice compartido de dos tramos lo vuelve a
+        unir. Para recorridos más largos, el modo Wire ya permite colocar
+        tantos tramos manuales como se necesiten.
+        """
+        line = wire.line()
+        p1, p2 = line.p1(), line.p2()
+        if abs(p1.x() - p2.x()) < 1 or abs(p1.y() - p2.y()) < 1:
+            return self._remove_wire_vertex(pos)
+
+        elbow_a = QPointF(p1.x(), p2.y())
+        elbow_b = QPointF(p2.x(), p1.y())
+        elbow = elbow_a if QLineF(pos, elbow_a).length() <= QLineF(pos, elbow_b).length() else elbow_b
+        self.push_undo()
+        first = WireItem(p1, elbow, wire.start_comp, wire.start_pin_idx)
+        second = WireItem(elbow, p2, end_comp=wire.end_comp, end_pin_idx=wire.end_pin_idx)
+        self.removeItem(wire)
+        self.wires.remove(wire)
+        for item in (first, second):
+            self.addItem(item)
+            self.wires.append(item)
+            item.setSelected(True)
+        self.status_message.emit(self.tr("Orthogonal wire vertex added"))
+        return True
+
+    def _remove_wire_vertex(self, pos: QPointF) -> bool:
+        ends = []
+        for wire in self.wires:
+            if wire.start_comp is None and QLineF(pos, wire.line().p1()).length() < 12:
+                ends.append((wire, 'start'))
+            if wire.end_comp is None and QLineF(pos, wire.line().p2()).length() < 12:
+                ends.append((wire, 'end'))
+        if len(ends) != 2 or ends[0][0] is ends[1][0]:
+            return False
+        (first, first_end), (second, second_end) = ends
+        a = first.line().p2() if first_end == 'start' else first.line().p1()
+        b = second.line().p2() if second_end == 'start' else second.line().p1()
+        a_comp = first.end_comp if first_end == 'start' else first.start_comp
+        b_comp = second.end_comp if second_end == 'start' else second.start_comp
+        a_pin = first.end_pin_idx if first_end == 'start' else first.start_pin_idx
+        b_pin = second.end_pin_idx if second_end == 'start' else second.start_pin_idx
+        self.push_undo()
+        merged = WireItem(a, b, a_comp, a_pin, b_comp, b_pin)
+        for item in (first, second):
+            self.removeItem(item)
+            self.wires.remove(item)
+        self.addItem(merged)
+        self.wires.append(merged)
+        merged.setSelected(True)
+        self.status_message.emit(self.tr("Wire vertex removed"))
+        return True
 
     def keyPressEvent(self, event):
         mod = event.modifiers()
@@ -839,17 +961,27 @@ class CircuitScene(QGraphicsScene):
         """Captura el estado actual y lo apila para Ctrl+Z. Llamar ANTES
         de cualquier mutación del canvas."""
         self._undo_stack.append(self._snapshot())
+        self._redo_stack.clear()
         if len(self._undo_stack) > self._undo_max:
             self._undo_stack.pop(0)
 
     def undo(self) -> bool:
         if not self._undo_stack:
             return False
+        self._redo_stack.append(self._snapshot())
         snap = self._undo_stack.pop()
         self._restore(snap)
         # Cualquier estado de drag en curso queda invalidado tras un restore.
         self._group_drag_active = False
         self._group_drag_wires = []
+        self.component_selected.emit(None)
+        return True
+
+    def redo(self) -> bool:
+        if not self._redo_stack:
+            return False
+        self._undo_stack.append(self._snapshot())
+        self._restore(self._redo_stack.pop())
         self.component_selected.emit(None)
         return True
 
@@ -935,6 +1067,70 @@ class CircuitScene(QGraphicsScene):
             it.flip_y()
         return True
 
+    def align_selected(self, edge: str) -> bool:
+        """Alinea los componentes seleccionados sobre uno de sus bordes."""
+        items = [it for it in self.selectedItems() if isinstance(it, ComponentItem)]
+        if len(items) < 2:
+            return False
+        self.push_undo()
+        horizontal = edge in ('left', 'right')
+        values = [it.pos().x() if horizontal else it.pos().y() for it in items]
+        value = min(values) if edge in ('left', 'top') else max(values)
+        for item in items:
+            item.setPos(value, item.pos().y()) if horizontal else item.setPos(item.pos().x(), value)
+        return True
+
+    def distribute_selected(self, axis: str) -> bool:
+        """Distribuye la selección entre sus dos extremos actuales."""
+        items = sorted(
+            (it for it in self.selectedItems() if isinstance(it, ComponentItem)),
+            key=lambda it: it.pos().x() if axis == 'x' else it.pos().y())
+        if len(items) < 3:
+            return False
+        first = items[0].pos().x() if axis == 'x' else items[0].pos().y()
+        last = items[-1].pos().x() if axis == 'x' else items[-1].pos().y()
+        self.push_undo()
+        for index, item in enumerate(items[1:-1], 1):
+            value = first + (last - first) * index / (len(items) - 1)
+            if self.snap_enabled:
+                value = round(value / GRID_SIZE) * GRID_SIZE
+            item.setPos(value, item.pos().y()) if axis == 'x' else item.setPos(item.pos().x(), value)
+        return True
+
+    def electrical_rule_warnings(self) -> List[str]:
+        """Comprobaciones ligeras antes de simular, sin modificar el circuito."""
+        warnings: List[str] = []
+        nets = self.extract_netlist()
+        counts: Dict[str, int] = {}
+        for net in nets.values():
+            counts[net] = counts.get(net, 0) + 1
+
+        analog = [c for c in self.components if c.comp_type not in (
+            ComponentItem.DIGITAL_TYPES | {'GND', 'NODE', 'NET_LABEL_IN',
+                                            'NET_LABEL_OUT', 'PORT'})]
+        if analog and not any(c.comp_type == 'GND' for c in self.components):
+            warnings.append(self.tr("No ground node (GND) was found."))
+
+        floating: List[str] = []
+        for comp in analog:
+            for index, _ in enumerate(comp.all_pin_positions_scene(), 1):
+                net = nets.get(f'{comp.name}__p{index}')
+                if net and net != '0' and counts.get(net, 0) == 1:
+                    floating.append(f'{comp.name}: pin {index}')
+        if floating:
+            preview = ', '.join(floating[:6])
+            suffix = '…' if len(floating) > 6 else ''
+            warnings.append(self.tr("Floating pins: ") + preview + suffix)
+
+        dangling = sum(
+            1 for wire in self.wires
+            for point, comp in ((wire.line().p1(), wire.start_comp),
+                                (wire.line().p2(), wire.end_comp))
+            if comp is None and not self._free_endpoint_connected(point, wire))
+        if dangling:
+            warnings.append(self.tr("Dangling wire endpoints: {count}").format(count=dangling))
+        return warnings
+
     # ── Menú contextual (click derecho sobre un componente) ──
     def contextMenuEvent(self, event):
         items = self.items(event.scenePos())
@@ -953,6 +1149,9 @@ class CircuitScene(QGraphicsScene):
 
         menu = QMenu()
         act_props    = menu.addAction(self.tr("Properties…"))
+        act_rename_net = None
+        if comp.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT'):
+            act_rename_net = menu.addAction(self.tr("Rename Net Label…"))
         menu.addSeparator()
         act_rot_left  = menu.addAction(self.tr("Rotate 90° Left"))
         act_rot_right = menu.addAction(self.tr("Rotate 90° Right"))
@@ -965,6 +1164,17 @@ class CircuitScene(QGraphicsScene):
             return
         if chosen is act_props:
             self._edit_component(comp)
+        elif chosen is act_rename_net:
+            from PyQt6.QtWidgets import QInputDialog
+            label, ok = QInputDialog.getText(
+                self.views()[0] if self.views() else None,
+                self.tr("Rename Net Label"), self.tr("Net name:"),
+                text=comp.sheet_label)
+            if ok and label.strip() and label.strip() != comp.sheet_label:
+                self.push_undo()
+                comp.sheet_label = label.strip()
+                comp.update()
+                self.update()
         elif chosen is act_rot_left:
             self.rotate_selected(delta=-90)
         elif chosen is act_rot_right:

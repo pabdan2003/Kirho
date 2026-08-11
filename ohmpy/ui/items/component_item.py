@@ -750,7 +750,16 @@ class ComponentItem(QGraphicsItem):
             painter.drawLine(QPointF(-8, 0), QPointF(8, 20 if self.value else -20))
             points = [QPointF(-40, 0), QPointF(40, -20), QPointF(40, 20)]
         else:
-            painter.drawEllipse(QRectF(-32, -25, 24, 50))
+            # Bobina del relé: cuatro espiras verticales, como un inductor.
+            painter.setPen(pen_body)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            coil = QPainterPath()
+            coil.moveTo(-32, -20)
+            for i in range(4):
+                cy = -15 + i * 10
+                coil.arcTo(QRectF(-44, cy - 5, 24, 10), 90, -180)
+            painter.drawPath(coil)
+            painter.setPen(pen_wire)
             painter.drawLine(QPointF(-45, -20), QPointF(-32, -20))
             painter.drawLine(QPointF(-45, 20), QPointF(-32, 20))
             painter.drawLine(QPointF(8, -20), QPointF(45, -20))
@@ -2268,11 +2277,13 @@ class ComponentItem(QGraphicsItem):
     # ── Snap a grid ──────────────────────────────
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            if self.scene() is not None and not getattr(self.scene(), 'snap_enabled', True):
+                return value
             x = round(value.x() / GRID_SIZE) * GRID_SIZE
             y = round(value.y() / GRID_SIZE) * GRID_SIZE
             return QPointF(x, y)
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             # NUEVO: Notificar a la escena para actualizar cables
-            if self.scene() and hasattr(self.scene(), 'update_wires_for_component'):
+            if self.scene() is not None and hasattr(self.scene(), 'update_wires_for_component'):
                 self.scene().update_wires_for_component(self)
         return super().itemChange(change, value)

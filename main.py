@@ -231,10 +231,26 @@ class MainWindow(QMainWindow):
             else:
                 _msg(self.tr("Nothing to undo"))
 
+        def do_redo():
+            sc = self.scene
+            if sc is not None and sc.redo():
+                _msg(self.tr("Action redone"))
+            else:
+                _msg(self.tr("Nothing to redo"))
+
+        def do_duplicate():
+            sc = self.scene
+            if sc is not None and sc.copy_selected() and sc.paste():
+                _msg(self.tr("Selection duplicated"))
+
         _bind_string("Ctrl+C", do_copy)
         _bind_string("Ctrl+X", do_cut)
         _bind_string("Ctrl+V", do_paste)
         _bind_string("Ctrl+Z", do_undo)
+        _bind_string("Ctrl+Y", do_redo)
+        _bind_string("Ctrl+Shift+Z", do_redo)
+        _bind_string("Meta+Shift+Z", do_redo)
+        _bind_string("Ctrl+D", do_duplicate)
 
         # Rotación: event filter a nivel de QApplication.
         QApplication.instance().installEventFilter(self)
@@ -416,6 +432,10 @@ class MainWindow(QMainWindow):
         act_resistor_calc = QAction(self.tr("Resistor Color Code…"), self)
         act_resistor_calc.triggered.connect(self._open_resistor_calculator)
         menu.addAction(act_resistor_calc)
+        menu.addSeparator()
+        act_erc = QAction(self.tr("Check Circuit (ERC)"), self)
+        act_erc.triggered.connect(self._run_erc)
+        menu.addAction(act_erc)
         btn.setMenu(menu)
         # Mostrar el menú también al pasar el cursor (hover)
         btn.installEventFilter(self)
@@ -449,6 +469,10 @@ class MainWindow(QMainWindow):
         splitter.setSizes([1000, 280])
 
         self.setCentralWidget(splitter)
+
+        # En macOS Qt la muestra en la barra global; en Windows y Linux
+        # permanece integrada en la ventana.
+        self._build_menu_bar()
 
         # ── Toolbar PRINCIPAL (fila 1: archivo, zoom, etc.) ──────────────
         self._build_main_toolbar()
@@ -513,6 +537,8 @@ class MainWindow(QMainWindow):
 
     def _on_sheet_changed(self, index: int):
         if 0 <= index < len(self._sheets):
+            if hasattr(self, '_snap_action'):
+                self._snap_action.setChecked(self.scene.snap_enabled)
             self.statusBar().showMessage(self.tr("Active sheet: {name}").format(name=self._sheets[index]['name']))
 
     def _rename_sheet(self, index: int):
@@ -642,6 +668,116 @@ class MainWindow(QMainWindow):
         tb.addAction(act_settings)
 
         self._current_file: Optional[str] = None
+
+    def _build_menu_bar(self):
+        """Menús nativos que exponen las mismas acciones de la barra de herramientas."""
+        menu_bar = self.menuBar()
+
+        app_menu = menu_bar.addMenu("OhmPy")
+        app_menu.addAction(self.tr("Settings…"), self._open_settings_dialog)
+        app_menu.addAction(self.tr("About OhmPy"), self._show_about)
+        app_menu.addSeparator()
+        app_menu.addAction(self.tr("Quit OhmPy"), self.close)
+
+        file_menu = menu_bar.addMenu(self.tr("File"))
+        file_menu.addAction(self.tr("New"), self._new_circuit)
+        file_menu.addAction(self.tr("Open"), self._open_circuit)
+        file_menu.addAction(self.tr("Save"), self._save_circuit)
+        file_menu.addAction(self.tr("Save As…"), self._save_circuit_as)
+        file_menu.addSeparator()
+        file_menu.addAction(self.tr("Export SPICE"), self._export_spice)
+        file_menu.addAction(self.tr("+ Sheet"), self._add_sheet)
+
+        edit_menu = menu_bar.addMenu(self.tr("Edit"))
+        edit_menu.addAction(self.tr("Undo"), self._undo_active_sheet)
+        edit_menu.addAction(self.tr("Redo"), self._redo_active_sheet)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.tr("Copy"), self._copy_active_selection)
+        edit_menu.addAction(self.tr("Cut"), self._cut_active_selection)
+        edit_menu.addAction(self.tr("Paste"), self._paste_active_selection)
+        edit_menu.addAction(self.tr("Duplicate"), self._duplicate_active_selection)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.tr("Select"), self._set_select_mode)
+        edit_menu.addAction(self.tr("Wire"), self._set_wire_mode)
+        align_menu = edit_menu.addMenu(self.tr("Align"))
+        align_menu.addAction(self.tr("Left"), lambda: self._align_selection('left'))
+        align_menu.addAction(self.tr("Right"), lambda: self._align_selection('right'))
+        align_menu.addAction(self.tr("Top"), lambda: self._align_selection('top'))
+        align_menu.addAction(self.tr("Bottom"), lambda: self._align_selection('bottom'))
+        distribute_menu = edit_menu.addMenu(self.tr("Distribute"))
+        distribute_menu.addAction(self.tr("Horizontally"), lambda: self._distribute_selection('x'))
+        distribute_menu.addAction(self.tr("Vertically"), lambda: self._distribute_selection('y'))
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.tr("Clear"), self._clear_circuit)
+
+        view_menu = menu_bar.addMenu(self.tr("View"))
+        view_menu.addAction(self.tr("Zoom +"), lambda: self.view.scale(1.2, 1.2))
+        view_menu.addAction(self.tr("Zoom −"), lambda: self.view.scale(1 / 1.2, 1 / 1.2))
+        view_menu.addAction(self.tr("Reset"), self._reset_zoom)
+        self._snap_action = view_menu.addAction(self.tr("Snap to Grid"))
+        self._snap_action.setCheckable(True)
+        self._snap_action.setChecked(self.scene.snap_enabled)
+        self._snap_action.toggled.connect(self._toggle_snap)
+
+        tools_menu = menu_bar.addMenu(self.tr("Tools"))
+        tools_menu.addAction(self.tr("CLK Frequency…"), self._set_clk_frequency)
+        tools_menu.addAction(self.tr("Analyze Circuit…"), self._open_circuit_analyzer)
+        tools_menu.addAction(self.tr("Bode / Transfer Analysis…"), self._open_bode_analyzer)
+        tools_menu.addAction(self.tr("Resistor Color Code…"), self._open_resistor_calculator)
+        tools_menu.addSeparator()
+        tools_menu.addAction(self.tr("Check Circuit (ERC)"), self._run_erc)
+
+    def _show_about(self):
+        QMessageBox.about(
+            self,
+            self.tr("About OhmPy"),
+            self.tr("OhmPy — Circuit Simulator\nVersion 0.1.0"),
+        )
+
+    def _undo_active_sheet(self):
+        if not self.scene.undo():
+            self.statusBar().showMessage(self.tr("Nothing to undo"))
+
+    def _redo_active_sheet(self):
+        if not self.scene.redo():
+            self.statusBar().showMessage(self.tr("Nothing to redo"))
+
+    def _copy_active_selection(self):
+        self.scene.copy_selected()
+
+    def _cut_active_selection(self):
+        self.scene.cut_selected()
+
+    def _paste_active_selection(self):
+        self.scene.paste()
+
+    def _duplicate_active_selection(self):
+        if self.scene.copy_selected():
+            self.scene.paste()
+
+    def _align_selection(self, edge: str):
+        if not self.scene.align_selected(edge):
+            self.statusBar().showMessage(self.tr("Select at least two components to align"))
+
+    def _distribute_selection(self, axis: str):
+        if self.scene.distribute_selected(axis):
+            self.statusBar().showMessage(
+                self.tr("Distributed horizontally") if axis == 'x'
+                else self.tr("Distributed vertically"))
+        else:
+            self.statusBar().showMessage(self.tr("Select at least three components to distribute"))
+
+    def _toggle_snap(self, enabled: bool):
+        self.scene.snap_enabled = enabled
+        self.statusBar().showMessage(self.tr("Snap to grid enabled") if enabled else self.tr("Snap to grid disabled"))
+
+    def _run_erc(self):
+        warnings = self.scene.electrical_rule_warnings()
+        if warnings:
+            QMessageBox.warning(self, self.tr("Circuit Check (ERC)"), "\n\n".join(warnings))
+        else:
+            QMessageBox.information(self, self.tr("Circuit Check (ERC)"),
+                                    self.tr("No basic electrical issues were found."))
 
     # ── Configuración / Tema ──────────────────────────────────────────────
     def _open_settings_dialog(self):
