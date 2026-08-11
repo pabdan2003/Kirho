@@ -47,6 +47,7 @@ from ohmpy.ui.dialogs.power_triangle_dialog import PowerTriangleDialog
 from ohmpy.ui.dialogs.resistor_calc_dialog import ResistorCalcDialog
 from ohmpy.ui.dialogs.settings_dialog import SettingsDialog
 from ohmpy.i18n import load_translator
+from ohmpy.spice import export_netlist, parse_netlist
 
 
 # ══════════════════════════════════════════════════════════════
@@ -620,6 +621,7 @@ class MainWindow(QMainWindow):
         actions = [
             (self.tr("New"),             "Ctrl+N",          self._new_circuit),
             (self.tr("Open"),            "Ctrl+O",          self._open_circuit),
+            (self.tr("Import SPICE"),    None,              self._import_spice),
             (self.tr("Save"),            "Ctrl+S",          self._save_circuit),
             (self.tr("Save As…"),        "Ctrl+Shift+S",    self._save_circuit_as),
             (self.tr("Export SPICE"),    "Ctrl+E",          self._export_spice),
@@ -682,6 +684,7 @@ class MainWindow(QMainWindow):
         file_menu = menu_bar.addMenu(self.tr("File"))
         file_menu.addAction(self.tr("New"), self._new_circuit)
         file_menu.addAction(self.tr("Open"), self._open_circuit)
+        file_menu.addAction(self.tr("Import SPICE"), self._import_spice)
         file_menu.addAction(self.tr("Save"), self._save_circuit)
         file_menu.addAction(self.tr("Save As…"), self._save_circuit_as)
         file_menu.addSeparator()
@@ -3429,76 +3432,74 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
         self.statusBar().showMessage(self.tr("Opened: {path}").format(path=path))
 
+    # ── Importar netlist SPICE ────────────────────────────────────────────
+    def _import_spice(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Import SPICE Netlist"), "",
+            self.tr("SPICE Netlist (*.cir *.net *.sp);;All Files (*)"))
+        if not path:
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as file:
+                result = parse_netlist(file.read())
+        except OSError as exc:
+            QMessageBox.critical(self, self.tr("Error"), str(exc))
+            return
+        if not result.elements:
+            QMessageBox.warning(self, self.tr("Import SPICE Netlist"),
+                                self.tr("No supported SPICE components were found."))
+            return
+        if self.scene.components and QMessageBox.question(
+                self, self.tr("Import SPICE Netlist"),
+                self.tr("Replace the active sheet with the imported netlist?"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) \
+                != QMessageBox.StandardButton.Yes:
+            return
+
+        self._clear_circuit()
+        columns = max(1, math.ceil(math.sqrt(len(result.elements))))
+        for index, element in enumerate(result.elements):
+            x = (index % columns) * 140
+            y = (index // columns) * 100
+            item = self.scene.place_component(
+                element.kind, QPointF(x, y), name=element.name,
+                value=element.value, node1=element.node1, node2=element.node2)
+            if item is not None and element.kind == 'VAC':
+                item.phase_deg = element.phase_deg
+
+        self._current_file = None
+        self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
+        detail = self.tr(
+            "Imported {count} component(s). SPICE node names are preserved in properties; "
+            "wire them visually if you want a conventional schematic.").format(count=len(result.elements))
+        if result.warnings:
+            detail += "\n\n" + "\n".join(result.warnings[:8])
+        QMessageBox.information(self, self.tr("Import SPICE Netlist"), detail)
+
     # ── Exportar netlist SPICE (.net) ────────────
     def _export_spice(self):
         path, _ = QFileDialog.getSaveFileName(
             self, self.tr("Export SPICE Netlist"), "",
-            self.tr("SPICE Netlist (*.net);;All Files (*)")
+            self.tr("SPICE Netlist (*.cir *.net *.sp);;All Files (*)")
         )
         if not path:
             return
-        if not path.endswith('.net'):
-            path += '.net'
-
-        lines = []
-        lines.append("* OhmPy — Exported netlist")
-        lines.append(self.tr("* File: {name}").format(name=os.path.basename(path)))
-        lines.append("")
-
-        type_map = {'R': 'R', 'C': 'C', 'L': 'L', 'V': 'V', 'I': 'I', 'Z': 'Z'}
-
-        for item in self.scene.components:
-            if item.comp_type not in type_map:
-                continue
-            n1 = item.node1.strip() or '?'
-            n2 = item.node2.strip() or '0'
-            val = item.value
-
-            # Formatear valor en notación SPICE
-            if abs(val) >= 1e6:
-                val_str = f"{val/1e6:.6g}Meg"
-            elif abs(val) >= 1e3:
-                val_str = f"{val/1e3:.6g}k"
-            elif abs(val) >= 1:
-                val_str = f"{val:.6g}"
-            elif abs(val) >= 1e-3:
-                val_str = f"{val*1e3:.6g}m"
-            elif abs(val) >= 1e-6:
-                val_str = f"{val*1e6:.6g}u"
-            elif abs(val) >= 1e-9:
-                val_str = f"{val*1e9:.6g}n"
-            else:
-                val_str = f"{val:.6g}"
-
-            # Para impedancias, exportar como R + jX
-            if item.comp_type == 'Z':
-                if item.z_mode == 'rect':
-                    val_str = f"{item.z_real:.6g}"
-                    if abs(item.z_imag) > 1e-12:
-                        sign = '+' if item.z_imag >= 0 else ''
-                        val_str += f"{sign}{item.z_imag:.6g}j"
-                else:
-                    ph_rad = math.radians(item.z_phase)
-                    zr = item.z_mag * math.cos(ph_rad)
-                    zx = item.z_mag * math.sin(ph_rad)
-                    val_str = f"{zr:.6g}"
-                    if abs(zx) > 1e-12:
-                        sign = '+' if zx >= 0 else ''
-                        val_str += f"{sign}{zx:.6g}j"
-
-            lines.append(f"{item.name} {n1} {n2} {val_str}")
-
-        lines.append("")
-        lines.append(".op")
-        lines.append(".end")
+        if not os.path.splitext(path)[1]:
+            path += '.cir'
+        text, warnings = export_netlist(
+            self.scene.components, self.scene.extract_netlist(),
+            f"OhmPy — {os.path.basename(path)}")
 
         with open(path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(lines))
+            f.write(text)
 
         self.statusBar().showMessage(f"Netlist exportado: {path}")
+        detail = f"Netlist SPICE guardado en:\n{path}\n\nCompatible con LTspice y ngspice."
+        if warnings:
+            detail += "\n\nOmitted components:\n" + "\n".join(warnings)
         QMessageBox.information(
             self, "Exportado",
-            f"Netlist SPICE guardado en:\n{path}\n\nCompatible con LTspice y ngspice."
+            detail
         )
 
     def _reset_zoom(self):

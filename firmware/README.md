@@ -1,131 +1,80 @@
-# Reference firmware — Physical oscilloscope
+# Reference firmware — physical oscilloscope
 
-The simulator oscilloscope (`OSC`) can display samples from a microcontroller
-connected over **USB-CDC serial**. This directory documents the binary
-protocol the firmware must implement and includes reference examples to adapt
-for a board.
+The OhmPy oscilloscope (`OSC`) can display samples from a microcontroller over
+USB-CDC serial. This directory defines the binary stream that firmware must
+send. No board-specific firmware project is bundled: adapt the protocol to
+your board, ADC, and toolchain.
 
 ## Reference hardware
 
-| MCU | ADC | Note |
-|-----|-----|------|
-| Raspberry Pi Pico (RP2040) | 12-bit | Compatible con el ejemplo C y el de MicroPython de este documento. |
-| Raspberry Pi Pico 2 (RP2350) | 12-bit | Requiere adaptar el proyecto al SDK y placa seleccionados. |
-| STM32 Black Pill (F411) | 12-bit | Requiere implementar el protocolo en su entorno de desarrollo. |
+| MCU | ADC | Notes |
+| --- | --- | --- |
+| Raspberry Pi Pico (RP2040) | 12-bit | A practical target for Pico SDK or MicroPython. |
+| Raspberry Pi Pico 2 (RP2350) | 12-bit | Adapt the SDK project to the selected board. |
+| STM32 Black Pill (F411) | 12-bit | Implement the protocol in the STM32 environment of your choice. |
 
-La tasa de muestreo real depende del firmware, reloj, configuración del
-ADC y transporte USB. Valida el rendimiento en el hardware elegido antes
-de usarlo para medir señales concretas.
+Actual sample rate depends on the ADC, firmware, clock, and USB transport.
+Measure it on the physical target before using it for a real measurement.
 
-## Frontend analógico (importante)
+## Analog front end
 
-El ADC del Pico es **0 V – 3.3 V**, así que necesitas acondicionar la
-señal del DUT para que entre en ese rango. Circuito mínimo:
-
-```
-      probe          1 kΩ
-   ────●─────────[==========]────●────── ADC pin (e.g. GP26)
-                                  │
-                              ━━━━━━━━━  C 1 nF (anti-aliasing)
-                                  │
-                                  ┴ GND
-```
-
-Para señales de **±5 V** suma un divisor de tensión 1:3 (gain `3.0` en
-la calibración del osciloscopio) y opcionalmente un offset DC de +1.65 V
-con dos resistores para centrar AC.
-
-Para señales más grandes (±15 V o más) usa un op-amp inversor /
-seguidor que escale + desplace dentro de 0–3.3 V.
-
-## Protocolo binario
-
-El programa escucha frames de tamaño variable. Cada frame es:
+The Pico ADC range is **0–3.3 V**. Condition the signal under test so it
+stays inside that range; never connect a negative or higher-voltage signal
+directly to the ADC.
 
 ```
-Offset  Bytes  Campo
+ probe             1 kΩ
+ ───●──────────[==========]────●──── ADC pin (for example GP26)
+                                │
+                            ━━━━━━━━━ 1 nF capacitor (anti-aliasing)
+                                │
+                                ┴ GND
+```
+
+For a ±5 V signal, add attenuation and a DC offset (typically 1.65 V) before
+the ADC. Higher-voltage signals need a properly rated attenuator and, where
+appropriate, an op-amp buffer. The front end must protect both the board and
+the device under test.
+
+## Binary protocol
+
+Each frame is variable length and uses little-endian integers:
+
+```
+Offset  Bytes  Field
 ─────────────────────────────────────────────────────────────
-0       2      Magic header  = 0xAA 0x55
-2       4      ts_us  : uint32 LE — timestamp del primer sample (µs)
-6       2      dt_us  : uint16 LE — intervalo entre muestras (µs)
-8       2      N      : uint16 LE — número de pares (ch_a, ch_b)
-10      4·N    samples: int16 LE [N pares] — ch_a_0, ch_b_0, …, en mV
+0       2      Magic header: 0xAA 0x55
+2       4      ts_us : uint32 — timestamp of the first sample (µs)
+6       2      dt_us : uint16 — interval between samples (µs)
+8       2      N     : uint16 — number of (channel A, channel B) pairs
+10      4·N    samples: int16 channel A, int16 channel B, in mV
 ```
 
-- **`ts_us`** debe ser monótono entre frames. El programa lo usa como
-  base de tiempo. La primera vez se toma como `t=0`.
-- **`dt_us` = `1e6 / sample_rate_per_channel`**. Si muestreas a 100 kSps
-  por canal, `dt_us = 10`.
-- **`N`**: tamaño de bloque. Recomendado **32–256**. Bloques muy
-  pequeños suben overhead USB; muy grandes aumentan latencia.
-- **Resync**: si se pierde alineación (cable desconectado, etc.) el PC
-  busca byte a byte el patrón `0xAA 0x55` y reanuda.
+- `ts_us` must be monotonic between frames. OhmPy uses the first received
+  timestamp as time zero.
+- `dt_us` is the per-channel sample interval. At 100 kS/s, send `10`.
+- `N` is normally 32–256. Smaller blocks add USB overhead; larger ones add
+  display latency.
+- Send channel B as `0` when only channel A is in use; the decoder always
+  expects pairs.
+- The receiver resynchronizes by scanning for `0xAA 0x55` after corrupted or
+  incomplete data.
 
-Si solo usas un canal manda el otro en `0` — el PC siempre espera
-pares. Mantener bloques pareados simplifica el lector.
+The decoder is implemented in
+[`ohmpy/engine/hw_stream.py`](../ohmpy/engine/hw_stream.py). It converts each
+signed millivolt sample to volts with:
 
-## Ejemplo C — Raspberry Pi Pico (Pico SDK)
-
-Este fragmento ilustra un firmware que muestrea GP26 (CH A) y GP27 (CH B)
-y envía bloques por USB CDC. Debe integrarse en un proyecto Pico SDK; el
-repositorio no incluye un proyecto CMake ni un archivo `pico_scope.c` listo
-para compilar.
-
-```c
-#include <stdio.h>
-#include <string.h>
-#include "pico/stdlib.h"
-#include "hardware/adc.h"
-#include "tusb.h"
-
-#define BLOCK_N        128
-#define SAMPLE_DT_US   10           // 100 kSps por canal
-
-static uint8_t  buf[10 + BLOCK_N * 4];
-static int16_t  *samples = (int16_t *)(buf + 10);
-
-int main(void) {
-    stdio_init_all();              // habilita CDC sobre USB
-    adc_init();
-    adc_gpio_init(26);             // CH A
-    adc_gpio_init(27);             // CH B
-
-    uint32_t ts_us = 0;
-    // Sync + dt + N fijos en el header (se mantienen entre frames)
-    buf[0] = 0xAA; buf[1] = 0x55;
-    *(uint16_t *)(buf + 6) = SAMPLE_DT_US;
-    *(uint16_t *)(buf + 8) = BLOCK_N;
-
-    while (true) {
-        absolute_time_t t0 = get_absolute_time();
-        for (int i = 0; i < BLOCK_N; i++) {
-            adc_select_input(0);       // GP26
-            uint16_t raw_a = adc_read();
-            adc_select_input(1);       // GP27
-            uint16_t raw_b = adc_read();
-            // raw 0-4095 → mV (Vref=3.3V). Sample en mV con signo:
-            int16_t mv_a = (int16_t)((raw_a * 3300) / 4095);
-            int16_t mv_b = (int16_t)((raw_b * 3300) / 4095);
-            samples[2*i]     = mv_a;
-            samples[2*i + 1] = mv_b;
-            sleep_until(delayed_by_us(t0, (i + 1) * SAMPLE_DT_US));
-        }
-        // Escribir timestamp del primer sample
-        *(uint32_t *)(buf + 2) = ts_us;
-        // Enviar frame por USB CDC
-        if (tud_cdc_available() || tud_cdc_connected()) {
-            tud_cdc_write(buf, sizeof(buf));
-            tud_cdc_write_flush();
-        }
-        ts_us += BLOCK_N * SAMPLE_DT_US;
-    }
-}
+```
+displayed_volts = gain × (raw_millivolts / 1000) + offset_volts
 ```
 
-## Ejemplo MicroPython (más simple, ligeramente más lento)
+Set the matching gain and offset for each channel in **Hardware…** in the
+oscilloscope window.
 
-Un punto de partida sin SDK. El rendimiento depende de la versión de
-MicroPython y de la placa; mide la tasa alcanzable en tu equipo.
+## Minimal MicroPython sender (RP2040)
+
+This is a starting point, not a calibrated instrument. It samples GP26 and
+GP27 and writes the required frames to USB serial.
 
 ```python
 import struct, sys, time
@@ -133,25 +82,20 @@ from machine import ADC, Pin
 
 adc_a = ADC(Pin(26))
 adc_b = ADC(Pin(27))
-
 BLOCK_N = 64
-DT_US   = 50                       # 20 kSps por canal
+DT_US = 50                         # requested 20 kS/s per channel
 
 buf = bytearray(10 + BLOCK_N * 4)
-buf[0] = 0xAA; buf[1] = 0x55
-struct.pack_into('<H', buf, 6, DT_US)
-struct.pack_into('<H', buf, 8, BLOCK_N)
-
+buf[:2] = b'\xaa\x55'
+struct.pack_into('<HH', buf, 6, DT_US, BLOCK_N)
 ts_us = 0
+
 while True:
     t0 = time.ticks_us()
     for i in range(BLOCK_N):
-        ra = adc_a.read_u16()       # 0..65535
-        rb = adc_b.read_u16()
-        mv_a = (ra * 3300) // 65535
-        mv_b = (rb * 3300) // 65535
-        struct.pack_into('<hh', buf, 10 + 4 * i, mv_a, mv_b)
-        # Espera activa hasta el siguiente sample
+        a_mv = adc_a.read_u16() * 3300 // 65535
+        b_mv = adc_b.read_u16() * 3300 // 65535
+        struct.pack_into('<hh', buf, 10 + 4 * i, a_mv, b_mv)
         while time.ticks_diff(time.ticks_us(), t0) < (i + 1) * DT_US:
             pass
     struct.pack_into('<I', buf, 2, ts_us)
@@ -159,29 +103,27 @@ while True:
     ts_us += BLOCK_N * DT_US
 ```
 
-Guarda el fragmento como `main.py` y súbelo al Pico, por ejemplo con
-`mpremote cp main.py :main.py`; después reinicia la placa.
+Save it as `main.py`, upload it to the board (for example,
+`mpremote cp main.py :main.py`), then restart the board. Its real sample rate
+depends on the MicroPython build and board; verify it with a known signal.
 
-## Cómo conectarlo desde el simulador
+## Connect it to OhmPy
 
-1. Coloca un osciloscopio (`OSC`) en el canvas.
-2. Doble-click → se abre el panel del osciloscopio.
-3. Botón **`Hardware…`** → elige tu puerto (`COM3`, `/dev/ttyACM0`, …).
-4. Calibración: si tu frontend es 1:1 (señal cae directo al ADC),
-   `ganancia = 1.0` para ambos canales. Si usaste divisor 1:3, pon `3.0`.
-5. Aceptar → el panel cambia a **`Desconectar HW`** y empiezas a ver
-   las muestras del micro en tiempo real.
+1. Place an `OSC` in the canvas and double-click it.
+2. Select **Hardware…** in the oscilloscope window.
+3. Choose the serial port, or **⟨Mock device⟩** to test without hardware.
+4. Enter the gain and offset that match the analog front end.
+5. Connect. The oscilloscope then displays the incoming samples in real time.
 
-Sin hardware puedes elegir **`⟨Mock device⟩`** como puerto para que el
-programa genere una senoidal/cuadrada interna y validar la integración.
+`pyserial` is optional. It is required for a physical serial port but not for
+the built-in mock device.
 
 ## Troubleshooting
 
-- **No aparece el puerto**: refresca con el botón ↻; en Linux comprueba
-  permisos (`sudo usermod -aG dialout $USER` y vuelve a entrar).
-- **Trazas planas**: revisa la calibración. Si el frontend te entrega
-  0 V cuando la sonda está libre, deberías ver ruido alrededor de 0.
-- **Trazas saturadas**: tu señal supera el rango del ADC. Ajusta el
-  divisor o el offset para que la señal viva en 0–3.3 V.
-- **Pérdida de sync** (gráfico se ve "roto"): bloques muy grandes
-  desbordan los buffers USB. Reduce `BLOCK_N` a 32–64.
+- **No serial port**: refresh the list; on Linux, check serial permissions
+  (for example, add the user to the `dialout` group and sign in again).
+- **Flat trace**: verify the ADC input and calibration settings.
+- **Clipped trace**: the input is outside the ADC range; fix attenuation or
+  offset before the ADC.
+- **Broken-looking trace**: reduce `BLOCK_N` if the firmware or USB path is
+  overrunning buffers.

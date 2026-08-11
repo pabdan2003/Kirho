@@ -45,6 +45,9 @@ puentes A/D. No todos están conectados al editor de esquemáticos.
 - **Analizador de circuitos digitales** — tablas de verdad, minimización SOP/POS y construcción automática de un circuito de compuertas.
 - **Calculadora de resistencias** — código de colores ↔ valor, serie E12/E24/E96.
 - **Triángulo de potencia** — P, Q, S y factor de potencia para análisis AC.
+- **Intercambio SPICE** — importa y exporta R, C, L, fuentes independientes y
+  diodos en archivos `.cir`, `.net` o `.sp`. Conserva los nombres de nodo;
+  subcircuitos, modelos y expresiones aún no se interpretan.
 - **Temas** — soporte para temas JSON personalizables. Ver [`themes/README.md`](../themes/README.md) para crear el tuyo propio.
 
 ---
@@ -70,10 +73,30 @@ python main.py
 ## Uso rápido
 
 1. Abre OhmPy con `python main.py`.
-2. Arrastra componentes desde el panel lateral al canvas.
+2. Elige una categoría y un componente; después haz clic en el canvas para colocarlo.
 3. Conecta pines haciendo clic en un pin y luego en otro.
 4. Haz doble clic en un componente para editar su valor.
 5. Pulsa **▶ SIMULAR**; OhmPy detecta automáticamente el modo DC, AC, digital o mixto.
+
+## Ejemplos
+
+Abre cualquier proyecto de [`examples/`](../examples/) con **Archivo → Abrir**.
+Son circuitos funcionales, pequeños y pensados para aprender el editor y
+comprobar una versión nueva.
+
+| Área | Proyectos |
+| --- | --- |
+| Analógica | LED DC, regulador de intensidad LED, polarización fija BJT, filtros activos, transformador, factor de potencia |
+| Digital | Compuertas lógicas, contador binario, MUX con reloj, 555 astable |
+| Editor e instrumentos | Multímetro DC, hojas con Net Labels, subcircuito reutilizable |
+
+| Simulación LED DC | Punto de operación BJT |
+| --- | --- |
+| ![Simulación LED DC](img/examples/led-dc-simulation.png) | ![Punto de operación BJT](img/examples/bjt-bias-dc.png) |
+
+| Lógica digital | Diagrama de Bode pasa bajos |
+| --- | --- |
+| ![Simulación lógica digital](img/examples/digital-logic-simulation.png) | ![Bode pasa bajos](img/examples/bode-low-pass.png) |
 
 ### Ejemplo mínimo (motor desde Python)
 
@@ -99,6 +122,7 @@ OhmPy/
 ├── main.py                  # Entrypoint (lanza la ventana principal)
 ├── ohmpy/                  # Paquete principal
 │   ├── circuit_analyzer.py  # Clasificación del modo y detección de fronteras mixtas
+│   ├── spice.py             # Importación/exportación SPICE básica
 │   ├── theme_manager.py     # Carga y persistencia de temas
 │   ├── engine/
 │   │   ├── mna.py           # Solver MNA (DC, AC, transitorio)
@@ -112,8 +136,9 @@ OhmPy/
 │       ├── dialogs/         # Instrumentos y diálogos de configuración
 │       └── style.py         # Tema, fuentes y constantes visuales
 ├── themes/                  # Temas JSON (datos)
+├── examples/                # Circuitos .csin listos para abrir
 ├── firmware/                # Protocolo y ejemplos de firmware para sonda física
-└── tests/                   # Suite pytest (motor, señal mixta y E/S de proyectos)
+└── tests/                   # Suite pytest (motor, editor, SPICE y E/S de proyectos)
 ```
 
 ---
@@ -134,12 +159,11 @@ Los pushes a `main` y los pull requests ejecutan la suite contra Python 3.10, 3.
 - [x] Migración de tests a `pytest` + CI en GitHub Actions.
 - [x] Diagramas de Bode (magnitud y fase) sobre el análisis AC existente.
 - [ ] FFT en el osciloscopio.
-- [x] Exportación limitada tipo SPICE a `.net` para componentes básicos de dos terminales.
-- [ ] Importación de netlists SPICE y validación de compatibilidad con simuladores externos.
+- [x] Importación/exportación SPICE básica (R, C, L, V, I, D).
 - [x] Subcircuitos reutilizables (encapsulado de selección).
 - [x] Undo de cambios mediante snapshots.
-- [ ] Redo y migración opcional a `QUndoStack`.
-- [ ] Auto-ruteo ortogonal de cables.
+- [x] Redo, duplicado, alineación/distribución, snap y codos manuales en cables.
+- [ ] Migración opcional de snapshots a `QUndoStack`.
 - [ ] Sondas persistentes en el esquemático.
 
 ---

@@ -1,0 +1,166 @@
+{
+  "version": "2.0",
+  "sheets": [
+    {
+      "components": [
+        {
+          "type": "MUX2",
+          "name": "MUX1",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -100.0,
+          "y": -120.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "dig_inputs": 2,
+          "dig_bits": 1,
+          "dig_bits_adc": 8,
+          "dig_vref": 3.3,
+          "dig_clk": "CLK",
+          "dig_tpd_ns": 1.0,
+          "dig_analog_node": "",
+          "dig_input_nodes": []
+        },
+        {
+          "type": "LOGIC_STATE",
+          "name": "LS1",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -180.0,
+          "y": -160.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "dig_inputs": 2,
+          "dig_bits": 1,
+          "dig_bits_adc": 8,
+          "dig_vref": 3.3,
+          "dig_clk": "CLK",
+          "dig_tpd_ns": 1.0,
+          "dig_analog_node": "",
+          "dig_input_nodes": []
+        },
+        {
+          "type": "LOGIC_STATE",
+          "name": "LS2",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -180.0,
+          "y": -80.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "dig_inputs": 2,
+          "dig_bits": 1,
+          "dig_bits_adc": 8,
+          "dig_vref": 3.3,
+          "dig_clk": "CLK",
+          "dig_tpd_ns": 1.0,
+          "dig_analog_node": "",
+          "dig_input_nodes": []
+        },
+        {
+          "type": "CLK",
+          "name": "CLK1",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -180.0,
+          "y": -20.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "clk_running": true,
+          "dig_inputs": 2,
+          "dig_bits": 1,
+          "dig_bits_adc": 8,
+          "dig_vref": 3.3,
+          "dig_clk": "CLK",
+          "dig_tpd_ns": 1.0,
+          "dig_analog_node": "",
+          "dig_input_nodes": []
+        },
+        {
+          "type": "LED",
+          "name": "LED1",
+          "value": 0.0,
+          "unit": "A",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 0.0,
+          "y": -120.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "led_color": "red"
+        },
+        {
+          "type": "GND",
+          "name": "GND1",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 40.0,
+          "y": -80.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false
+        }
+      ],
+      "wires": [
+        {
+          "x1": 40.0,
+          "y1": -120.0,
+          "x2": 40.0,
+          "y2": -85.0
+        },
+        {
+          "x1": -140.0,
+          "y1": -160.0,
+          "x2": -140.0,
+          "y2": -130.0
+        },
+        {
+          "x1": -140.0,
+          "y1": -80.0,
+          "x2": -140.0,
+          "y2": -110.0
+        },
+        {
+          "x1": -140.0,
+          "y1": -20.0,
+          "x2": -100.0,
+          "y2": -20.0
+        },
+        {
+          "x1": -100.0,
+          "y1": -20.0,
+          "x2": -100.0,
+          "y2": -80.0
+        },
+        {
+          "x1": -60.0,
+          "y1": -120.0,
+          "x2": -40.0,
+          "y2": -120.0
+        }
+      ],
+      "name": "Hoja 1"
+    }
+  ]
+}

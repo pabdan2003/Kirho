@@ -46,6 +46,9 @@ into the schematic editor.
 - **Digital circuit analyzer** — truth tables, SOP/POS minimization and automatic construction of a gate circuit.
 - **Resistor calculator** — color code ↔ value conversion and E12/E24/E96 series.
 - **Power triangle** — P, Q, S, and power factor for AC analysis.
+- **SPICE interchange** — import and export R, C, L, independent sources and
+  diodes in `.cir`, `.net` or `.sp` files. Imported node names are preserved;
+  subcircuits, models and expressions are intentionally left untouched.
 - **Themes** — support for customizable JSON themes. See [`themes/README.md`](themes/README.md) to create your own.
 
 ---
@@ -103,10 +106,30 @@ For macOS, download the `.dmg` asset from the release, open it, and drag
 ## Quick start
 
 1. Start OhmPy with `python main.py`.
-2. Drag components from the side panel onto the canvas.
+2. Choose a category and component, then click the canvas to place it.
 3. Connect pins by clicking one pin and then another.
 4. Double-click a component to edit its value.
 5. Click **▶ SIMULATE**; OhmPy automatically detects DC, AC, digital, or mixed-signal mode.
+
+## Examples
+
+Open any project in [`examples/`](examples/) with **File → Open**. They are
+small, working circuits intended both for learning the editor and checking
+that a release still behaves correctly.
+
+| Area | Projects |
+| --- | --- |
+| Analog | LED DC, LED dimmer, BJT fixed bias, active filters, transformer, power factor |
+| Digital | Logic gates, binary counter, MUX with clock, 555 astable |
+| Editor and instruments | DC multimeter, sheets with net labels, reusable subcircuit |
+
+| LED DC simulation | BJT DC operating point |
+| --- | --- |
+| ![LED DC simulation](docs/img/examples/led-dc-simulation.png) | ![BJT DC operating point](docs/img/examples/bjt-bias-dc.png) |
+
+| Digital logic | Low-pass Bode plot |
+| --- | --- |
+| ![Digital logic simulation](docs/img/examples/digital-logic-simulation.png) | ![Low-pass Bode plot](docs/img/examples/bode-low-pass.png) |
 
 ### Minimal example (engine from Python)
 
@@ -132,6 +155,7 @@ OhmPy/
 ├── main.py                  # Entrypoint (opens the main window)
 ├── ohmpy/                  # Main package
 │   ├── circuit_analyzer.py  # Simulation-mode classification and mixed-boundary detection
+│   ├── spice.py             # Basic SPICE import/export
 │   ├── theme_manager.py     # Theme loading and persistence
 │   ├── engine/
 │   │   ├── mna.py           # MNA solver (DC, AC, transient)
@@ -145,8 +169,9 @@ OhmPy/
 │       ├── dialogs/         # Instruments and configuration dialogs
 │       └── style.py         # Theme, fonts, and visual constants
 ├── themes/                  # JSON themes (data)
+├── examples/                 # Ready-to-open .csin circuits
 ├── firmware/                # Protocol and firmware examples for a physical probe
-└── tests/                   # pytest suite (engine, mixed signal, and project I/O)
+└── tests/                   # pytest suite (engine, editor, SPICE, and project I/O)
 ```
 
 ---
@@ -167,12 +192,11 @@ Pushes to `main` and pull requests run the suite on Python 3.10, 3.11 and 3.12 t
 - [x] Migrate tests to `pytest` + GitHub Actions CI.
 - [x] Bode plots (magnitude and phase) for the existing AC analysis.
 - [ ] FFT in the oscilloscope.
-- [x] Limited SPICE-like `.net` export for basic two-terminal components.
-- [ ] SPICE netlist import and compatibility validation with external simulators.
+- [x] Basic SPICE netlist import/export (R, C, L, V, I, D).
 - [x] Reusable subcircuits (selection encapsulation).
 - [x] Undo changes using snapshots.
-- [ ] Redo and optional migration to `QUndoStack`.
-- [ ] Orthogonal wire auto-routing.
+- [x] Redo, duplicate, alignment/distribution, grid snap, and manual wire corners.
+- [ ] Optional migration from snapshots to `QUndoStack`.
 - [ ] Persistent probes on the schematic.
 
 ---

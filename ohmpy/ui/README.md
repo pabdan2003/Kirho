@@ -12,8 +12,8 @@ The entire graphical layer (PyQt6). For the complete architecture, see
                        ▼
        ┌────────────────────────────────────┐
        │  CircuitScene  (ui/scene.py)       │
-       │  Handles the grid, snapping,       │
-       │  picking, connections, routing,    │
+       │  Handles the grid, optional snap,  │
+       │  picking, connections, and wires,  │
        │  and construction of the netlist.  │
        └─────────┬───────────────┬──────────┘
                  │               │
@@ -35,7 +35,7 @@ The entire graphical layer (PyQt6). For the complete architecture, see
 | `style.py` | Active color palette (`COLORS`), font helpers, geometry constants, and SI parsers. | Change the global look and feel. |
 | `component_metadata.py` | Pin labels by type, digital-type list, and edit-dialog value labels. | Add a component to the catalog. |
 | `items/component_item.py` | Canvas component rendering and behavior: shape, pins, rotation, and dragging. | Change rendering or interaction. |
-| `items/wire_item.py` | Orthogonal wires between pins with editable segments. | Work on auto-routing. |
+| `items/wire_item.py` | Selectable wire segment with tracked component endpoints. | Change wire drawing or endpoint updates. |
 | `dialogs/component_dialog.py` | Generic component value/parameter editor. | Add a parameter. |
 | `dialogs/component_picker_dialog.py` | Catalog from which components are dragged onto the scene. | Reorganize the catalog. |
 | `dialogs/oscilloscope_dialog.py` | Two-channel oscilloscope: time base, cursors, trigger, and hardware support. | Improve the scope. |
@@ -55,7 +55,7 @@ The entire graphical layer (PyQt6). For the complete architecture, see
   `COLORS` is **dynamic**: changing the theme updates the dictionary in place,
   so subsequent repaints use the new colors. Do not capture it in local
   variables that outlive a theme change.
-- Geometry constants (`GRID_SIZE`, `COMP_W`, etc.) are fixed so snap-to-grid
-  works consistently.
+- Geometry constants (`GRID_SIZE`, `COMP_W`, etc.) keep the default grid
+  consistent; users can temporarily disable snap from **View**.
 - Every user-supplied numeric value passes through `parse_si_value` before
   reaching the engine — the engine uses SI units without prefixes only.

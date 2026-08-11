@@ -177,7 +177,7 @@ iteración entre dominios dentro de una ventana.
 | Capa | Archivo(s) | Responsabilidad |
 |---|---|---|
 | Ítems gráficos | `ohmpy/ui/items/` | `ComponentItem`, `WireItem` — dibujo y picking |
-| Escena | `ohmpy/ui/scene.py` | `CircuitScene` — grid, snapping, conexión de pines, ruteo, construcción del netlist (`build_engine_components_for_item`) |
+| Escena | `ohmpy/ui/scene.py` | `CircuitScene` — grid, snap opcional, conexión de pines, cables manuales y construcción del netlist (`build_engine_components_for_item`) |
 | Diálogos | `ohmpy/ui/dialogs/` | Editor de valores, instrumentos (multímetro, osciloscopio, generador), análisis digital, calculadoras y ajustes |
 | Estilo | `ohmpy/ui/style.py` | Colores del tema activo, fuentes, constantes geométricas, parseo SI |
 | Metadata | `ohmpy/ui/component_metadata.py` | Etiquetas de pines, prefijos, listas de tipos digitales |
@@ -236,6 +236,9 @@ Suite pytest. Los archivos principales son:
   de desplazamiento, bus, puentes y drivers internos de señal mixta.
 - `test_project_io.py` — guarda y restauración de ajustes de proyectos desde
   la interfaz.
+- `test_editor_scene.py` — undo/redo, alineación, distribución, snap, cables
+  ortogonales manuales y ERC básico.
+- `test_spice.py` — valores con sufijos y netlists SPICE básicos.
 
 Convención: cada caso compara contra una solución analítica conocida
 con tolerancia explícita (`pytest.approx`). Tests que dependen de una

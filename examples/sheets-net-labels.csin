@@ -1,0 +1,218 @@
+{
+  "version": "2.0",
+  "sheets": [
+    {
+      "components": [
+        {
+          "type": "AND",
+          "name": "AND1",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -80.0,
+          "y": -40.0,
+          "angle": 0
+        },
+        {
+          "type": "NET_LABEL_IN",
+          "name": "NL1",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -160.0,
+          "y": -60.0,
+          "angle": 0,
+          "sheet_label": "A"
+        },
+        {
+          "type": "NET_LABEL_IN",
+          "name": "NL2",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -160.0,
+          "y": -20.0,
+          "angle": 0,
+          "sheet_label": "B"
+        },
+        {
+          "type": "NET_LABEL_OUT",
+          "name": "NL3",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 0.0,
+          "y": -40.0,
+          "angle": 0,
+          "sheet_label": "C"
+        }
+      ],
+      "wires": [
+        {
+          "x1": -148.0,
+          "y1": -60.0,
+          "x2": -120.0,
+          "y2": -60.0
+        },
+        {
+          "x1": -120.0,
+          "y1": -60.0,
+          "x2": -120.0,
+          "y2": -50.0
+        },
+        {
+          "x1": -148.0,
+          "y1": -20.0,
+          "x2": -120.0,
+          "y2": -20.0
+        },
+        {
+          "x1": -120.0,
+          "y1": -20.0,
+          "x2": -120.0,
+          "y2": -30.0
+        },
+        {
+          "x1": -40.0,
+          "y1": -40.0,
+          "x2": -12.0,
+          "y2": -40.0
+        }
+      ],
+      "name": "Hoja 1"
+    },
+    {
+      "components": [
+        {
+          "type": "LOGIC_STATE",
+          "name": "LS1",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -300.0,
+          "y": -140.0,
+          "angle": 0
+        },
+        {
+          "type": "LOGIC_STATE",
+          "name": "LS2",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -300.0,
+          "y": -40.0,
+          "angle": 0
+        },
+        {
+          "type": "LED",
+          "name": "LED1",
+          "value": 0.0,
+          "unit": "A",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 60.0,
+          "y": -100.0,
+          "angle": 0,
+          "led_color": "red"
+        },
+        {
+          "type": "NET_LABEL_OUT",
+          "name": "NL1",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -220.0,
+          "y": -140.0,
+          "angle": 0,
+          "sheet_label": "A"
+        },
+        {
+          "type": "NET_LABEL_OUT",
+          "name": "NL2",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -220.0,
+          "y": -40.0,
+          "angle": 0,
+          "sheet_label": "B"
+        },
+        {
+          "type": "NET_LABEL_IN",
+          "name": "NL3",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -20.0,
+          "y": -100.0,
+          "angle": 0,
+          "sheet_label": "C"
+        },
+        {
+          "type": "GND",
+          "name": "GND1",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 120.0,
+          "y": -40.0,
+          "angle": 0
+        }
+      ],
+      "wires": [
+        {
+          "x1": -8.0,
+          "y1": -100.0,
+          "x2": 20.0,
+          "y2": -100.0
+        },
+        {
+          "x1": -260.0,
+          "y1": -140.0,
+          "x2": -232.0,
+          "y2": -140.0
+        },
+        {
+          "x1": -260.0,
+          "y1": -40.0,
+          "x2": -232.0,
+          "y2": -40.0
+        },
+        {
+          "x1": 120.0,
+          "y1": -45.0,
+          "x2": 120.0,
+          "y2": -100.0
+        },
+        {
+          "x1": 120.0,
+          "y1": -100.0,
+          "x2": 100.0,
+          "y2": -100.0
+        }
+      ],
+      "name": "Hoja 2"
+    }
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "version": "2.0",
+  "sheets": [
+    {
+      "components": [
+        {
+          "type": "COUNTER",
+          "name": "CNT1",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -40.0,
+          "y": -60.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "dig_inputs": 2,
+          "dig_bits": 4,
+          "dig_bits_adc": 4,
+          "dig_vref": 3.3,
+          "dig_clk": "CLK",
+          "dig_tpd_ns": 1.0,
+          "dig_analog_node": "",
+          "dig_input_nodes": []
+        },
+        {
+          "type": "CLK",
+          "name": "CLK1",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": -140.0,
+          "y": -60.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "clk_running": false,
+          "dig_inputs": 2,
+          "dig_bits": 1,
+          "dig_bits_adc": 8,
+          "dig_vref": 3.3,
+          "dig_clk": "CLK",
+          "dig_tpd_ns": 1.0,
+          "dig_analog_node": "",
+          "dig_input_nodes": []
+        },
+        {
+          "type": "LED",
+          "name": "LED1",
+          "value": 0.0,
+          "unit": "A",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 80.0,
+          "y": -120.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "led_color": "red"
+        },
+        {
+          "type": "LED",
+          "name": "LED2",
+          "value": 0.0,
+          "unit": "A",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 80.0,
+          "y": -80.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "led_color": "red"
+        },
+        {
+          "type": "LED",
+          "name": "LED3",
+          "value": 0.0,
+          "unit": "A",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 80.0,
+          "y": -40.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "led_color": "red"
+        },
+        {
+          "type": "LED",
+          "name": "LED4",
+          "value": 0.0,
+          "unit": "A",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 80.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "led_color": "red"
+        },
+        {
+          "type": "GND",
+          "name": "GND1",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 160.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false
+        }
+      ],
+      "wires": [
+        {
+          "x1": -100.0,
+          "y1": -60.0,
+          "x2": -80.0,
+          "y2": -60.0
+        },
+        {
+          "x1": 0.0,
+          "y1": -87.0,
+          "x2": 0.0,
+          "y2": -120.0
+        },
+        {
+          "x1": 0.0,
+          "y1": -120.0,
+          "x2": 40.0,
+          "y2": -120.0
+        },
+        {
+          "x1": 0.0,
+          "y1": -69.0,
+          "x2": 20.0,
+          "y2": -80.0
+        },
+        {
+          "x1": 20.0,
+          "y1": -80.0,
+          "x2": 40.0,
+          "y2": -80.0
+        },
+        {
+          "x1": 0.0,
+          "y1": -51.0,
+          "x2": 20.0,
+          "y2": -40.0
+        },
+        {
+          "x1": 20.0,
+          "y1": -40.0,
+          "x2": 40.0,
+          "y2": -40.0
+        },
+        {
+          "x1": 0.0,
+          "y1": -33.0,
+          "x2": 0.0,
+          "y2": 0.0
+        },
+        {
+          "x1": 0.0,
+          "y1": 0.0,
+          "x2": 40.0,
+          "y2": 0.0
+        },
+        {
+          "x1": 120.0,
+          "y1": 0.0,
+          "x2": 160.0,
+          "y2": 0.0
+        },
+        {
+          "x1": 120.0,
+          "y1": -40.0,
+          "x2": 160.0,
+          "y2": -40.0
+        },
+        {
+          "x1": 160.0,
+          "y1": -40.0,
+          "x2": 160.0,
+          "y2": 0.0
+        },
+        {
+          "x1": 120.0,
+          "y1": -80.0,
+          "x2": 160.0,
+          "y2": -80.0
+        },
+        {
+          "x1": 160.0,
+          "y1": -80.0,
+          "x2": 160.0,
+          "y2": -40.0
+        },
+        {
+          "x1": 120.0,
+          "y1": -120.0,
+          "x2": 160.0,
+          "y2": -120.0
+        },
+        {
+          "x1": 160.0,
+          "y1": -120.0,
+          "x2": 160.0,
+          "y2": -80.0
+        }
+      ],
+      "name": "Sheet 1"
+    }
+  ]
+}
