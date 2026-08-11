@@ -1,4 +1,4 @@
-# OhmPy (legacy Spanish README)
+# OhmPy
 
 **Simulador de circuitos electrónicos open source — analógico, digital y señal mixta.**
 
@@ -67,6 +67,38 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
+
+### Aplicación macOS
+
+Para crear la aplicación distribuible de macOS, instala la herramienta de
+empaquetado opcional y ejecuta:
+
+```bash
+python -m pip install ".[build]"
+sh scripts/build_macos.sh
+```
+
+Esto genera `dist/OhmPy.app` y `dist/OhmPy-<version>-macOS.dmg`. Distribuye el
+DMG e indica a los usuarios que arrastren **OhmPy.app** a **Applications**. En
+cada versión nueva, incrementa `version` en `pyproject.toml`; reemplazar la
+app existente en Applications la actualiza sin duplicarla. Las preferencias y
+temas personalizados permanecen en `~/.ohmpy`.
+
+Antes de distribuir fuera de un grupo pequeño y confiable, firma y notariza la
+app con un certificado de Apple Developer; de lo contrario macOS mostrará una
+advertencia de seguridad en el primer inicio.
+
+## Descargas
+
+| Plataforma | Estado | Descarga |
+| --- | --- | --- |
+| macOS (Apple Silicon) | Disponible | [Última versión](https://github.com/pabdan2003/OhmPy/releases/latest) |
+| Windows | Próximamente | — |
+| Linux | Próximamente | — |
+
+En macOS, descarga el archivo `.dmg` de la versión, ábrelo y arrastra
+**OhmPy.app** a **Applications**. La compilación actual es para Apple Silicon
+(M1, M2, M3, M4 o M5); aún no hay una compilación para Mac Intel.
 
 ---
 

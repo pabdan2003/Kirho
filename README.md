@@ -2,7 +2,7 @@
 
 **Open-source electronic circuit simulator — analog, digital, and mixed-signal.**
 
-[Architecture guide](docs/architecture.md)
+[Documentación en español](docs/README.es.md)
 
 OhmPy is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
 
