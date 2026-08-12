@@ -1,4 +1,4 @@
-# `ohmpy.engine` — Quick map
+# `kirho.engine` — Quick map
 
 Analog engine, digital engine, and mixed-signal coordinator. For the complete
 architectural overview, see
@@ -15,7 +15,7 @@ architectural overview, see
 
 ## Public entry point
 
-`ohmpy/engine/__init__.py` re-exports everything used outside the package. If
+`kirho/engine/__init__.py` re-exports everything used outside the package. If
 you add a public class, export it there as well.
 
 ## Golden rules
@@ -27,5 +27,5 @@ you add a public class, export it there as well.
    API.** Document it in the module docstring AND in
    `docs/architecture.md`.
 3. **Before adding a new parameter to an existing component**, make sure the
-   UI (`ohmpy/ui/component_metadata.py` + dialog) can request it. A parameter
+   UI (`kirho/ui/component_metadata.py` + dialog) can request it. A parameter
    that nobody can configure is dead code.

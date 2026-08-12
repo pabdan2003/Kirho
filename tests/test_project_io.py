@@ -6,7 +6,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PyQt6.QtWidgets import QApplication
 
 from main import MainWindow
-from ohmpy.ui.scene import CircuitScene
+from kirho.ui.scene import CircuitScene
 
 
 def test_load_sheet_restores_digital_configuration():

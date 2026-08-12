@@ -1,10 +1,10 @@
-# OhmPy
+# Kirho
 
 **Open-source electronic circuit simulator — analog, digital, and mixed-signal.**
 
 [Documentación en español](docs/README.es.md)
 
-OhmPy is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
+Kirho is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
 
 ![Main interface](docs/img/screenshot-main.png)
 
@@ -58,8 +58,8 @@ into the schematic editor.
 **Requirements:** Python 3.10 or later; Windows, Linux, or macOS.
 
 ```bash
-git clone https://github.com/pabdan2003/OhmPy.git OhmPy
-cd OhmPy
+git clone https://github.com/pabdan2003/Kirho.git Kirho
+cd Kirho
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
@@ -79,11 +79,11 @@ python -m pip install ".[build]"
 sh scripts/build_macos.sh
 ```
 
-This produces `dist/OhmPy.app` and `dist/OhmPy-<version>-macOS.dmg`. Distribute
-the DMG and ask users to drag **OhmPy.app** to **Applications**. For each new
+This produces `dist/Kirho.app` and `dist/Kirho-<version>-macOS.dmg`. Distribute
+the DMG and ask users to drag **Kirho.app** to **Applications**. For each new
 release, build it with an increased `version` in `pyproject.toml`; replacing
 the existing app in Applications updates it in place, without duplicating the
-application. User preferences and custom themes remain in `~/.ohmpy`.
+application. User preferences and custom themes remain in `~/.kirho`.
 
 Before distributing outside a small trusted group, sign and notarize the app
 with an Apple Developer certificate; otherwise macOS will show a security
@@ -93,23 +93,23 @@ warning on first launch.
 
 | Platform | Status | Download |
 | --- | --- | --- |
-| macOS (Apple Silicon) | Available | [Latest release](https://github.com/pabdan2003/OhmPy/releases/latest) |
+| macOS (Apple Silicon) | Available | [Latest release](https://github.com/pabdan2003/Kirho/releases/latest) |
 | Windows | Coming soon | — |
 | Linux | Coming soon | — |
 
 For macOS, download the `.dmg` asset from the release, open it, and drag
-**OhmPy.app** to **Applications**. The current build is for Apple Silicon
+**Kirho.app** to **Applications**. The current build is for Apple Silicon
 (M1, M2, M3, M4, or M5); an Intel macOS build is not available yet.
 
 ---
 
 ## Quick start
 
-1. Start OhmPy with `python main.py`.
+1. Start Kirho with `python main.py`.
 2. Choose a category and component, then click the canvas to place it.
 3. Connect pins by clicking one pin and then another.
 4. Double-click a component to edit its value.
-5. Click **▶ SIMULATE**; OhmPy automatically detects DC, AC, digital, or mixed-signal mode.
+5. Click **▶ SIMULATE**; Kirho automatically detects DC, AC, digital, or mixed-signal mode.
 
 ## Examples
 
@@ -134,7 +134,7 @@ that a release still behaves correctly.
 ### Minimal example (engine from Python)
 
 ```python
-from ohmpy.engine import Resistor, VoltageSource, MNASolver
+from kirho.engine import Resistor, VoltageSource, MNASolver
 
 solver = MNASolver()
 circuit = [
@@ -151,9 +151,9 @@ print(result["voltages"]["out"])  # 5.0 V
 ## Project structure
 
 ```
-OhmPy/
+Kirho/
 ├── main.py                  # Entrypoint (opens the main window)
-├── ohmpy/                  # Main package
+├── kirho/                  # Main package
 │   ├── circuit_analyzer.py  # Simulation-mode classification and mixed-boundary detection
 │   ├── spice.py             # Basic SPICE import/export
 │   ├── theme_manager.py     # Theme loading and persistence
@@ -212,8 +212,8 @@ Contributions are welcome. Before opening a pull request:
 
 Quick package maps:
 
-- [`ohmpy/engine/README.md`](ohmpy/engine/README.md) — purpose of each engine file.
-- [`ohmpy/ui/README.md`](ohmpy/ui/README.md) — purpose of each UI file.
+- [`kirho/engine/README.md`](kirho/engine/README.md) — purpose of each engine file.
+- [`kirho/ui/README.md`](kirho/ui/README.md) — purpose of each UI file.
 - [`themes/README.md`](themes/README.md) — JSON theme format and how to create one.
 - [`firmware/README.md`](firmware/README.md) — binary protocol for the physical oscilloscope probe.
 

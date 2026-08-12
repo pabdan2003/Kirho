@@ -7,8 +7,8 @@ from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QApplication
 
 from main import MainWindow
-from ohmpy.ui.items.wire_item import WireItem
-from ohmpy.ui.scene import CircuitScene
+from kirho.ui.items.wire_item import WireItem
+from kirho.ui.scene import CircuitScene
 
 _APP = QApplication.instance() or QApplication([])
 

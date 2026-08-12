@@ -1,4 +1,4 @@
-"""Every bundled example must remain a loadable OhmPy project."""
+"""Every bundled example must remain a loadable Kirho project."""
 import json
 import os
 from pathlib import Path
@@ -8,7 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PyQt6.QtWidgets import QApplication
 
 from main import MainWindow
-from ohmpy.ui.scene import CircuitScene
+from kirho.ui.scene import CircuitScene
 
 _APP = QApplication.instance() or QApplication([])
 _EXAMPLES = Path(__file__).resolve().parents[1] / "examples"

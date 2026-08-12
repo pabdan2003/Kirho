@@ -1,5 +1,5 @@
 """
-OhmPy — Simulador de circuitos open source
+Kirho — Simulador de circuitos open source
 GUI principal con canvas drag-and-drop, PyQt6
 """
 
@@ -30,24 +30,24 @@ from PyQt6.QtCore import (
 )
 
 # Motor MNA
-from ohmpy.engine import Resistor, VoltageSource, VoltageSourceAC, CurrentSource, MNASolver
-from ohmpy.circuit_analyzer import (
+from kirho.engine import Resistor, VoltageSource, VoltageSourceAC, CurrentSource, MNASolver
+from kirho.circuit_analyzer import (
     CircuitAnalyzer, DEFAULT_STANDARD,
 )
-from ohmpy.ui.component_metadata import (
+from kirho.ui.component_metadata import (
     COMPONENT_NODE_LABELS,
     DEFAULT_NODE_LABELS,
     DIGITAL_FLIPFLOP_TYPES,
     DIGITAL_GATE_TYPES,
     FOUR_PIN_NODE_LABELS,
 )
-from ohmpy.ui.dialogs.component_dialog import ComponentDialog
-from ohmpy.ui.dialogs.component_picker_dialog import ComponentPickerDialog
-from ohmpy.ui.dialogs.power_triangle_dialog import PowerTriangleDialog
-from ohmpy.ui.dialogs.resistor_calc_dialog import ResistorCalcDialog
-from ohmpy.ui.dialogs.settings_dialog import SettingsDialog
-from ohmpy.i18n import load_translator
-from ohmpy.spice import export_netlist, parse_netlist
+from kirho.ui.dialogs.component_dialog import ComponentDialog
+from kirho.ui.dialogs.component_picker_dialog import ComponentPickerDialog
+from kirho.ui.dialogs.power_triangle_dialog import PowerTriangleDialog
+from kirho.ui.dialogs.resistor_calc_dialog import ResistorCalcDialog
+from kirho.ui.dialogs.settings_dialog import SettingsDialog
+from kirho.i18n import load_translator
+from kirho.spice import export_netlist, parse_netlist
 
 
 # ══════════════════════════════════════════════════════════════
@@ -56,8 +56,8 @@ from ohmpy.spice import export_netlist, parse_netlist
 # Reexportados desde ui.style para mantener compatibilidad con el resto
 # del código de main.py (y para que el import de este módulo dispare la
 # carga del tema inicial).
-from ohmpy.ui import style as _style
-from ohmpy.ui.style import (
+from kirho.ui import style as _style
+from kirho.ui.style import (
     GRID_SIZE, COMP_W, COMP_H, PIN_RADIUS,
     COLORS, THEME_MANAGER, apply_theme_to_colors,
     _qfont, theme_revision,
@@ -68,14 +68,14 @@ from ohmpy.ui.style import (
 # ══════════════════════════════════════════════════════════════
 # ÍTEMS GRÁFICOS DEL CANVAS (extraídos)
 # ══════════════════════════════════════════════════════════════
-from ohmpy.ui.items.component_item import ComponentItem
-from ohmpy.ui.items.wire_item import WireItem
+from kirho.ui.items.component_item import ComponentItem
+from kirho.ui.items.wire_item import WireItem
 
         
 # ══════════════════════════════════════════════════════════════
 # ESCENA DEL CIRCUITO (extraída)
 # ══════════════════════════════════════════════════════════════
-from ohmpy.ui.scene import (
+from kirho.ui.scene import (
     CircuitScene, build_engine_components_for_item, expand_subcircuits,
 )
 
@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(self.tr("OhmPy — Circuit Simulator"))
+        self.setWindowTitle(self.tr("Kirho — Circuit Simulator"))
         self.resize(1280, 800)
         self._active_theme_id = _INITIAL_THEME_ID
         self.solver = MNASolver()
@@ -393,7 +393,7 @@ class MainWindow(QMainWindow):
         # Import perezoso: el diálogo importa símbolos de main.py (ComponentItem,
         # WireItem, COLORS, etc.), por eso se carga en el momento de uso para
         # evitar una importación circular en tiempo de carga del módulo.
-        from ohmpy.ui.dialogs.circuit_analyzer_dialog import CircuitAnalyzerDialog
+        from kirho.ui.dialogs.circuit_analyzer_dialog import CircuitAnalyzerDialog
         state = getattr(self, '_analyzer_state', None)
         dlg = CircuitAnalyzerDialog(parent=self, initial_state=state)
         dlg.exec()
@@ -407,7 +407,7 @@ class MainWindow(QMainWindow):
         """Abre el analizador de Bode (barrido AC + plots de magnitud y fase).
         No-modal: se puede dejar abierto mientras editas el circuito y
         recalcular al gusto."""
-        from ohmpy.ui.dialogs.bode_dialog import BodeDialog
+        from kirho.ui.dialogs.bode_dialog import BodeDialog
         dlg = BodeDialog(self.scene, COLORS, parent=self)
         dlg.show()
 
@@ -675,11 +675,11 @@ class MainWindow(QMainWindow):
         """Menús nativos que exponen las mismas acciones de la barra de herramientas."""
         menu_bar = self.menuBar()
 
-        app_menu = menu_bar.addMenu("OhmPy")
+        app_menu = menu_bar.addMenu("Kirho")
         app_menu.addAction(self.tr("Settings…"), self._open_settings_dialog)
-        app_menu.addAction(self.tr("About OhmPy"), self._show_about)
+        app_menu.addAction(self.tr("About Kirho"), self._show_about)
         app_menu.addSeparator()
-        app_menu.addAction(self.tr("Quit OhmPy"), self.close)
+        app_menu.addAction(self.tr("Quit Kirho"), self.close)
 
         file_menu = menu_bar.addMenu(self.tr("File"))
         file_menu.addAction(self.tr("New"), self._new_circuit)
@@ -733,8 +733,8 @@ class MainWindow(QMainWindow):
     def _show_about(self):
         QMessageBox.about(
             self,
-            self.tr("About OhmPy"),
-            self.tr("OhmPy — Circuit Simulator\nVersion 0.1.0"),
+            self.tr("About Kirho"),
+            self.tr("Kirho — Circuit Simulator\nVersion 0.1.0"),
         )
 
     def _undo_active_sheet(self):
@@ -808,7 +808,7 @@ class MainWindow(QMainWindow):
         if THEME_MANAGER.save_language(language):
             QMessageBox.information(
                 self, self.tr("Language"),
-                self.tr("Language saved. Restart OhmPy to apply it."))
+                self.tr("Language saved. Restart Kirho to apply it."))
 
     def _refresh_theme_in_ui(self):
         """Re-aplica stylesheet y fuerza redibujo del canvas tras cambiar tema."""
@@ -1025,7 +1025,7 @@ class MainWindow(QMainWindow):
 
     def _show_subcircuit_picker(self):
         """Lista los subcircuitos de la biblioteca y activa colocación."""
-        from ohmpy.subcircuit_manager import SUBCIRCUIT_MANAGER
+        from kirho.subcircuit_manager import SUBCIRCUIT_MANAGER
         SUBCIRCUIT_MANAGER.refresh()
         subs = SUBCIRCUIT_MANAGER.list_subcircuits()
         if not subs:
@@ -1051,7 +1051,7 @@ class MainWindow(QMainWindow):
         `sheet_label` único se convierte en un pin (NET_LABEL_IN → entrada,
         NET_LABEL_OUT → salida, ambos → bidireccional).
         """
-        from ohmpy.subcircuit_manager import SUBCIRCUIT_MANAGER
+        from kirho.subcircuit_manager import SUBCIRCUIT_MANAGER
         scene = self.scene
         _LBL = ('NET_LABEL_IN', 'NET_LABEL_OUT')
         label_items = [c for c in scene.components if c.comp_type in _LBL
@@ -1350,7 +1350,7 @@ class MainWindow(QMainWindow):
         self._toggle_simulation(True)
 
     def _build_analog_components(self, items, pin_node):
-        from ohmpy.engine.components import Timer555Analog
+        from kirho.engine.components import Timer555Analog
         components, errors = [], []
         for item in items:
             if item.comp_type == 'IC555':
@@ -1776,11 +1776,11 @@ class MainWindow(QMainWindow):
     def _run_simulation_auto(self, flags=None, pin_node=None):
         """Corre DC + AC + mixto según flags y muestra todo en un panel."""
         from PyQt6.QtWidgets import QApplication
-        from ohmpy.engine.digital_engine import (
+        from kirho.engine.digital_engine import (
             DigitalSimulator, Gate, Timer555, DFF, JKFF, TFF, SRFF, BinaryCounter, MUX,
         )
-        from ohmpy.engine.bridges import ADC, DAC, ComparatorBridge, PWMBridge
-        from ohmpy.engine.mixed_signal import MixedSignalInterface
+        from kirho.engine.bridges import ADC, DAC, ComparatorBridge, PWMBridge
+        from kirho.engine.mixed_signal import MixedSignalInterface
         import cmath as _cmath
 
         if pin_node is None:
@@ -3104,7 +3104,7 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self._clear_all_sheets()
             self._current_file = None
-            self.setWindowTitle("OhmPy — Simulador de Circuitos")
+            self.setWindowTitle("Kirho — Simulador de Circuitos")
             self._load_demo_circuit()
 
     def _clear_circuit(self):
@@ -3130,7 +3130,7 @@ class MainWindow(QMainWindow):
         self._add_sheet(name=self.tr("Sheet 1"))
         self.results_text.clear()
         self._current_file = None
-        self.setWindowTitle(self.tr("OhmPy — Circuit Simulator"))
+        self.setWindowTitle(self.tr("Kirho — Circuit Simulator"))
 
     # ── Serialización de una hoja ─────────────────
     def _serialize_sheet(self, scene: CircuitScene) -> dict:
@@ -3359,7 +3359,7 @@ class MainWindow(QMainWindow):
         if not path:
             path, _ = QFileDialog.getSaveFileName(
                 self, self.tr("Save Circuit"), "",
-                self.tr("OhmPy (*.csin);;All Files (*)")
+                self.tr("Kirho (*.csin);;All Files (*)")
             )
         if not path:
             return
@@ -3378,14 +3378,14 @@ class MainWindow(QMainWindow):
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         self._current_file = path
-        self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
+        self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
         self.statusBar().showMessage(self.tr("Saved: {path}").format(path=path))
 
     # ── Guardar como (.csin) ─────────────────────
     def _save_circuit_as(self):
         path, _ = QFileDialog.getSaveFileName(
             self, self.tr("Save Circuit As"), "",
-            self.tr("OhmPy (*.csin);;All Files (*)")
+            self.tr("Kirho (*.csin);;All Files (*)")
         )
         if not path:
             return
@@ -3398,7 +3398,7 @@ class MainWindow(QMainWindow):
     def _open_circuit(self):
         path, _ = QFileDialog.getOpenFileName(
             self, self.tr("Open Circuit"), "",
-            self.tr("OhmPy (*.csin);;All Files (*)")
+            self.tr("Kirho (*.csin);;All Files (*)")
         )
         if not path:
             return
@@ -3429,7 +3429,7 @@ class MainWindow(QMainWindow):
             self._load_sheet_data(scene, sd)
 
         self._current_file = path
-        self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
+        self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
         self.statusBar().showMessage(self.tr("Opened: {path}").format(path=path))
 
     # ── Importar netlist SPICE ────────────────────────────────────────────
@@ -3468,7 +3468,7 @@ class MainWindow(QMainWindow):
                 item.phase_deg = element.phase_deg
 
         self._current_file = None
-        self.setWindowTitle(f"OhmPy — {os.path.basename(path)}")
+        self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
         detail = self.tr(
             "Imported {count} component(s). SPICE node names are preserved in properties; "
             "wire them visually if you want a conventional schematic.").format(count=len(result.elements))
@@ -3488,7 +3488,7 @@ class MainWindow(QMainWindow):
             path += '.cir'
         text, warnings = export_netlist(
             self.scene.components, self.scene.extract_netlist(),
-            f"OhmPy — {os.path.basename(path)}")
+            f"Kirho — {os.path.basename(path)}")
 
         with open(path, 'w', encoding='utf-8') as f:
             f.write(text)
@@ -3511,7 +3511,7 @@ class MainWindow(QMainWindow):
 # ══════════════════════════════════════════════════════════════
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("OhmPy")
+    app.setApplicationName("Kirho")
     app.setStyle("Fusion")
     load_translator(app, THEME_MANAGER.load_language())
     window = MainWindow()

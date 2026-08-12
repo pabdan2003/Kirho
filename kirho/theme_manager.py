@@ -14,12 +14,12 @@ Para crear un tema instalable por separado basta con:
      `mi_tema.json`, y modificar los colores que quieras.
   2. Colocarlo en una de las carpetas de búsqueda:
        - `<directorio_del_programa>/themes/`
-       - `~/.ohmpy/themes/`
+       - `~/.kirho/themes/`
   3. Reiniciar la app — el tema aparecerá en el selector "Tema".
 
 Uso desde código:
 
-    from ohmpy.theme_manager import ThemeManager
+    from kirho.theme_manager import ThemeManager
     tm = ThemeManager()
     tm.refresh()                        # descubre temas externos
     tm.list_themes()                    # [{'id', 'name', 'source'}, …]
@@ -47,14 +47,14 @@ REQUIRED_KEYS = (
     'voltage', 'current',
 )
 
-USER_THEMES_README = """# OhmPy themes
+USER_THEMES_README = """# Kirho themes
 
-Place one `*.json` theme file in this folder, then return to OhmPy and choose
+Place one `*.json` theme file in this folder, then return to Kirho and choose
 **Reload themes** in Settings.
 
 To create one, copy `theme-template.json.example` to a name ending in `.json`,
 then edit its colors. You can also download community themes and place their
-JSON files here. This folder is preserved when OhmPy is updated.
+JSON files here. This folder is preserved when Kirho is updated.
 """
 
 
@@ -205,7 +205,7 @@ class ThemeManager:
 
     Búsqueda de temas externos en (en orden):
         1. <directorio_del_programa>/themes/*.json
-        2. ~/.ohmpy/themes/*.json
+        2. ~/.kirho/themes/*.json
     Si dos temas externos comparten id (nombre del archivo sin extensión)
     gana el primero encontrado.
     """
@@ -214,13 +214,13 @@ class ThemeManager:
 
     def __init__(self, app_dir: Optional[str] = None):
         if app_dir is None:
-            # theme_manager.py vive dentro del paquete `ohmpy/`. La carpeta
+            # theme_manager.py vive dentro del paquete `kirho/`. La carpeta
             # `themes/` está al lado del paquete, en la raíz del proyecto,
             # así que subimos un nivel.
             app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.app_dir = app_dir
 
-        self.user_dir   = os.path.join(os.path.expanduser('~'), '.ohmpy')
+        self.user_dir   = os.path.join(os.path.expanduser('~'), '.kirho')
         self.config_path = os.path.join(self.user_dir, self.CONFIG_FILENAME)
 
         # Caché de temas externos {id: theme_dict}
@@ -387,7 +387,7 @@ class ThemeManager:
                 with open(template_path, 'w', encoding='utf-8') as f:
                     json.dump({
                         'name': 'My Theme',
-                        'description': 'My custom OhmPy theme.',
+                        'description': 'My custom Kirho theme.',
                         'colors': BUILTIN_THEMES[DEFAULT_THEME_ID]['colors'],
                     }, f, indent=2, ensure_ascii=False)
         except OSError:

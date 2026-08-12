@@ -1,4 +1,4 @@
-# OhmPy architecture
+# Kirho architecture
 
 This document explains how the project pieces fit together. It is intended for
 someone cloning the repository for the first time who wants to know which
@@ -10,14 +10,14 @@ For details about each class or method, go straight to the code docstrings.
 
 ## 1. Three engines, one UI
 
-OhmPy tiene tres subsistemas de simulación separados: MNA analógico,
+Kirho tiene tres subsistemas de simulación separados: MNA analógico,
 eventos digitales y coordinación mixta. No comparten matrices; el
 coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
 
 ```
        ┌────────────────────────────────────────────────────────────┐
        │                        UI (PyQt6)                          │
-       │   main.py + ohmpy/ui/                                     │
+       │   main.py + kirho/ui/                                     │
        │   - Canvas, paleta, instrumentos, diálogos                 │
        └─────────┬─────────────────────────┬────────────────────────┘
                  │ build_engine_components │
@@ -25,7 +25,7 @@ coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
        ┌──────────────────┐      ┌──────────────────┐
        │  MNA Solver      │      │ DigitalSimulator │
        │  (analógico)     │      │  (digital)       │
-       │  ohmpy/engine/  │      │  ohmpy/engine/  │
+       │  kirho/engine/  │      │  kirho/engine/  │
        │    mna.py        │      │  digital_engine  │
        │    components.py │      │      .py         │
        └────────┬─────────┘      └──────────┬───────┘
@@ -35,7 +35,7 @@ coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
                 ┌────────────────────────┐
                 │ MixedSignalInterface   │
                 │ + bridges (ADC/DAC/…)  │
-                │ ohmpy/engine/         │
+                │ kirho/engine/         │
                 │   mixed_signal.py      │
                 │   bridges.py           │
                 └────────────────────────┘
@@ -49,7 +49,7 @@ coordinador intercambia voltajes y niveles lógicos entre ambos dominios.
 
 ---
 
-## 2. Motor MNA (`ohmpy/engine/mna.py`)
+## 2. Motor MNA (`kirho/engine/mna.py`)
 
 ### Idea
 
@@ -93,7 +93,7 @@ resolución del sistema.
 
 ### Convenciones
 
-Documentadas en el docstring de [ohmpy/engine/components.py](../ohmpy/engine/components.py).
+Documentadas en el docstring de [kirho/engine/components.py](../kirho/engine/components.py).
 Lo más importante:
 
 - Nodo "0" es siempre GND.
@@ -104,7 +104,7 @@ Lo más importante:
 
 ---
 
-## 3. Motor digital (`ohmpy/engine/digital_engine.py`)
+## 3. Motor digital (`kirho/engine/digital_engine.py`)
 
 ### Idea
 
@@ -141,7 +141,7 @@ sim.waveform("Y")        # [(t, valor), ...]
 
 ---
 
-## 4. Coordinación mixta (`ohmpy/engine/mixed_signal.py` + `bridges.py`)
+## 4. Coordinación mixta (`kirho/engine/mixed_signal.py` + `bridges.py`)
 
 ### Algoritmo
 
@@ -170,22 +170,22 @@ iteración entre dominios dentro de una ventana.
 
 ---
 
-## 5. UI (`main.py` + `ohmpy/ui/`)
+## 5. UI (`main.py` + `kirho/ui/`)
 
 ### Capas
 
 | Capa | Archivo(s) | Responsabilidad |
 |---|---|---|
-| Ítems gráficos | `ohmpy/ui/items/` | `ComponentItem`, `WireItem` — dibujo y picking |
-| Escena | `ohmpy/ui/scene.py` | `CircuitScene` — grid, snap opcional, conexión de pines, cables manuales y construcción del netlist (`build_engine_components_for_item`) |
-| Diálogos | `ohmpy/ui/dialogs/` | Editor de valores, instrumentos (multímetro, osciloscopio, generador), análisis digital, calculadoras y ajustes |
-| Estilo | `ohmpy/ui/style.py` | Colores del tema activo, fuentes, constantes geométricas, parseo SI |
-| Metadata | `ohmpy/ui/component_metadata.py` | Etiquetas de pines, prefijos, listas de tipos digitales |
+| Ítems gráficos | `kirho/ui/items/` | `ComponentItem`, `WireItem` — dibujo y picking |
+| Escena | `kirho/ui/scene.py` | `CircuitScene` — grid, snap opcional, conexión de pines, cables manuales y construcción del netlist (`build_engine_components_for_item`) |
+| Diálogos | `kirho/ui/dialogs/` | Editor de valores, instrumentos (multímetro, osciloscopio, generador), análisis digital, calculadoras y ajustes |
+| Estilo | `kirho/ui/style.py` | Colores del tema activo, fuentes, constantes geométricas, parseo SI |
+| Metadata | `kirho/ui/component_metadata.py` | Etiquetas de pines, prefijos, listas de tipos digitales |
 | Ventana | `main.py` | `MainWindow`, toolbar, loop de simulación live, persistencia de circuitos |
 
 ### El puente UI → motor
 
-`build_engine_components_for_item` en `ohmpy/ui/scene.py` traduce un
+`build_engine_components_for_item` en `kirho/ui/scene.py` traduce un
 `ComponentItem` de la escena al objeto correspondiente del motor
 (`Resistor`, `VoltageSource`, etc.) usando los pines conectados como
 nombres de nodo.
@@ -199,15 +199,15 @@ por período, cota de pasos por tick).
 
 ---
 
-## 6. Temas (`ohmpy/theme_manager.py` + `themes/`)
+## 6. Temas (`kirho/theme_manager.py` + `themes/`)
 
 `ThemeManager` carga colores desde JSON. Hay dos fuentes:
 
 - Built-ins definidos en el propio módulo.
-- Archivos `*.json` en `themes/` o `~/.ohmpy/themes/`.
+- Archivos `*.json` en `themes/` o `~/.kirho/themes/`.
 
 Cualquier módulo de UI accede a la paleta vía
-`from ohmpy.ui.style import COLORS`. Los colores son **propiedades**
+`from kirho.ui.style import COLORS`. Los colores son **propiedades**
 del módulo de estilo, no constantes capturadas — al cambiar de tema
 se actualizan transparentemente.
 
@@ -220,9 +220,9 @@ el osciloscopio con muestras reales desde un microcontrolador por USB-CDC.
 El directorio contiene la especificación y ejemplos de referencia;
 `firmware/README.md` explica cómo adaptarlos.
 
-El receptor vive en `ohmpy/engine/hw_stream.py` (decoder del frame
+El receptor vive en `kirho/engine/hw_stream.py` (decoder del frame
 `0xAA 0x55 …`) y la integración con el dialogo del osciloscopio en
-`ohmpy/ui/dialogs/hardware_source_dialog.py`.
+`kirho/ui/dialogs/hardware_source_dialog.py`.
 
 ---
 
@@ -252,24 +252,24 @@ esperado tiene el signo que tiene.
 
 ### Añadir un componente analógico
 
-1. Crear clase en `ohmpy/engine/components.py` heredando de `Component`.
+1. Crear clase en `kirho/engine/components.py` heredando de `Component`.
 2. Implementar `stamp` (DC) y opcionalmente `stamp_ac`, `stamp_transient`,
    `stamp_linear` según corresponda.
-3. Exportar en `ohmpy/engine/__init__.py`.
+3. Exportar en `kirho/engine/__init__.py`.
 4. Añadir tests en `tests/test_engine.py` con un caso analítico cerrado.
 5. Para que aparezca en la UI: definir su entrada en
-   `ohmpy/ui/component_metadata.py` y registrar el dibujo en
+   `kirho/ui/component_metadata.py` y registrar el dibujo en
    `ComponentItem`.
 
 ### Añadir una compuerta digital
 
-1. Subclase de `Gate` en `ohmpy/engine/digital_engine.py`.
+1. Subclase de `Gate` en `kirho/engine/digital_engine.py`.
 2. Implementar `_evaluate(inputs)`.
 3. Exportar en `__init__.py` del paquete.
 4. Test en `tests/test_mixed.py`.
 
 ### Añadir un instrumento
 
-Diálogo nuevo en `ohmpy/ui/dialogs/`. Si lee del circuito (multímetro,
+Diálogo nuevo en `kirho/ui/dialogs/`. Si lee del circuito (multímetro,
 scope) consume el resultado del último `solve_*`. Si inyecta señal
 (función generator), registra una `VoltageSourceAC` en la lista activa.

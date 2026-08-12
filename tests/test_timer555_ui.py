@@ -5,11 +5,11 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QPointF
 
-from ohmpy.ui.dialogs.component_dialog import ComponentDialog
-from ohmpy.ui.items.component_item import ComponentItem
-from ohmpy.ui.items.wire_item import WireItem
-from ohmpy.ui.scene import CircuitScene
-from ohmpy.ui.style import COLORS, GRID_SIZE
+from kirho.ui.dialogs.component_dialog import ComponentDialog
+from kirho.ui.items.component_item import ComponentItem
+from kirho.ui.items.wire_item import WireItem
+from kirho.ui.scene import CircuitScene
+from kirho.ui.style import COLORS, GRID_SIZE
 
 
 def test_555_pins_align_to_grid_and_properties_show_all_pins():

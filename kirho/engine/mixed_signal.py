@@ -22,10 +22,10 @@ Clases:
     TimingAnalyzer        — analiza skew, setup/hold violations post-sim
 
 Uso básico:
-    from ohmpy.engine import MNASolver, Resistor, VoltageSource, Capacitor
-    from ohmpy.engine.digital_engine import DigitalSimulator, DFF, Gate
-    from ohmpy.engine.bridges import ADC, DAC, ComparatorBridge
-    from ohmpy.engine.mixed_signal import MixedSignalInterface
+    from kirho.engine import MNASolver, Resistor, VoltageSource, Capacitor
+    from kirho.engine.digital_engine import DigitalSimulator, DFF, Gate
+    from kirho.engine.bridges import ADC, DAC, ComparatorBridge
+    from kirho.engine.mixed_signal import MixedSignalInterface
 
     mna  = MNASolver()
     dsim = DigitalSimulator()
@@ -515,7 +515,7 @@ class MixedSignalInterface:
 
     def _update_logic_drivers(self, d_state: Dict[str, int]):
         """Actualiza las fuentes internas que representan salidas lógicas."""
-        from ohmpy.engine.components import VoltageSource
+        from kirho.engine.components import VoltageSource
         sources = {c.name: c for c in self._comps if isinstance(c, VoltageSource)}
         for net, source_name, low, high in self._logic_drivers:
             source = sources.get(source_name)

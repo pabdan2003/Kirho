@@ -1,4 +1,4 @@
-# `ohmpy.ui` — Quick map
+# `kirho.ui` — Quick map
 
 The entire graphical layer (PyQt6). For the complete architecture, see
 [`docs/architecture.md`](../../docs/architecture.md).
@@ -51,7 +51,7 @@ The entire graphical layer (PyQt6). For the complete architecture, see
 
 ## Conventions
 
-- Any module that needs the palette imports `from ohmpy.ui.style import COLORS`.
+- Any module that needs the palette imports `from kirho.ui.style import COLORS`.
   `COLORS` is **dynamic**: changing the theme updates the dictionary in place,
   so subsequent repaints use the new colors. Do not capture it in local
   variables that outlive a theme change.

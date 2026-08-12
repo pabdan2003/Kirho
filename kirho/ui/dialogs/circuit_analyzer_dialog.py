@@ -18,9 +18,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QColor, QPen, QBrush, QFont
 from PyQt6.QtCore import Qt, QPointF
 
-from ohmpy.ui.style import COLORS, GRID_SIZE, _qfont
-from ohmpy.ui.items.component_item import ComponentItem
-from ohmpy.ui.items.wire_item import WireItem
+from kirho.ui.style import COLORS, GRID_SIZE, _qfont
+from kirho.ui.items.component_item import ComponentItem
+from kirho.ui.items.wire_item import WireItem
 
 
 

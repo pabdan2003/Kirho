@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from main import MainWindow
-from ohmpy.circuit_analyzer import DEFAULT_STANDARD
+from kirho.circuit_analyzer import DEFAULT_STANDARD
 
 
 def test_digital_gates_with_led_indicators_use_digital_tick():

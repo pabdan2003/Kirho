@@ -9,7 +9,7 @@ def load_translator(app, language: str) -> QTranslator | None:
     if language == "en":
         return None
     translator = QTranslator(app)
-    catalog = Path(__file__).parent.parent / "i18n" / f"ohmpy_{language}.qm"
+    catalog = Path(__file__).parent.parent / "i18n" / f"kirho_{language}.qm"
     if translator.load(str(catalog)):
         app.installTranslator(translator)
         return translator

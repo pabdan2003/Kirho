@@ -1,4 +1,4 @@
-from ohmpy.theme_manager import ThemeManager
+from kirho.theme_manager import ThemeManager
 
 
 def test_language_preference_is_saved_and_loaded(tmp_path):

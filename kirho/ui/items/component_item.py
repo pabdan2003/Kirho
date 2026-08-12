@@ -13,7 +13,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF
 
-from ohmpy.ui.style import COLORS, GRID_SIZE, COMP_W, COMP_H, PIN_RADIUS, _qfont, format_si_value
+from kirho.ui.style import COLORS, GRID_SIZE, COMP_W, COMP_H, PIN_RADIUS, _qfont, format_si_value
 
 
 # ══════════════════════════════════════════════════════════════

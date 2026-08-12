@@ -1,6 +1,6 @@
 # Reference firmware — physical oscilloscope
 
-The OhmPy oscilloscope (`OSC`) can display samples from a microcontroller over
+The Kirho oscilloscope (`OSC`) can display samples from a microcontroller over
 USB-CDC serial. This directory defines the binary stream that firmware must
 send. No board-specific firmware project is bundled: adapt the protocol to
 your board, ADC, and toolchain.
@@ -50,7 +50,7 @@ Offset  Bytes  Field
 10      4·N    samples: int16 channel A, int16 channel B, in mV
 ```
 
-- `ts_us` must be monotonic between frames. OhmPy uses the first received
+- `ts_us` must be monotonic between frames. Kirho uses the first received
   timestamp as time zero.
 - `dt_us` is the per-channel sample interval. At 100 kS/s, send `10`.
 - `N` is normally 32–256. Smaller blocks add USB overhead; larger ones add
@@ -61,7 +61,7 @@ Offset  Bytes  Field
   incomplete data.
 
 The decoder is implemented in
-[`ohmpy/engine/hw_stream.py`](../ohmpy/engine/hw_stream.py). It converts each
+[`kirho/engine/hw_stream.py`](../kirho/engine/hw_stream.py). It converts each
 signed millivolt sample to volts with:
 
 ```
@@ -107,7 +107,7 @@ Save it as `main.py`, upload it to the board (for example,
 `mpremote cp main.py :main.py`), then restart the board. Its real sample rate
 depends on the MicroPython build and board; verify it with a known signal.
 
-## Connect it to OhmPy
+## Connect it to Kirho
 
 1. Place an `OSC` in the canvas and double-click it.
 2. Select **Hardware…** in the oscilloscope window.

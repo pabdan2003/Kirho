@@ -1,6 +1,6 @@
 import pytest
 
-from ohmpy.spice import export_netlist, format_value, parse_netlist, parse_value
+from kirho.spice import export_netlist, format_value, parse_netlist, parse_value
 
 
 def test_spice_numbers_use_standard_milli_and_meg_suffixes():

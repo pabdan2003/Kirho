@@ -1,4 +1,4 @@
-# OhmPy examples
+# Kirho examples
 
 Open these `.csin` projects with **File → Open**. They are intentionally
 small, self-contained checks of the editor and simulator.

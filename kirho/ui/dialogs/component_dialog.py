@@ -7,8 +7,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from ohmpy.ui.style import parse_si_value, format_si_value
-from ohmpy.ui.component_metadata import (
+from kirho.ui.style import parse_si_value, format_si_value
+from kirho.ui.component_metadata import (
     COMPONENT_NODE_LABELS,
     DEFAULT_NODE_LABELS,
     DIGITAL_BRIDGE_TYPES,

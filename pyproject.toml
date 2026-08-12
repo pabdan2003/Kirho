@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ohmpy"
+name = "kirho"
 version = "0.1.0"
 description = "Simulador de circuitos electrónicos — analógico, digital y señal mixta"
 readme = "README.md"
@@ -43,13 +43,13 @@ build = [
 ]
 
 [project.scripts]
-ohmpy = "main:main"
+kirho = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]
 
 [tool.setuptools.packages.find]
-include = ["ohmpy*"]
+include = ["kirho*"]
 exclude = ["tests*", "docs*", "themes*", "firmware*"]
 
 [tool.pytest.ini_options]
