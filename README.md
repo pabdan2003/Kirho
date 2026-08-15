@@ -90,12 +90,25 @@ Before distributing outside a small trusted group, sign and notarize the app
 with an Apple Developer certificate; otherwise macOS will show a security
 warning on first launch.
 
+### Windows installer (testing)
+
+On Windows x64, install [Inno Setup](https://jrsoftware.org/isinfo.php) and the
+optional build tool, then run PowerShell:
+
+```powershell
+py -m pip install ".[build]"
+.\scripts\build_windows.ps1
+```
+
+This produces `dist\Kirho-<version>-Windows-x64-Setup.exe` with Start menu and
+optional desktop shortcuts.
+
 ## Downloads
 
 | Platform | Status | Download |
 | --- | --- | --- |
 | macOS (Apple Silicon) | Available | [Latest release](https://github.com/pabdan2003/Kirho/releases/latest) |
-| Windows | Coming soon | — |
+| Windows (x64) | Testing | Build the installer locally |
 | Linux | Coming soon | — |
 
 For macOS, download the `.dmg` asset from the release, open it, and drag

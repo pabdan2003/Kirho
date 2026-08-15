@@ -88,12 +88,25 @@ Antes de distribuir fuera de un grupo pequeño y confiable, firma y notariza la
 app con un certificado de Apple Developer; de lo contrario macOS mostrará una
 advertencia de seguridad en el primer inicio.
 
+### Instalador de Windows (pruebas)
+
+En Windows x64, instala [Inno Setup](https://jrsoftware.org/isinfo.php) y la
+herramienta de empaquetado opcional; después ejecuta PowerShell:
+
+```powershell
+py -m pip install ".[build]"
+.\scripts\build_windows.ps1
+```
+
+Esto genera `dist\Kirho-<version>-Windows-x64-Setup.exe` con accesos en el menú
+Inicio y, opcionalmente, en el escritorio.
+
 ## Descargas
 
 | Plataforma | Estado | Descarga |
 | --- | --- | --- |
 | macOS (Apple Silicon) | Disponible | [Última versión](https://github.com/pabdan2003/Kirho/releases/latest) |
-| Windows | Próximamente | — |
+| Windows (x64) | Pruebas | Compila el instalador localmente |
 | Linux | Próximamente | — |
 
 En macOS, descarga el archivo `.dmg` de la versión, ábrelo y arrastra
