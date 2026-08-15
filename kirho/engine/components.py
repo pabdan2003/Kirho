@@ -147,10 +147,48 @@ class SPDT(Component):
         Switch(self.name + '_NO', self.com, self.no, self.position).stamp(G,I,node_map)
 
 
+class SPDT3(Component):
+    """Conmutador de tres posiciones: ON 1, OFF y ON 2."""
+    def __init__(self, name, com, on1, on2, position=0):
+        super().__init__(name)
+        self.name, self.com, self.on1, self.on2 = name, com, on1, on2
+        self.position = max(-1, min(1, int(position)))
+
+    def stamp(self, G, I, node_map, branch_idx=None):
+        Switch(self.name + '_ON1', self.com, self.on1,
+               self.position < 0).stamp(G, I, node_map)
+        Switch(self.name + '_ON2', self.com, self.on2,
+               self.position > 0).stamp(G, I, node_map)
+
+
+class DPDT(Component):
+    """Conmutador de dos polos y dos posiciones; ambos polos conmutan juntos."""
+    def __init__(self, name, com_a, a1, a2, com_b, b1, b2, position=False):
+        super().__init__(name)
+        self.name = name
+        self.com_a, self.a1, self.a2 = com_a, a1, a2
+        self.com_b, self.b1, self.b2 = com_b, b1, b2
+        self.position = bool(position)
+
+    def stamp(self, G, I, node_map, branch_idx=None):
+        SPDT(self.name + '_A', self.com_a, self.a1, self.a2,
+             self.position).stamp(G, I, node_map)
+        SPDT(self.name + '_B', self.com_b, self.b1, self.b2,
+             self.position).stamp(G, I, node_map)
+
+
 class Relay(Component):
-    """Relé DC: bobina resistiva y contacto NO que cierra al superar threshold."""
-    def __init__(self, name, coil_p, coil_n, com, no, coil_r=100.0, threshold=5.0):
-        super().__init__(name); self.coil_p,self.coil_n,self.com,self.no=coil_p,coil_n,com,no; self.coil_r,self.threshold=coil_r,threshold; self.active=False
+    """Relé con bobina resistiva y contacto NO con histéresis."""
+    def __init__(self, name, coil_p, coil_n, com, no, coil_r=100.0,
+                 threshold=3.0, release_threshold=None):
+        super().__init__(name)
+        self.name = name
+        self.coil_p, self.coil_n, self.com, self.no = coil_p, coil_n, com, no
+        self.coil_r = coil_r
+        self.threshold = threshold
+        self.release_threshold = (
+            threshold * 0.6 if release_threshold is None else release_threshold)
+        self.active = False
     def stamp(self, G, I, node_map, branch_idx=None):
         Switch(self.name+'_coil', self.coil_p, self.coil_n, True).stamp(G,I,node_map)
         # ajustar la resistencia de bobina
@@ -159,10 +197,20 @@ class Relay(Component):
         if b is not None: G[b,b]-=g
         if a is not None and b is not None: G[a,b]+=g; G[b,a]+=g
         Switch(self.name+'_contact', self.com, self.no, self.active).stamp(G,I,node_map)
+    def prepare_transient_step(self, voltages, node_map):
+        a = node_map.get(self.coil_p)
+        b = node_map.get(self.coil_n)
+        vp = voltages[a] if a is not None else 0.0
+        vn = voltages[b] if b is not None else 0.0
+        v_coil = abs(float(vp) - float(vn))
+        if self.active:
+            if v_coil <= self.release_threshold:
+                self.active = False
+        elif v_coil >= self.threshold:
+            self.active = True
+
     def stamp_linear(self, G, I, node_map, V):
-        a,b=node_map.get(self.coil_p),node_map.get(self.coil_n)
-        vp=V[a] if a is not None else 0; vn=V[b] if b is not None else 0
-        self.active = abs(vp-vn) >= self.threshold; self.stamp(G,I,node_map)
+        self.stamp(G, I, node_map)
 
 
 # ──────────────────────────────────────────────

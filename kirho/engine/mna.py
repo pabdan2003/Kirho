@@ -131,7 +131,8 @@ class MNASolver:
     # API pública
     # ──────────────────────────────────────────────
 
-    def solve_dc(self, components: List[Component]) -> Dict:
+    def solve_dc(self, components: List[Component], *,
+                 update_relay_state: bool = True) -> Dict:
         """
         Análisis DC: resuelve tensiones nodales y corrientes de rama.
         Detecta automáticamente si el circuito tiene componentes no-lineales
@@ -141,7 +142,8 @@ class MNASolver:
         has_nonlinear = any(isinstance(c, _nonlinear_types) for c in components)
 
         if has_nonlinear:
-            return self.solve_dc_nonlinear(components)
+            return self.solve_dc_nonlinear(
+                components, update_relay_state=update_relay_state)
 
         try:
             node_map, branch_map, size = self._build_maps(components)
@@ -154,7 +156,8 @@ class MNASolver:
 
     def solve_dc_nonlinear(self, components: List[Component],
                            max_iter: int = 200,
-                           tol: float = 1e-6) -> Dict:
+                           tol: float = 1e-6, *,
+                           update_relay_state: bool = True) -> Dict:
         """
         Análisis DC con Newton-Raphson + damping adaptativo.
 
@@ -176,6 +179,13 @@ class MNASolver:
 
             for iteration in range(max_iter):
                 V_cur = x[:n_nodes]
+
+                if update_relay_state:
+                    # El estado del contacto depende de la solución de la
+                    # iteración anterior; actualizarlo antes de estamparlo.
+                    for c in components:
+                        if isinstance(c, Relay):
+                            c.prepare_transient_step(V_cur, node_map)
 
                 G     = lil_matrix((size, size), dtype=float)
                 I_vec = np.zeros(size)
@@ -659,7 +669,7 @@ class MNASolver:
               'final_state': dict   # para reanudar
             }
         """
-        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog)
+        _nonlinear_types = (Diode, BJT, MOSFET, Timer555Analog, Relay)
         has_nonlinear = any(isinstance(c, _nonlinear_types) for c in components)
 
         try:
@@ -928,7 +938,7 @@ class MNASolver:
             else:
                 dc_comps.append(c)
 
-        dc = self.solve_dc(dc_comps)
+        dc = self.solve_dc(dc_comps, update_relay_state=False)
         x  = np.zeros(size)
         if dc.get('success'):
             for node, idx in node_map.items():
@@ -1091,6 +1101,9 @@ class MNASolver:
             'n_gate', 'n_drain', 'n_source',
             'n_p', 'n_n', 'n_out',
             'gnd', 'trig', 'out', 'reset', 'ctrl', 'thresh', 'disch', 'vcc',
+            'com', 'on1', 'on2',
+            'com_a', 'a1', 'a2', 'com_b', 'b1', 'b2',
+            'coil_p', 'coil_n', 'no',
         ]
         for c in components:
             for attr in all_node_attrs:

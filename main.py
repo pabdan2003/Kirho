@@ -40,6 +40,7 @@ from kirho.ui.component_metadata import (
     DIGITAL_FLIPFLOP_TYPES,
     DIGITAL_GATE_TYPES,
     FOUR_PIN_NODE_LABELS,
+    SIX_PIN_NODE_LABELS,
 )
 from kirho.ui.dialogs.component_dialog import ComponentDialog
 from kirho.ui.dialogs.component_picker_dialog import ComponentPickerDialog
@@ -267,10 +268,14 @@ class MainWindow(QMainWindow):
         et = event.type()
         if et == QEvent.Type.KeyPress:
             mods = event.modifiers()
+            sc = self.scene
+            if (self._sim_running and sc is not None
+                    and not mods & Qt.KeyboardModifier.ControlModifier
+                    and sc.handle_switch_key(event)):
+                return True
             if mods & Qt.KeyboardModifier.ControlModifier:
                 k = event.key()
                 if k in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
-                    sc = self.scene
                     if sc is not None and sc.rotate_selected(delta=-90):
                         self.statusBar().showMessage(
                             "Rotado 90° a la izquierda (Ctrl+-)")
@@ -837,9 +842,6 @@ class MainWindow(QMainWindow):
                 ('L',    'Inductor',      '━⌒⌒⌒━'),
                 ('Z',    'Impedance',     '━┤▭├━'),
                 ('XFMR', 'Transformer',   '⌇⌇'),
-                ('SPST', 'SPST switch',   '━o/ o━'),
-                ('SPDT', 'SPDT switch',   '━o/ o━'),
-                ('RELAY','Relay',         '⌁'),
             ]),
             (self.tr("Sources"), [
                 ('V',   'DC Voltage Source',  '━(+)━'),
@@ -856,6 +858,14 @@ class MainWindow(QMainWindow):
                 ('PMOS',    'MOSFET P',              '━[P]━'),
                 ('OPAMP',   'Op-Amp (ideal)',         '━[▷]━'),
                 ('TL082',   'TL082 (op-amp dual)',   '━[▷²]━'),
+            ]),
+            (self.tr("Miscellaneous"), [
+                ('SPST', 'SPST switch',   '━o/ o━'),
+                ('SPDT', 'SPDT switch',   '━o/ o━'),
+                ('SPDT3', 'ON-OFF-ON switch', '━o/ o/ o━'),
+                ('DPDT', 'DPDT switch',   '━o/ o━\n━o/ o━'),
+                ('RELAY','Relay',         '⌁'),
+                ('LAMP', 'Bulb', '💡'),
             ]),
             (self.tr("Reference"), [
                 ('GND',          'Ground',          '⏚'),
@@ -1253,7 +1263,7 @@ class MainWindow(QMainWindow):
     def _is_digital_indicator_circuit(items) -> bool:
         return bool(items) and all(
             item.comp_type in ComponentItem.DIGITAL_TYPES | {
-                'LED', 'GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT'
+                'LED', 'LAMP', 'GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT'
             }
             for item in items
         )
@@ -1324,7 +1334,7 @@ class MainWindow(QMainWindow):
         self.run_btn.setText(self.tr("▶  SIMULATE"))
         for sheet in self._sheets:
             for item in sheet['scene'].components:
-                if item.comp_type == 'LED':
+                if item.comp_type in ComponentItem.LIGHT_TYPES:
                     item.led_on = False
                     item.update()
                 elif item.comp_type == 'MULTIMETER':
@@ -1565,6 +1575,45 @@ class MainWindow(QMainWindow):
         current = Is * (np.exp(vd_arr / (n * 0.02585)) - 1.0)
         return np.maximum(current, 0.0)
 
+    @staticmethod
+    def _light_threshold(item) -> float:
+        if item.comp_type == 'LAMP':
+            return max(float(item.value), 0.0)
+        return {
+            'red': 1.5, 'orange': 1.7, 'yellow': 1.8,
+            'green': 1.9, 'blue': 2.6, 'white': 2.6,
+        }.get(getattr(item, 'led_color', 'red'), 1.5)
+
+    @classmethod
+    def _light_is_on(cls, item, voltage: float, reference: float = 0.0) -> bool:
+        drop = voltage - reference
+        return (abs(drop) if item.comp_type == 'LAMP' else drop) >= cls._light_threshold(item)
+
+    @staticmethod
+    def _display_voltage(item, voltage: Optional[float], reference: float = 0.0) -> Optional[float]:
+        if voltage is None:
+            return None
+        return abs(voltage - reference) if item.comp_type == 'LAMP' else voltage
+
+    @staticmethod
+    def _voltage_drop_array(voltages, n1: str, n2: str):
+        """Devuelve V(n1)-V(n2), incluyendo tierra implícita."""
+        ground = ('0', 'gnd', 'GND', '')
+        if n1 in ground:
+            v2 = voltages.get(n2)
+            return -np.asarray(v2) if n2 not in ground and v2 is not None else np.zeros(1)
+        v1 = voltages.get(n1)
+        if v1 is None:
+            return None
+        v1 = np.asarray(v1)
+        if n2 in ground:
+            return v1
+        v2 = voltages.get(n2)
+        if v2 is None:
+            return v1
+        n = min(len(v1), len(v2))
+        return v1[-n:] - np.asarray(v2)[-n:]
+
     def _update_items_from_live(self, tr):
         """Actualiza cada componente con el último valor instantáneo.
 
@@ -1578,6 +1627,10 @@ class MainWindow(QMainWindow):
             return
         sim_components = self._sim_all_comps or list(self.scene.components)
         pin_node = self._live_pin_node or {}
+        relay_states = {
+            c.name: c.active for c in self._live_components or []
+            if c.__class__.__name__ == 'Relay'
+        }
 
         for timer in (c for c in self._live_components or []
                       if c.__class__.__name__ == 'Timer555Analog'):
@@ -1590,25 +1643,14 @@ class MainWindow(QMainWindow):
                 return 0.0
             return float(arr[-1])
 
-        def _vd_array(n_a, n_k):
-            """Array de Vd = V_a - V_k sobre las muestras del bloque."""
-            arr_a = v_dict.get(n_a)
-            if arr_a is None or len(arr_a) == 0:
-                return None
-            arr_a = np.asarray(arr_a)
-            if n_k in ('0', 'gnd', 'GND', ''):
-                return arr_a
-            arr_k = v_dict.get(n_k)
-            if arr_k is None:
-                return arr_a
-            n = min(len(arr_a), len(arr_k))
-            return arr_a[-n:] - np.asarray(arr_k[-n:])
-
         for item in sim_components:
             if item.comp_type in ComponentItem.DIGITAL_TYPES:
                 continue
             if item.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT', 'GND', 'NODE'):
                 continue
+
+            if item.comp_type == 'RELAY':
+                item.relay_active = relay_states.get(item.name, False)
 
             n1 = item.node1.strip() or pin_node.get(f"{item.name}__p1", "")
             n2 = item.node2.strip() or pin_node.get(f"{item.name}__p2", "0")
@@ -1616,13 +1658,14 @@ class MainWindow(QMainWindow):
             v_a = _last(n1) if n1 else None
             v_k = _last(n2) if n2 not in ('0', 'gnd', 'GND', '') else 0.0
 
-            if v_a is not None:
-                item.result_voltage = v_a
+            item.result_voltage = self._display_voltage(item, v_a, v_k)
 
-            if item.comp_type == 'LED' and n1:
-                vd = _vd_array(n1, n2)
+            if item.comp_type in ComponentItem.LIGHT_TYPES and n1:
+                vd = self._voltage_drop_array(v_dict, n1, n2)
                 if vd is None or len(vd) == 0:
                     item.led_on = False
+                elif item.comp_type == 'LAMP':
+                    item.led_on = abs(float(vd[-1])) >= self._light_threshold(item)
                 else:
                     # Corriente media visible (~0.1 mA como umbral visual).
                     i_led = self._estimate_led_current(
@@ -1826,20 +1869,19 @@ class MainWindow(QMainWindow):
                 for item in sim_components:
                     n1 = item.node1.strip() or pin_node.get(f"{item.name}__p1", "")
                     n2 = item.node2.strip() or pin_node.get(f"{item.name}__p2", "0")
-                    item.result_voltage = dc["voltages"].get(n1)
-                    if item.comp_type == "LED":
+                    item.result_voltage = self._display_voltage(
+                        item, dc["voltages"].get(n1),
+                        dc["voltages"].get(n2, 0.0))
+                    if item.comp_type in ComponentItem.LIGHT_TYPES:
                         item.led_on = False
                         op = dc.get("operating_points", {}).get(item.name, {})
                         Id_op = op.get("Id", op.get("id")) if op else None
-                        if Id_op is not None:
+                        if item.comp_type == 'LED' and Id_op is not None:
                             item.led_on = float(Id_op) > 1e-4
                         else:
                             v_a = dc["voltages"].get(n1, 0)
                             v_k = dc["voltages"].get(n2, 0)
-                            vf_min = {'red':1.5,'orange':1.7,'yellow':1.8,
-                                      'green':1.9,'blue':2.6,'white':2.6}
-                            thr = vf_min.get(getattr(item,'led_color','red'), 1.5)
-                            item.led_on = (v_a - v_k) > thr
+                            item.led_on = self._light_is_on(item, v_a, v_k)
                     item.update()
             else:
                 out.append(f"  ✗ {dc['error']}")
@@ -2076,27 +2118,28 @@ class MainWindow(QMainWindow):
 
     def _update_leds_from_transient(self, sim_components, tr, last_cycle_mask,
                                     pin_node):
-        """Enciende LEDs cuya corriente media en el último ciclo supera ~0.1 mA."""
+        """Actualiza LEDs y bombillos a partir del voltaje del último ciclo."""
         v_dict = tr.get("voltages", {})
         if not v_dict:
             return
         for item in sim_components:
-            if item.comp_type != "LED":
+            if item.comp_type not in ComponentItem.LIGHT_TYPES:
                 continue
             n_a = item.node1.strip() or pin_node.get(f"{item.name}__p1", "")
             n_k = item.node2.strip() or pin_node.get(f"{item.name}__p2", "0")
-            v_a_arr = v_dict.get(n_a)
-            v_k_arr = v_dict.get(n_k) if n_k not in ('0','gnd','GND') else None
-            if v_a_arr is None:
+            vd = self._voltage_drop_array(v_dict, n_a, n_k)
+            if vd is None or len(vd) == 0:
+                item.led_on = False
+                item.update()
                 continue
-            va = v_a_arr[last_cycle_mask] if hasattr(v_a_arr, '__getitem__') else v_a_arr
-            vk = (v_k_arr[last_cycle_mask] if v_k_arr is not None
-                  else 0.0)
             try:
-                vd = va - vk
-                i_led = self._estimate_led_current(
-                    vd, getattr(item, 'led_color', 'red'))
-                item.led_on = float(np.mean(i_led)) > 1e-4
+                vd = vd[last_cycle_mask]
+                if item.comp_type == 'LAMP':
+                    item.led_on = abs(float(vd[-1])) >= self._light_threshold(item)
+                else:
+                    i_led = self._estimate_led_current(
+                        vd, getattr(item, 'led_color', 'red'))
+                    item.led_on = float(np.mean(i_led)) > 1e-4
             except Exception:
                 item.led_on = False
             item.update()
@@ -2193,9 +2236,15 @@ class MainWindow(QMainWindow):
         components = [
             _c for _c in components
             if not (
-                _c.__class__.__name__ == 'Diode'
-                and getattr(_c, 'n_a', '') in _dig_out_nodes
-                and getattr(_c, 'n_a', '') not in _analog_driver_nodes
+                (
+                    _c.__class__.__name__ == 'Diode'
+                    and getattr(_c, 'n_a', '') in _dig_out_nodes
+                    and getattr(_c, 'n_a', '') not in _analog_driver_nodes
+                ) or (
+                    getattr(_c, 'is_lamp', False)
+                    and getattr(_c, 'n1', '') in _dig_out_nodes
+                    and getattr(_c, 'n1', '') not in _analog_driver_nodes
+                )
             )
         ]
 
@@ -2291,14 +2340,13 @@ class MainWindow(QMainWindow):
                 auto_n2 = pin_node.get(f"{item.name}__p2", '0')
                 n1 = item.node1.strip() if item.node1.strip() else auto_n1
                 n2 = item.node2.strip() if item.node2.strip() else auto_n2
-                if n1 in result['voltages']:
-                    item.result_voltage = result['voltages'][n1]
-                else:
-                    item.result_voltage = None
+                item.result_voltage = self._display_voltage(
+                    item, result['voltages'].get(n1),
+                    result['voltages'].get(n2, 0.0))
                 if item.comp_type == 'MULTIMETER':
                     self._update_multimeter_from_dc(
                         item, n1, n2, result['voltages'])
-                if item.comp_type == 'LED':
+                if item.comp_type in ComponentItem.LIGHT_TYPES:
                     led_on = False
                     op = result.get('operating_points', {}).get(item.name, {})
                     id_ = None
@@ -2310,17 +2358,15 @@ class MainWindow(QMainWindow):
                         v_a = result['voltages'].get(n1, None)
                         v_k = result['voltages'].get(n2, None)
                         if v_a is not None and v_k is not None:
-                            vf_min = {'red':1.5,'orange':1.7,'yellow':1.8,
-                                      'green':1.9,'blue':2.6,'white':2.6}
-                            thr = vf_min.get(getattr(item,'led_color','red'), 1.5)
-                            led_on = (v_a - v_k) > thr
+                            led_on = self._light_is_on(item, v_a, v_k)
                     item.led_on = led_on
                 item.update()
                 if hasattr(item, 'scene') and item.scene():
                     item.scene().update(item.mapToScene(item.boundingRect()).boundingRect())
 
             # Debug LED — mostrar info de nodos y voltajes del LED
-            led_items = [it for it in sim_comps if it.comp_type == 'LED']
+            led_items = [it for it in sim_comps
+                         if it.comp_type in ComponentItem.LIGHT_TYPES]
             if led_items:
                 out.append("\n── Debug LED ──")
                 for it in led_items:
@@ -2415,10 +2461,10 @@ class MainWindow(QMainWindow):
             if out_node and out_node not in ('0', 'gnd', 'GND'):
                 dc_voltages[out_node] = v_out
             for led in _all:
-                if led.comp_type == 'LED':
+                if led.comp_type in ComponentItem.LIGHT_TYPES:
                     led_anode = led.node1.strip() or pin_node.get(f'{led.name}__p1', '')
                     if led_anode == out_node:
-                        led.led_on = (v_out > 0.3)
+                        led.led_on = MainWindow._light_is_on(led, v_out)
                         led.update()
             if out is not None and not silent:
                 out.append(f"  {item.name}_Y = {y}  ({'HIGH' if y else 'LOW'})")
@@ -2473,10 +2519,10 @@ class MainWindow(QMainWindow):
             if n_out and n_out not in ('0', 'gnd', 'GND'):
                 dc_voltages[n_out] = v_out
             for led in _all:
-                if led.comp_type == 'LED':
+                if led.comp_type in ComponentItem.LIGHT_TYPES:
                     la = led.node1.strip() or pin_node.get(f'{led.name}__p1', '')
                     if la == n_out:
-                        led.led_on = (v_out > 0.3)
+                        led.led_on = MainWindow._light_is_on(led, v_out)
                         led.update()
             if out is not None and not silent:
                 out.append(f"  {item.name}: SEL={sel} → Y={y}")
@@ -2559,17 +2605,19 @@ class MainWindow(QMainWindow):
             # alto, porque la actualización de led_on se hacía sólo en el
             # bucle de compuertas.
             for led in _all:
-                if led.comp_type != 'LED':
+                if led.comp_type not in ComponentItem.LIGHT_TYPES:
                     continue
                 led_anode = (led.node1.strip()
                              or pin_node.get(f'{led.name}__p1', ''))
                 if not led_anode:
                     continue
                 if led_anode == n_q:
-                    led.led_on = bool(q_new)
+                    led.led_on = MainWindow._light_is_on(
+                        led, std.Voh if q_new else std.Vol)
                     led.update()
                 elif led_anode == n_qn:
-                    led.led_on = bool(1 - q_new)
+                    led.led_on = MainWindow._light_is_on(
+                        led, std.Voh if (1 - q_new) else std.Vol)
                     led.update()
 
             # Repintar el componente para reflejar el círculo de memoria
@@ -2602,12 +2650,13 @@ class MainWindow(QMainWindow):
                 if node and node not in ('0', 'gnd', 'GND'):
                     dc_voltages[node] = std.Voh if (count >> bit) & 1 else std.Vol
             for led in _all:
-                if led.comp_type != 'LED':
+                if led.comp_type not in ComponentItem.LIGHT_TYPES:
                     continue
                 anode = led.node1.strip() or pin_node.get(f'{led.name}__p1', '')
                 for bit, node in enumerate(q_nodes):
                     if anode == node:
-                        led.led_on = bool((count >> bit) & 1)
+                        led.led_on = MainWindow._light_is_on(
+                            led, std.Voh if (count >> bit) & 1 else std.Vol)
                         led.update()
                         break
             item.update()
@@ -2840,22 +2889,19 @@ class MainWindow(QMainWindow):
                     # el LED está conduciendo a la salida del puente.
                     op = dc_res.get('operating_points', {}) or {}
                     for it in sim_comps:
-                        if it.comp_type != 'LED':
+                        if it.comp_type not in ComponentItem.LIGHT_TYPES:
                             continue
                         a1 = it.node1.strip() or pin_node.get(f"{it.name}__p1", '')
                         a2 = it.node2.strip() or pin_node.get(f"{it.name}__p2", '0')
                         Id_op = (op.get(it.name, {}) or {}).get('Id') \
                                 or (op.get(it.name, {}) or {}).get('id')
                         on = False
-                        if Id_op is not None:
+                        if it.comp_type == 'LED' and Id_op is not None:
                             on = float(Id_op) > 1e-4
                         else:
                             v_a = dc_res['voltages'].get(a1, 0.0)
                             v_k = dc_res['voltages'].get(a2, 0.0)
-                            vf_min = {'red':1.5,'orange':1.7,'yellow':1.8,
-                                      'green':1.9,'blue':2.6,'white':2.6}
-                            thr = vf_min.get(getattr(it,'led_color','red'), 1.5)
-                            on = (v_a - v_k) > thr
+                            on = self._light_is_on(it, v_a, v_k)
                         it.led_on = on
                         it.update()
                 else:
@@ -2951,7 +2997,10 @@ class MainWindow(QMainWindow):
     def _on_logic_state_toggled(self, item):
         """Re-ejecuta la simulación cuando un LOGIC_STATE cambia de estado."""
         if self._sim_running:
-            self._run_simulation_dc(silent=True)
+            if self._sim_mode == 'live_transient':
+                self._on_instrument_changed(item)
+            else:
+                self._run_simulation_dc(silent=True)
         else:
             # Aunque no esté en modo continuo, actualizar igual (one-shot silencioso)
             pin_node = self.scene.extract_netlist()
@@ -3042,6 +3091,42 @@ class MainWindow(QMainWindow):
             rows.append((self.tr("Input 0 (I0)"), _node_display(item.node2, f"{item.name}__p2")))
             rows.append((self.tr("Input 1 (I1)"), _node_display(item.node3, f"{item.name}__p3")))
             rows.append((self.tr("Select (SEL)"), _node_display(item.node4, f"{item.name}__p4")))
+        elif item.comp_type == 'SPDT3':
+            position = {-1: self.tr('ON 1'), 0: self.tr('OFF'), 1: self.tr('ON 2')}
+            rows[2] = (self.tr("Value"), position.get(
+                int(round(item.value)), self.tr('OFF')))
+            rows.append((self.tr('Position'), position.get(
+                int(round(item.value)), self.tr('OFF'))))
+            rows.append((self.tr('Common (COM)'), _node_display(
+                item.node1, f"{item.name}__p1")))
+            rows.append((self.tr('ON 1'), _node_display(
+                item.node2, f"{item.name}__p2")))
+            rows.append((self.tr('ON 2'), _node_display(
+                item.node3, f"{item.name}__p3")))
+            for label, attr in (
+                    ('ON 1 key:', 'switch_on1_key'),
+                    ('OFF key:', 'switch_off_key'),
+                    ('ON 2 key:', 'switch_on2_key')):
+                key = getattr(item, attr, '')
+                if key:
+                    rows.append((self.tr(label), key))
+        elif item.comp_type in SIX_PIN_NODE_LABELS:
+            lbls = SIX_PIN_NODE_LABELS[item.comp_type]
+            node_labels = {
+                'Common A': self.tr('Common A'),
+                'A 1': self.tr('A 1'),
+                'A 2': self.tr('A 2'),
+                'Common B': self.tr('Common B'),
+                'B 1': self.tr('B 1'),
+                'B 2': self.tr('B 2'),
+            }
+            for label, node, pin in zip(
+                    lbls,
+                    (item.node1, item.node2, item.node3,
+                     item.node4, item.node5, item.node6),
+                    range(1, 7)):
+                rows.append((node_labels[label], _node_display(
+                    node, f"{item.name}__p{pin}")))
         elif item.comp_type in FOUR_PIN_NODE_LABELS:
             lbls = FOUR_PIN_NODE_LABELS[item.comp_type]
             rows.append((lbls[0], _node_display(item.node1, f"{item.name}__p1")))
@@ -3059,6 +3144,9 @@ class MainWindow(QMainWindow):
             if item.comp_type in ('V', 'VAC', 'I'):
                 rows.append((self.tr("Node +"), _node_display(item.node2, f"{item.name}__p2")))
                 rows.append((self.tr("Node −"), _node_display(item.node1, f"{item.name}__p1")))
+            elif item.comp_type == 'LAMP':
+                rows.append((self.tr("Node +"), _node_display(item.node1, f"{item.name}__p1")))
+                rows.append((self.tr("Node −"), _node_display(item.node2, f"{item.name}__p2")))
             else:
                 rows.append((lbl1, _node_display(item.node1, f"{item.name}__p1")))
                 rows.append((lbl2, _node_display(item.node2, f"{item.name}__p2")))
@@ -3173,8 +3261,14 @@ class MainWindow(QMainWindow):
                 entry['xfmr_imax']  = item.xfmr_imax
             if item.comp_type == 'BRIDGE':
                 entry['bridge_vf'] = item.bridge_vf
+            if item.comp_type == 'RELAY':
+                entry['relay_activation_voltage'] = item.relay_activation_voltage
             if item.comp_type in ComponentItem.FOUR_PIN_TYPES:
                 entry['node4'] = item.node4
+            if item.comp_type in ComponentItem.SIX_PIN_TYPES:
+                entry['node4'] = item.node4
+                entry['node5'] = item.node5
+                entry['node6'] = item.node6
             if item.comp_type in ComponentItem.FIVE_PIN_TYPES:
                 entry['node4']     = item.node4
                 entry['node5']     = item.node5
@@ -3222,6 +3316,12 @@ class MainWindow(QMainWindow):
                     getattr(item, 'dig_input_nodes', []) or [])
             if item.comp_type == 'IC555':
                 entry['timer_nodes'] = list(getattr(item, 'timer_nodes', []) or [])
+            if item.comp_type in ('SPST', 'SPDT', 'DPDT'):
+                entry['switch_key'] = item.switch_key
+            if item.comp_type == 'SPDT3':
+                entry['switch_on1_key'] = item.switch_on1_key
+                entry['switch_off_key'] = item.switch_off_key
+                entry['switch_on2_key'] = item.switch_on2_key
             sheet_data['components'].append(entry)
 
         for wire in scene.wires:
@@ -3285,8 +3385,16 @@ class MainWindow(QMainWindow):
                 item.xfmr_imax  = c.get('xfmr_imax',  1.0)
             if c['type'] == 'BRIDGE':
                 item.bridge_vf = c.get('bridge_vf', 0.7)
+            if c['type'] == 'RELAY':
+                item.relay_activation_voltage = max(
+                    0.0, float(c.get(
+                        'relay_activation_voltage', item.relay_activation_voltage)))
             if c['type'] in ComponentItem.FOUR_PIN_TYPES and 'node4' in c:
                 item.node4 = c['node4']
+            if c['type'] in ComponentItem.SIX_PIN_TYPES:
+                item.node4 = c.get('node4', '')
+                item.node5 = c.get('node5', '')
+                item.node6 = c.get('node6', '')
             if c['type'] in ComponentItem.FIVE_PIN_TYPES:
                 if 'node4' in c: item.node4 = c['node4']
                 if 'node5' in c: item.node5 = c['node5']
@@ -3340,6 +3448,12 @@ class MainWindow(QMainWindow):
                 item.dig_input_neg = list(c.get('dig_input_neg', []) or [])
             if c['type'] == 'IC555':
                 item.timer_nodes = (list(c.get('timer_nodes', [])) + [''] * 8)[:8]
+            if c['type'] in ('SPST', 'SPDT', 'DPDT'):
+                item.switch_key = c.get('switch_key', '')
+            if c['type'] == 'SPDT3':
+                item.switch_on1_key = c.get('switch_on1_key', '')
+                item.switch_off_key = c.get('switch_off_key', '')
+                item.switch_on2_key = c.get('switch_on2_key', '')
 
         for w in sheet_data.get('wires', []):
             def migrate_555_pin(point):

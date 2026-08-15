@@ -10,12 +10,14 @@ COMPONENT_NODE_LABELS: Dict[str, Tuple[str, str, Optional[str]]] = {
     'POT':     ('Node 1',       'Node 2 (wiper)',    None),
     'SPST':    ('Terminal 1',   'Terminal 2',         None),
     'SPDT':    ('Common (COM)', 'Normally closed (NC)', 'Normally open (NO)'),
+    'SPDT3':   ('Common (COM)', 'ON 1',                'ON 2'),
     'C':       ('Node 1',       'Node 2',            None),
     'L':       ('Node 1',       'Node 2',            None),
     'V':       ('Node + (anode)',  'Node − (cathode)', None),
     'I':       ('Node + (output)', 'Node − (input)', None),
     'D':       ('Anode (A)',    'Cathode (K)',        None),
     'LED':     ('Anode (A)',    'Cathode (K)',        None),
+    'LAMP':    ('Node +',       'Node −',             None),
     'BJT_NPN': ('Collector (C)', 'Emitter (E)',       'Base (B)'),
     'BJT_PNP': ('Collector (C)', 'Emitter (E)',       'Base (B)'),
     'NMOS':    ('Drain (D)',    'Source (S)',        'Gate (G)'),
@@ -30,6 +32,11 @@ FIVE_PIN_NODE_LABELS: Dict[str, Tuple[str, str, str, str, str]] = {
     # TL082 dual op-amp: OUT, IN−, IN+, V+, V−
     'TL082': ('Output (OUT)', 'Input − (IN−)', 'Input + (IN+)',
               'Supply V+', 'Supply V−'),
+}
+
+SIX_PIN_NODE_LABELS: Dict[str, Tuple[str, str, str, str, str, str]] = {
+    'DPDT': ('Common A', 'A 1', 'A 2',
+             'Common B', 'B 1', 'B 2'),
 }
 
 FOUR_PIN_NODE_LABELS: Dict[str, Tuple[str, str, str, str]] = {
@@ -52,6 +59,8 @@ VALUE_LABELS = {
     'POT': 'R total (Ω)',
     'D': 'Is — Saturation current (A)',
     'LED': 'Value (unused — Vf by color)',
+    'LAMP': 'Turn-on voltage (V)',
+    'SPDT3': 'Position (ON 1 / OFF / ON 2)',
     'BJT_NPN': 'hFE — Ganancia β',
     'BJT_PNP': 'hFE — Ganancia β',
     'NMOS': 'Kn — Transconductancia (A/V²)',

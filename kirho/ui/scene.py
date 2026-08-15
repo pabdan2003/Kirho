@@ -338,7 +338,7 @@ class CircuitScene(QGraphicsScene):
             name = self._next_component_name(comp_type, suffix=suffix)
 
         units = {'R': 'Ω', 'V': 'V', 'VAC': 'V', 'I': 'A', 'C': 'F', 'L': 'H',
-                 'D': 'A', 'LED': 'A', 'BJT_NPN': 'hFE', 'BJT_PNP': 'hFE',
+                 'D': 'A', 'LED': 'A', 'LAMP': 'V', 'BJT_NPN': 'hFE', 'BJT_PNP': 'hFE',
                  'NMOS': 'A/V²', 'PMOS': 'A/V²', 'OPAMP': 'V/V', 'TL082': 'V/V',
                  'FGEN': 'V', 'MULTIMETER': ''}
         if not unit:
@@ -349,9 +349,10 @@ class CircuitScene(QGraphicsScene):
         # positivo en la propiedad, se usa ese valor en lugar del preset.
         defaults = {'R': 1000.0, 'POT': 10_000.0, 'V': 5.0, 'VAC': 120.0,
                     'I': 0.001, 'C': 1e-6, 'L': 1e-3,
-                    'D': 1e-14, 'LED': 0.0, 'BJT_NPN': 100.0, 'BJT_PNP': 100.0,
+                    'D': 1e-14, 'LED': 0.0, 'LAMP': 3.0, 'BJT_NPN': 100.0, 'BJT_PNP': 100.0,
                     'NMOS': 1e-3, 'PMOS': 1e-3, 'OPAMP': 1e5, 'TL082': 1e5,
                     'XFMR': 1.0, 'BRIDGE': 0.7,
+                    'SPDT3': 0.0, 'DPDT': 0.0,
                     'LOGIC_STATE': 0.0, 'CLK': 0.0,
                     'NET_LABEL_IN': 0.0, 'NET_LABEL_OUT': 0.0,
                     'FGEN': 5.0, 'MULTIMETER': 0.0}
@@ -645,6 +646,28 @@ class CircuitScene(QGraphicsScene):
             self._group_drag_start_pos = None
             self._group_drag_wires = []
 
+    @staticmethod
+    def _cycle_switch(item):
+        """Avanza un switch binario o las tres posiciones del ON-OFF-ON."""
+        if item.comp_type == 'SPDT3':
+            item.value = {0: -1.0, -1: 1.0, 1: 0.0}.get(
+                int(round(item.value)), 0.0)
+        else:
+            item.value = 0.0 if item.value else 1.0
+        item.update()
+
+    @staticmethod
+    def _switch_key_target(item, pressed):
+        if item.comp_type != 'SPDT3' or not pressed:
+            return None
+        for attr, target in (
+                ('switch_on1_key', -1.0),
+                ('switch_off_key', 0.0),
+                ('switch_on2_key', 1.0)):
+            if getattr(item, attr, '').strip().upper() == pressed:
+                return target
+        return None
+
     def mouseDoubleClickEvent(self, event):
         items = self.items(event.scenePos())
         if self._mode == 'select':
@@ -670,11 +693,10 @@ class CircuitScene(QGraphicsScene):
                     item.update()
                     self.logic_state_toggled.emit(item)
                     return
-                if item.comp_type in ('SPST', 'SPDT'):
+                if item.comp_type in ('SPST', 'SPDT', 'SPDT3', 'DPDT'):
                     # Interruptores mecánicos: doble clic cambia de posición.
                     self.push_undo()
-                    item.value = 0.0 if item.value else 1.0
-                    item.update()
+                    self._cycle_switch(item)
                     self.logic_state_toggled.emit(item)
                     return
                 if item.comp_type in ComponentItem.INSTRUMENT_TYPES:
@@ -752,24 +774,40 @@ class CircuitScene(QGraphicsScene):
         self.status_message.emit(self.tr("Wire vertex removed"))
         return True
 
+    def handle_switch_key(self, event) -> bool:
+        """Aplica una tecla de switch y devuelve si fue consumida."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            return False
+        key = event.key()
+        pressed = 'SPACE' if key == Qt.Key.Key_Space else event.text().upper()
+        direct_switches = []
+        switches = [item for item in self.components
+                    if item.comp_type in ('SPST', 'SPDT', 'DPDT')
+                    and getattr(item, 'switch_key', '').upper() == pressed]
+        for item in self.components:
+            target = self._switch_key_target(item, pressed)
+            if target is not None:
+                direct_switches.append((item, target))
+        if not (switches or direct_switches):
+            return False
+        self.push_undo()
+        for item in switches:
+            self._cycle_switch(item)
+        for item, target in direct_switches:
+            item.value = target
+            item.update()
+        self.logic_state_toggled.emit(
+            switches[0] if switches else direct_switches[0][0])
+        event.accept()
+        return True
+
     def keyPressEvent(self, event):
+        if self.handle_switch_key(event):
+            return
+
         mod = event.modifiers()
         has_ctrl = bool(mod & Qt.KeyboardModifier.ControlModifier)
         key = event.key()
-
-        if not has_ctrl:
-            pressed = 'SPACE' if key == Qt.Key.Key_Space else event.text().upper()
-            switches = [item for item in self.components
-                        if item.comp_type in ('SPST', 'SPDT')
-                        and getattr(item, 'switch_key', '').upper() == pressed]
-            if switches:
-                self.push_undo()
-                for item in switches:
-                    item.value = 0.0 if item.value else 1.0
-                    item.update()
-                self.logic_state_toggled.emit(switches[0])
-                event.accept()
-                return
 
         if key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             sel = list(self.selectedItems())
@@ -832,8 +870,9 @@ class CircuitScene(QGraphicsScene):
         'sheet_label', 'pot_wiper', 'led_color',
         'frequency', 'phase_deg', 'ac_mode',
         'z_real', 'z_imag', 'z_mag', 'z_phase', 'z_mode',
-        'xfmr_ratio', 'xfmr_imax', 'bridge_vf',
-        'node4', 'node5', 'tl082_unit', 'clk_running', 'switch_key',
+        'xfmr_ratio', 'xfmr_imax', 'bridge_vf', 'relay_activation_voltage',
+        'node4', 'node5', 'node6', 'tl082_unit', 'clk_running', 'switch_key',
+        'switch_on1_key', 'switch_off_key', 'switch_on2_key',
         'timer_nodes',
         'dig_inputs', 'dig_tpd_ns', 'dig_clk', 'dig_analog_node',
         'dig_bits', 'dig_bits_adc', 'dig_vref',
@@ -1212,10 +1251,13 @@ class CircuitScene(QGraphicsScene):
                 for i, pt in enumerate(comp.all_pin_positions_scene(), 1):
                     pins[f"{comp.name}__p{i}"] = pt
                 continue
-            # Registrar pin3 para dispositivos de 3 terminales
-            if comp.comp_type in ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP'):
+            # Registrar pines adicionales según el número de terminales
+            if comp.comp_type in ComponentItem.SIX_PIN_TYPES:
+                for i, pt in enumerate(comp.all_pin_positions_scene()[2:], 3):
+                    pins[f"{comp.name}__p{i}"] = pt
+            elif comp.comp_type in ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP'):
                 pins[f"{comp.name}__p3"] = comp.pin3_position_scene()
-            elif comp.comp_type == 'SPDT':
+            elif comp.comp_type in ('SPDT', 'SPDT3'):
                 pins[f"{comp.name}__p3"] = comp.pin3_position_scene()
             elif comp.comp_type in ComponentItem.FLIPFLOP_TYPES:
                 pins[f"{comp.name}__p3"] = comp.pin3_position_scene()
@@ -1300,6 +1342,20 @@ class CircuitScene(QGraphicsScene):
                 b = all_nodes[f"__wire{idx}__p2"]
                 if pin_on_wire(pin, a, b):
                     union(pin_id, f"__wire{idx}__p1")
+
+        # Un extremo de cable sobre otro tramo es una unión en T igual que
+        # un pin sobre el tramo. Sin esto, el dibujo se ve conectado pero la
+        # red queda partida eléctricamente.
+        for idx in range(len(self.wires)):
+            for end in (f"__wire{idx}__p1", f"__wire{idx}__p2"):
+                point = all_nodes[end]
+                for other in range(len(self.wires)):
+                    if other == idx:
+                        continue
+                    a = all_nodes[f"__wire{other}__p1"]
+                    b = all_nodes[f"__wire{other}__p2"]
+                    if pin_on_wire(point, a, b):
+                        union(end, f"__wire{other}__p1")
 
         # ── 3a. Unir pines de net labels con el mismo sheet_label ───────
         # Esta es la lógica central de los nodos inalámbricos:
@@ -1424,6 +1480,11 @@ class CircuitScene(QGraphicsScene):
             item.node3     = data['node3']
             if 'switch_key' in data:
                 item.switch_key = data['switch_key']
+            if item.comp_type == 'SPDT3' and 'switch_position' in data:
+                item.value = float(data['switch_position'])
+                item.switch_on1_key = data.get('switch_on1_key', '')
+                item.switch_off_key = data.get('switch_off_key', '')
+                item.switch_on2_key = data.get('switch_on2_key', '')
             if item.comp_type == 'VAC':
                 item.frequency = data['frequency']
                 item.phase_deg = data['phase_deg']
@@ -1443,9 +1504,16 @@ class CircuitScene(QGraphicsScene):
             if item.comp_type == 'XFMR':
                 if 'xfmr_ratio' in data: item.xfmr_ratio = float(data['xfmr_ratio'])
                 if 'xfmr_imax'  in data: item.xfmr_imax  = float(data['xfmr_imax'])
+            if item.comp_type == 'RELAY':
+                item.relay_activation_voltage = max(0.0, float(data.get(
+                    'relay_activation_voltage', item.relay_activation_voltage)))
             # 4º nodo
             if item.comp_type in ComponentItem.FOUR_PIN_TYPES and 'node4' in data:
                 item.node4 = data['node4']
+            if item.comp_type in ComponentItem.SIX_PIN_TYPES:
+                item.node4 = data.get('node4', '')
+                item.node5 = data.get('node5', '')
+                item.node6 = data.get('node6', '')
             # 5º nodo (TL082)
             if item.comp_type in ComponentItem.FIVE_PIN_TYPES:
                 if 'node4' in data: item.node4 = data['node4']
@@ -1515,6 +1583,9 @@ def _rebuild_item_from_data(c: dict):
         item.xfmr_imax = c.get('xfmr_imax', 1.0)
     if t == 'BRIDGE':
         item.bridge_vf = c.get('bridge_vf', 0.7)
+    if t == 'RELAY':
+        item.relay_activation_voltage = max(0.0, float(c.get(
+            'relay_activation_voltage', item.relay_activation_voltage)))
     if t in ('NET_LABEL_IN', 'NET_LABEL_OUT'):
         item.sheet_label = c.get('sheet_label', item.name)
     if t == 'SUBCKT':
@@ -1532,6 +1603,7 @@ def _rebuild_item_from_data(c: dict):
         item.dig_input_neg   = list(c.get('dig_input_neg', []) or [])
     item.node4 = c.get('node4', '')
     item.node5 = c.get('node5', '')
+    item.node6 = c.get('node6', '')
     return item
 
 
@@ -1590,6 +1662,7 @@ def _flatten_subckt(item, pin_node, _depth: int = 0) -> list:
         child.node3 = rename(internal.get(f"{cn}__p3", ''))
         child.node4 = rename(internal.get(f"{cn}__p4", ''))
         child.node5 = rename(internal.get(f"{cn}__p5", ''))
+        child.node6 = rename(internal.get(f"{cn}__p6", ''))
         orig_extra = list(getattr(child, 'dig_input_nodes', []) or [])
         if orig_extra:
             child.dig_input_nodes = [
@@ -1662,6 +1735,7 @@ def _expand_subckt_instance(item, pin_node: dict, _depth: int = 0):
         child.node3 = rename(internal.get(f"{cn}__p3", ''))
         child.node4 = rename(internal.get(f"{cn}__p4", ''))
         child.node5 = rename(internal.get(f"{cn}__p5", ''))
+        child.node6 = rename(internal.get(f"{cn}__p6", ''))
         # Entradas extra de puertas multi-entrada (≥3 entradas): el net de
         # cada una vive en dig_input_nodes y DEBE re-espaciarse igual que
         # node1..5. La entrada lógica j (j≥0 sobre las extra) corresponde al
@@ -1733,7 +1807,7 @@ def build_engine_components_for_item(item, pin_node):
     from kirho.engine import (
         Resistor, VoltageSource, VoltageSourceAC, CurrentSource,
         Capacitor, Inductor, Diode, BJT, MOSFET, OpAmp, Impedance,
-        Potentiometer, Transformer, Switch, SPDT, Relay,
+        Potentiometer, Transformer, Switch, SPDT, SPDT3, DPDT, Relay,
     )
 
     if item.comp_type == 'SUBCKT':
@@ -1765,6 +1839,8 @@ def build_engine_components_for_item(item, pin_node):
            else pin_node.get(f"{item.name}__p4", "")))
     n5 = ((item.node5.strip() if hasattr(item, "node5") and item.node5.strip()
            else pin_node.get(f"{item.name}__p5", "")))
+    n6 = ((item.node6.strip() if hasattr(item, "node6") and item.node6.strip()
+           else pin_node.get(f"{item.name}__p6", "")))
 
     ct = item.comp_type
     try:
@@ -1778,8 +1854,18 @@ def build_engine_components_for_item(item, pin_node):
             return [Switch(item.name, n1, n2, closed=bool(item.value))]
         if ct == 'SPDT':
             return [SPDT(item.name, n1, n2, n3, position=bool(item.value))]
+        if ct == 'SPDT3':
+            return [SPDT3(item.name, n1, n2, n3,
+                          position=int(round(item.value)))]
+        if ct == 'DPDT':
+            return [DPDT(item.name, n1, n2, n3, n4, n5, n6,
+                         position=bool(item.value))]
         if ct == 'RELAY':
-            return [Relay(item.name, n1, n2, n3, n4, coil_r=max(item.value, 1e-3))]
+            return [Relay(
+                item.name, n1, n2, n3, n4,
+                coil_r=max(item.value, 1e-3),
+                threshold=max(0.0, float(item.relay_activation_voltage)),
+            )]
         if ct == 'V':
             return [VoltageSource(item.name, n2, n1, item.value)]
         if ct == 'VAC':
@@ -1827,6 +1913,12 @@ def build_engine_components_for_item(item, pin_node):
             Is_v, n_v, _, Vd0 = led_params.get(color, led_params['red'])
             return [Diode(item.name, n1, n2, Is=Is_v, n=n_v,
                           Vd_init=Vd0, Vd_max=5.0)]
+        if ct == 'LAMP':
+            # El valor del item es el umbral visual de encendido; la carga
+            # eléctrica usa una resistencia fija de bombillo de laboratorio.
+            lamp = Resistor(item.name, n1, n2, 100.0)
+            lamp.is_lamp = True
+            return [lamp]
         if ct in ('BJT_NPN', 'BJT_PNP'):
             t = 'NPN' if ct == 'BJT_NPN' else 'PNP'
             return [BJT(item.name, n1, n3 or f'b_{item.name}', n2,

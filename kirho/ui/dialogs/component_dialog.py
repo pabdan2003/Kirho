@@ -17,6 +17,7 @@ from kirho.ui.component_metadata import (
     DIGITAL_GATE_TYPES,
     FOUR_PIN_NODE_LABELS,
     FIVE_PIN_NODE_LABELS,
+    SIX_PIN_NODE_LABELS,
     VALUE_LABELS,
 )
 
@@ -136,11 +137,17 @@ class ComponentDialog(QDialog):
         self._z_mag = self._z_phase = None
         self._pot_wiper_spin = None
         self._xfmr_ratio_spin = self._xfmr_imax_spin = None
+        self._relay_activation_spin = None
         self._node4_edit = None
         self._node5_edit = None
+        self._node6_edit = None
         self._timer_node_edits = []
         self._dig_inputs_spin = self._dig_bits_spin = self._dig_vref_spin = None
         self._dig_tpd_spin = self._dig_clk_edit = self._dig_anode_edit = None
+        self._switch_position_combo = None
+        self._switch_on1_key_edit = None
+        self._switch_off_key_edit = None
+        self._switch_on2_key_edit = None
 
         if is_netlabel:
             kind = self.tr('Input') if self.item.comp_type == 'NET_LABEL_IN' else self.tr('Output')
@@ -166,14 +173,42 @@ class ComponentDialog(QDialog):
         value_labels = {
             'R': self.tr('Resistance (Ω)'),
             'LED': self.tr('Value (unused — Vf by color)'),
+            'LAMP': self.tr('Turn-on voltage (V)'),
         }
         self._switch_key_edit = None
-        if self.item.comp_type in ('SPST', 'SPDT'):
+        if self.item.comp_type in ('SPST', 'SPDT', 'DPDT'):
             self._switch_key_edit = KeyCaptureEdit(getattr(self.item, 'switch_key', ''))
             self._switch_key_edit.setPlaceholderText(self.tr('e.g. A or Space'))
             layout.addRow(self.tr('Toggle key:'), self._switch_key_edit)
+        elif self.item.comp_type == 'SPDT3':
+            self._switch_position_combo = QComboBox()
+            for position, label in (
+                    (-1, self.tr('ON 1')),
+                    (0, self.tr('OFF')),
+                    (1, self.tr('ON 2'))):
+                self._switch_position_combo.addItem(label, position)
+            self._switch_position_combo.setCurrentIndex(
+                max(0, self._switch_position_combo.findData(
+                    int(round(self.item.value)))))
+            layout.addRow(self.tr('Position:'), self._switch_position_combo)
+            self._switch_on1_key_edit = KeyCaptureEdit(
+                getattr(self.item, 'switch_on1_key', ''))
+            self._switch_on1_key_edit.setPlaceholderText(self.tr('e.g. A or Space'))
+            layout.addRow(self.tr('ON 1 key:'), self._switch_on1_key_edit)
+            self._switch_off_key_edit = KeyCaptureEdit(
+                getattr(self.item, 'switch_off_key', ''))
+            self._switch_off_key_edit.setPlaceholderText(self.tr('e.g. A or Space'))
+            layout.addRow(self.tr('OFF key:'), self._switch_off_key_edit)
+            self._switch_on2_key_edit = KeyCaptureEdit(
+                getattr(self.item, 'switch_on2_key', ''))
+            self._switch_on2_key_edit.setPlaceholderText(self.tr('e.g. A or Space'))
+            layout.addRow(self.tr('ON 2 key:'), self._switch_on2_key_edit)
         elif self.item.comp_type == 'RELAY':
             layout.addRow(self.tr('Coil resistance (Ω):'), self.value_spin)
+            self._relay_activation_spin = SIValueEdit(
+                self.item.relay_activation_voltage)
+            layout.addRow(self.tr('Activation voltage (V):'),
+                          self._relay_activation_spin)
         else:
             layout.addRow(value_labels.get(
                 self.item.comp_type, VALUE_LABELS.get(self.item.comp_type, self.tr('Value:'))),
@@ -252,6 +287,27 @@ class ComponentDialog(QDialog):
             layout.addRow('Input 1 (I1):', self.node3_edit)
             layout.addRow('Select (SEL):', self._node4_edit)
             self._extra_node_edits = []
+        elif self.item.comp_type in SIX_PIN_NODE_LABELS:
+            lbls = SIX_PIN_NODE_LABELS[self.item.comp_type]
+            self.node1_edit = QLineEdit(self.item.node1)
+            self.node2_edit = QLineEdit(self.item.node2)
+            self.node3_edit = QLineEdit(self.item.node3)
+            self._node4_edit = QLineEdit(self.item.node4)
+            self._node5_edit = QLineEdit(self.item.node5)
+            self._node6_edit = QLineEdit(self.item.node6)
+            node_labels = {
+                'Common A': self.tr('Common A'),
+                'A 1': self.tr('A 1'),
+                'A 2': self.tr('A 2'),
+                'Common B': self.tr('Common B'),
+                'B 1': self.tr('B 1'),
+                'B 2': self.tr('B 2'),
+            }
+            for label, edit in zip(lbls, (
+                    self.node1_edit, self.node2_edit, self.node3_edit,
+                    self._node4_edit, self._node5_edit, self._node6_edit)):
+                layout.addRow(node_labels[label] + ':', edit)
+            self._extra_node_edits = []
         elif self.item.comp_type in FIVE_PIN_NODE_LABELS:
             lbls = FIVE_PIN_NODE_LABELS[self.item.comp_type]
             self.node1_edit = QLineEdit(self.item.node1)
@@ -293,15 +349,19 @@ class ComponentDialog(QDialog):
             else:
                 node_labels = {
                     'Node 1': self.tr('Node 1'), 'Node 2': self.tr('Node 2'),
+                    'Node +': self.tr('Node +'), 'Node −': self.tr('Node −'),
                     'Anode (A)': self.tr('Anode (A)'),
                     'Cathode (K)': self.tr('Cathode (K)'),
+                    'Common (COM)': self.tr('Common (COM)'),
+                    'ON 1': self.tr('ON 1'),
+                    'ON 2': self.tr('ON 2'),
                 }
                 layout.addRow(node_labels.get(lbl1, lbl1) + ':', self.node1_edit)
                 layout.addRow(node_labels.get(lbl2, lbl2) + ':', self.node2_edit)
     
             if lbl3 is not None:
                 self.node3_edit = QLineEdit(self.item.node3)
-                layout.addRow(lbl3 + ':', self.node3_edit)
+                layout.addRow(node_labels.get(lbl3, lbl3) + ':', self.node3_edit)
 
         self._led_color_combo = None
         if self.item.comp_type == 'LED':
@@ -479,6 +539,12 @@ class ComponentDialog(QDialog):
         }
         if self._switch_key_edit is not None:
             data['switch_key'] = self._switch_key_edit.text().strip()
+        if self._switch_position_combo is not None:
+            data['switch_position'] = int(self._switch_position_combo.currentData())
+        if self._switch_on1_key_edit is not None:
+            data['switch_on1_key'] = self._switch_on1_key_edit.text().strip()
+            data['switch_off_key'] = self._switch_off_key_edit.text().strip()
+            data['switch_on2_key'] = self._switch_on2_key_edit.text().strip()
         if self.item.comp_type == 'Z' and self._z_mode_combo is not None:
             data['z_mode'] = 'rect' if self._z_mode_combo.currentIndex() == 0 else 'phasor'
             data['z_real'] = self._z_real.value()
@@ -507,6 +573,8 @@ class ComponentDialog(QDialog):
             data['node4'] = self._node4_edit.text()
         if hasattr(self, '_node5_edit') and self._node5_edit is not None:
             data['node5'] = self._node5_edit.text()
+        if hasattr(self, '_node6_edit') and self._node6_edit is not None:
+            data['node6'] = self._node6_edit.text()
         if self._timer_node_edits:
             data['timer_nodes'] = [edit.text() for edit in self._timer_node_edits]
         if self._pot_wiper_spin is not None:
@@ -515,6 +583,8 @@ class ComponentDialog(QDialog):
             data['xfmr_ratio'] = self._xfmr_ratio_spin.value()
         if self._xfmr_imax_spin is not None:
             data['xfmr_imax'] = self._xfmr_imax_spin.value()
+        if self._relay_activation_spin is not None:
+            data['relay_activation_voltage'] = max(0.0, self._relay_activation_spin.value())
         if self._sheet_label_edit is not None:
             data['sheet_label'] = self._sheet_label_edit.text()
         return data

@@ -26,9 +26,9 @@ class ComponentItem(QGraphicsItem):
     """
 
     COMP_TYPES = ['R', 'POT', 'V', 'VAC', 'I', 'C', 'L', 'Z', 'GND', 'NODE',
-                  'D', 'LED', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP',
+                  'D', 'LED', 'LAMP', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP',
                   'TL082',
-                  'XFMR', 'BRIDGE', 'SPST', 'SPDT', 'RELAY',
+                  'XFMR', 'BRIDGE', 'SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY',
                   # ── Instrumentos ──
                   'FGEN', 'OSC', 'MULTIMETER',
                   # ── Digital ──
@@ -44,12 +44,16 @@ class ComponentItem(QGraphicsItem):
 
     # Instrumentos virtuales (panel frontal independiente).
     INSTRUMENT_TYPES = {'FGEN', 'OSC', 'MULTIMETER'}
+    LIGHT_TYPES = {'LED', 'LAMP'}
 
     # Tipos analógicos con 4 terminales (necesitan p3 y p4)
     FOUR_PIN_TYPES = {'XFMR', 'BRIDGE', 'OSC', 'RELAY'}
 
     # Tipos analógicos con 5 terminales (necesitan p3, p4 y p5)
     FIVE_PIN_TYPES = {'TL082'}
+
+    # Tipos analógicos con 6 terminales (necesitan p3…p6)
+    SIX_PIN_TYPES = {'DPDT'}
 
     # Tipos de flip-flop con SET/RESET (4 inputs lógicos + Q,Qn)
     FLIPFLOP_TYPES = {'DFF', 'JKFF', 'TFF', 'SRFF'}
@@ -85,9 +89,9 @@ class ComponentItem(QGraphicsItem):
         self._angle = 0  # rotación en grados (0, 90, 180, 270)
         self._flip_x: bool = False  # invertir en eje X (horizontal)
         self._flip_y: bool = False  # invertir en eje Y (vertical)
-        # Estado LED
+        # Estado de iluminación (LED y bombillo)
         self.led_color: str  = 'red'   # color del LED
-        self.led_on:    bool = False    # encendido si conduce suficiente corriente
+        self.led_on:    bool = False    # encendido si supera su umbral
         # Atributos para impedancia genérica
         self.z_mode:   str   = 'rect'   # 'rect' o 'phasor'
         self.z_real:   float = 100.0    # Ω (parte real)
@@ -126,9 +130,16 @@ class ComponentItem(QGraphicsItem):
         self.xfmr_imax:  float = 1.0          # corriente nominal del primario (A)
         # Puente rectificador: tensión directa de cada diodo (informativa)
         self.bridge_vf: float = 0.7
+        # Relé: tensión mínima de bobina que cierra el contacto NO.
+        self.relay_activation_voltage: float = 3.0
+        self.relay_active: bool = False
         # Cuarto nodo para componentes de 4 terminales
         self.node4: str = ''
+        self.node6: str = ''
         self.switch_key: str = ''
+        self.switch_on1_key: str = ''
+        self.switch_off_key: str = ''
+        self.switch_on2_key: str = ''
 
         # Etiqueta de net label inalámbrico
         self.sheet_label: str = ''
@@ -300,6 +311,10 @@ class ComponentItem(QGraphicsItem):
         if self.comp_type == 'MULTIMETER':
             # Cuerpo cuadrado con display + puntas de prueba en la parte inferior
             return QRectF(-44, -50, 88, 100)
+        if self.comp_type == 'LAMP':
+            return QRectF(-52, -48, 104, 96)
+        if self.comp_type == 'DPDT':
+            return QRectF(-62, -62, 124, 124)
         if self.comp_type == 'TL082':
             # Triángulo (−35..+35, −28..+28) + cables V+/V− (±44) + margen etiquetas
             return QRectF(-64, -58, 128, 116)
@@ -326,8 +341,10 @@ class ComponentItem(QGraphicsItem):
         # ── Transformador: p1=PRI+ (sup-izq), p2=PRI- (inf-izq) ─────────
         if self.comp_type == 'XFMR':
             return QPointF(-60, -20), QPointF(-60, 20)
-        if self.comp_type == 'SPDT':
+        if self.comp_type in ('SPDT', 'SPDT3'):
             return QPointF(-40, 0), QPointF(40, -20)
+        if self.comp_type == 'DPDT':
+            return QPointF(-50, -25), QPointF(40, -40)
         if self.comp_type == 'RELAY':
             return QPointF(-45, -20), QPointF(-45, 20)
         # ── Puente rectificador (diamante):
@@ -475,7 +492,8 @@ class ComponentItem(QGraphicsItem):
         # Transformador: p3 = SEC+ (sup-der)
         if self.comp_type == 'XFMR':
             return QPointF(60, -20)
-        if self.comp_type == 'SPDT': return QPointF(40, 20)
+        if self.comp_type in ('SPDT', 'SPDT3'): return QPointF(40, 20)
+        if self.comp_type == 'DPDT': return QPointF(40, -10)
         if self.comp_type == 'RELAY': return QPointF(45, -20)
         # Puente: p3 = DC+ (sup)
         if self.comp_type == 'BRIDGE':
@@ -502,6 +520,7 @@ class ComponentItem(QGraphicsItem):
         if self.comp_type == 'XFMR':
             return QPointF(60, 20)
         if self.comp_type == 'RELAY': return QPointF(45, 20)
+        if self.comp_type == 'DPDT': return QPointF(-50, 25)
         if self.comp_type == 'BRIDGE':
             return QPointF(0, 60)
         if self.comp_type == 'OSC':
@@ -536,6 +555,8 @@ class ComponentItem(QGraphicsItem):
         if self.comp_type == 'COUNTER':
             outputs = self._counter_output_positions()
             return outputs[3] if len(outputs) > 3 else QPointF(0, 0)
+        if self.comp_type == 'DPDT':
+            return QPointF(40, 10)
         return QPointF(0, 0)
 
     def pin5_position_scene(self) -> QPointF:
@@ -547,6 +568,8 @@ class ComponentItem(QGraphicsItem):
             hw_f = COMP_W // 2
             hh_f = COMP_H // 2 + 8
             return QPointF(hw_f + 10, hh_f // 2)
+        if self.comp_type == 'DPDT':
+            return QPointF(40, 40)
         return QPointF(0, 0)
 
     def _timer_pin_positions(self) -> list:
@@ -575,13 +598,18 @@ class ComponentItem(QGraphicsItem):
         p1, p2 = self.pin_positions_scene()
         pins = [p1, p2]
         # Pines adicionales según tipo
+        if self.comp_type in self.SIX_PIN_TYPES:
+            return [self.mapToScene(p) for p in (
+                self.pin_positions()[0], self.pin_positions()[1],
+                self.pin3_position(), self.pin4_position(),
+                self.pin5_position(), self.pin6_position())]
         if self.comp_type in self.FIVE_PIN_TYPES:
             pins.append(self.pin3_position_scene())  # IN+
             pins.append(self.pin4_position_scene())  # V+
             pins.append(self.pin5_position_scene())  # V−
         elif self.comp_type in ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP'):
             pins.append(self.pin3_position_scene())
-        elif self.comp_type == 'SPDT':
+        elif self.comp_type in ('SPDT', 'SPDT3'):
             pins.append(self.pin3_position_scene())
         elif self.comp_type in ('AND', 'OR', 'NAND', 'NOR', 'XOR', 'COMPARATOR'):
             gw, gh, step, n = self._gate_geometry()
@@ -632,6 +660,8 @@ class ComponentItem(QGraphicsItem):
             self._draw_diode(painter, pen_body, pen_wire)
         elif self.comp_type == 'LED':
             self._draw_led(painter, pen_body, pen_wire)
+        elif self.comp_type == 'LAMP':
+            self._draw_bulb(painter, pen_body, pen_wire)
         elif self.comp_type in ('BJT_NPN', 'BJT_PNP'):
             self._draw_bjt(painter, pen_body, pen_wire)
         elif self.comp_type in ('NMOS', 'PMOS'):
@@ -646,7 +676,7 @@ class ComponentItem(QGraphicsItem):
             self._draw_transformer(painter, pen_body, pen_wire, body_color)
         elif self.comp_type == 'BRIDGE':
             self._draw_bridge_rectifier(painter, pen_body, pen_wire, body_color)
-        elif self.comp_type in ('SPST', 'SPDT', 'RELAY'):
+        elif self.comp_type in ('SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY'):
             self._draw_switch(painter, pen_body, pen_wire, body_color)
         # ── Instrumentos ─────────────────────────────────────────────────
         elif self.comp_type == 'FGEN':
@@ -699,7 +729,7 @@ class ComponentItem(QGraphicsItem):
         three_terminal = ('BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP', 'TL082',
                           'NET_LABEL_IN', 'NET_LABEL_OUT',
                           'DFF', 'JKFF', 'TFF', 'SRFF', 'COUNTER',
-                          'SPST', 'SPDT', 'RELAY',
+                          'SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY',
                           'IC555',
                           'PORT', 'SUBCKT',   # dibujan sus propios pines
                           'MULTIMETER')   # _draw_multimeter pinta sus pines
@@ -732,7 +762,7 @@ class ComponentItem(QGraphicsItem):
             painter.drawLine(pts[i], pts[i+1])
 
     def _draw_switch(self, painter, pen_body, pen_wire, body_color):
-        """Símbolos para SPST, SPDT y relé con pines coincidentes con el netlist."""
+        """Símbolos para SPST, SPDT, SPDT3, DPDT y relé."""
         pin = QColor(COLORS['pin'])
         painter.setPen(pen_wire)
         painter.setBrush(QBrush(body_color))
@@ -742,13 +772,34 @@ class ComponentItem(QGraphicsItem):
             painter.setPen(pen_body)
             painter.drawLine(QPointF(-8, 0), QPointF(8, 0) if self.value else QPointF(8, -18))
             points = [QPointF(-40, 0), QPointF(40, 0)]
-        elif self.comp_type == 'SPDT':
+        elif self.comp_type in ('SPDT', 'SPDT3'):
             painter.drawLine(QPointF(-40, 0), QPointF(-8, 0))
             painter.drawLine(QPointF(8, -20), QPointF(40, -20))
             painter.drawLine(QPointF(8, 20), QPointF(40, 20))
             painter.setPen(pen_body)
-            painter.drawLine(QPointF(-8, 0), QPointF(8, 20 if self.value else -20))
+            if self.comp_type == 'SPDT':
+                target = QPointF(8, 20 if self.value else -20)
+            elif self.value < 0:
+                target = QPointF(8, -20)
+            elif self.value > 0:
+                target = QPointF(8, 20)
+            else:
+                target = QPointF(8, 0)
+            painter.drawLine(QPointF(-8, 0), target)
             points = [QPointF(-40, 0), QPointF(40, -20), QPointF(40, 20)]
+        elif self.comp_type == 'DPDT':
+            for y in (-25, 25):
+                painter.drawLine(QPointF(-50, y), QPointF(-8, y))
+            for y in (-40, -10, 10, 40):
+                painter.drawLine(QPointF(8, y), QPointF(40, y))
+            painter.setPen(pen_body)
+            upper_target = -40 if not self.value else -10
+            lower_target = 10 if not self.value else 40
+            painter.drawLine(QPointF(-8, -25), QPointF(8, upper_target))
+            painter.drawLine(QPointF(-8, 25), QPointF(8, lower_target))
+            points = [QPointF(-50, -25), QPointF(40, -40),
+                      QPointF(40, -10), QPointF(-50, 25),
+                      QPointF(40, 10), QPointF(40, 40)]
         else:
             # Bobina del relé: cuatro espiras verticales, como un inductor.
             painter.setPen(pen_body)
@@ -1308,6 +1359,59 @@ class ComponentItem(QGraphicsItem):
         # Punta de flecha rayo 2
         painter.drawLine(QPointF(tip_x + 10, -20), QPointF(tip_x + 6,  -17))
         painter.drawLine(QPointF(tip_x + 10, -20), QPointF(tip_x + 13, -16))
+
+    def _draw_bulb(self, painter, pen_body, pen_wire):
+        """Dibuja un bombillo redondo; encendido = brillo amarillo."""
+        hw = COMP_W // 2
+        on = bool(getattr(self, 'led_on', False))
+        selected = self.isSelected()
+        yellow = QColor(255, 224, 55)
+        off = QColor(92, 78, 24)
+        outline = QColor(COLORS['comp_sel']) if selected else (
+            yellow.lighter(150) if on else off.lighter(160))
+
+        painter.setPen(pen_wire)
+        painter.drawLine(QPointF(-hw - 10, 0), QPointF(-28, 0))
+        painter.drawLine(QPointF(28, 0), QPointF(hw + 10, 0))
+
+        if on:
+            painter.setPen(Qt.PenStyle.NoPen)
+            for radius, alpha in ((34, 24), (28, 42), (22, 72), (16, 110)):
+                glow = QColor(yellow)
+                glow.setAlpha(alpha)
+                painter.setBrush(QBrush(glow))
+                painter.drawEllipse(QPointF(0, -6), radius, radius)
+
+        painter.setPen(QPen(outline, 2))
+        if on:
+            gradient = QRadialGradient(QPointF(-4, -12), 30)
+            gradient.setColorAt(0.0, QColor(255, 255, 220))
+            gradient.setColorAt(0.35, yellow)
+            gradient.setColorAt(1.0, QColor(230, 160, 18))
+            painter.setBrush(QBrush(gradient))
+        else:
+            painter.setBrush(QBrush(off))
+
+        bulb = QPainterPath()
+        bulb.moveTo(-23, 4)
+        bulb.cubicTo(-30, -20, -16, -34, 0, -34)
+        bulb.cubicTo(16, -34, 30, -20, 23, 4)
+        bulb.cubicTo(20, 13, 13, 15, 11, 20)
+        bulb.lineTo(-11, 20)
+        bulb.cubicTo(-13, 15, -20, 13, -23, 4)
+        painter.drawPath(bulb)
+
+        painter.setPen(QPen(outline, 2))
+        painter.setBrush(QBrush(QColor('#a9a9a9') if not on else QColor('#d0d0d0')))
+        painter.drawRoundedRect(QRectF(-12, 18, 24, 12), 3, 3)
+        painter.setPen(QPen(QColor('#666666'), 1.5))
+        for y in (21, 25, 29):
+            painter.drawLine(QPointF(-13, y), QPointF(13, y))
+
+        painter.setPen(QPen(yellow if on else off.lighter(190), 1.5))
+        painter.drawLine(QPointF(-8, 8), QPointF(-4, -5))
+        painter.drawLine(QPointF(8, 8), QPointF(4, -5))
+        painter.drawArc(QRectF(-4, -8, 8, 12), 0, 180 * 16)
 
     def _draw_bjt(self, painter, pen_body, pen_wire):
         hw = COMP_W // 2
@@ -2248,7 +2352,7 @@ class ComponentItem(QGraphicsItem):
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, self.name)
 
         # Valor abajo
-        if self.value != 0 and self.comp_type not in ('COUNTER', 'SPST', 'SPDT', 'RELAY'):
+        if self.value != 0 and self.comp_type not in ('COUNTER', 'SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY'):
             val_str = self._format_value()
             val_rect = QRectF(-COMP_W//2, COMP_H//2 + 2, COMP_W, 16)
             painter.setPen(QPen(QColor(COLORS['text_dim'])))

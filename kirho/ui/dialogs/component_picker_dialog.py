@@ -31,6 +31,8 @@ PREVIEW_DEFAULT_VALUES = {
     'OSC': 0.0,
     'MULTIMETER': 0.0,
     'TL082': 1e5,
+    'LAMP': 3.0,
+    'DPDT': 0.0,
 }
 
 
@@ -77,6 +79,10 @@ class ComponentPickerDialog(QDialog):
             'Resistor': self.tr('Resistor'), 'Potentiometer': self.tr('Potentiometer'),
             'Capacitor': self.tr('Capacitor'), 'Inductor': self.tr('Inductor'),
             'Impedance': self.tr('Impedance'), 'Transformer': self.tr('Transformer'),
+            'SPST switch': self.tr('SPST switch'),
+            'SPDT switch': self.tr('SPDT switch'),
+            'DPDT switch': self.tr('DPDT switch'),
+            'Relay': self.tr('Relay'),
             'DC Voltage Source': self.tr('DC Voltage Source'),
             'AC Voltage Source': self.tr('AC Voltage Source'),
             'Current Source': self.tr('Current Source'), 'Diode': self.tr('Diode'),
@@ -90,6 +96,8 @@ class ComponentPickerDialog(QDialog):
             'Function generator': self.tr('Function generator'),
             'Oscilloscope (2 channels)': self.tr('Oscilloscope (2 channels)'),
             'Multimeter': self.tr('Multimeter'), 'NE555 Timer': self.tr('NE555 Timer'),
+            'Bulb': self.tr('Bulb'),
+            'ON-OFF-ON switch': self.tr('ON-OFF-ON switch'),
         }
         for ctype, label, sym in self._components:
             item = QListWidgetItem(f"{sym}   {names.get(label, label)}")

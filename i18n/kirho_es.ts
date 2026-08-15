@@ -774,6 +774,86 @@ compuerta.</translation>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="176"/>
+        <source>Toggle key:</source>
+        <translation>Tecla de conmutación:</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="190"/>
+        <source>ON 1 key:</source>
+        <translation>Tecla ENCENDIDO 1:</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="194"/>
+        <source>OFF key:</source>
+        <translation>Tecla APAGADO:</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="198"/>
+        <source>ON 2 key:</source>
+        <translation>Tecla ENCENDIDO 2:</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="180"/>
+        <source>ON 1</source>
+        <translation>ENCENDIDO 1</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="181"/>
+        <source>OFF</source>
+        <translation>APAGADO</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="182"/>
+        <source>ON 2</source>
+        <translation>ENCENDIDO 2</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="187"/>
+        <source>Position:</source>
+        <translation>Posición:</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="315"/>
+        <source>Common (COM)</source>
+        <translation>Común (COM)</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="300"/>
+        <source>Common A</source>
+        <translation>Común A</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="300"/>
+        <source>A 1</source>
+        <translation>A 1</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="300"/>
+        <source>A 2</source>
+        <translation>A 2</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="300"/>
+        <source>Common B</source>
+        <translation>Común B</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="300"/>
+        <source>B 1</source>
+        <translation>B 1</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="300"/>
+        <source>B 2</source>
+        <translation>B 2</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_dialog.py" line="157"/>
+        <source>Turn-on voltage (V)</source>
+        <translation>Voltaje de encendido (V)</translation>
+    </message>
 </context>
 <context>
     <name>ComponentPickerDialog</name>
@@ -884,6 +964,26 @@ compuerta.</translation>
     </message>
     <message>
         <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="80"/>
+        <source>SPST switch</source>
+        <translation>Interruptor SPST</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="81"/>
+        <source>SPDT switch</source>
+        <translation>Interruptor SPDT</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="82"/>
+        <source>DPDT switch</source>
+        <translation>Interruptor DPDT</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="82"/>
+        <source>Relay</source>
+        <translation>Relé</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="80"/>
         <source>DC Voltage Source</source>
         <translation>Fuente de voltaje DC</translation>
     </message>
@@ -976,6 +1076,16 @@ compuerta.</translation>
         <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="92"/>
         <source>NE555 Timer</source>
         <translation>Temporizador NE555</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="95"/>
+        <source>Bulb</source>
+        <translation>Bombillo</translation>
+    </message>
+    <message>
+        <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="96"/>
+        <source>ON-OFF-ON switch</source>
+        <translation>Interruptor ENCENDIDO-APAGADO-ENCENDIDO</translation>
     </message>
     <message>
         <location filename="../kirho/ui/dialogs/component_picker_dialog.py" line="103"/>
@@ -1902,6 +2012,86 @@ Agrega una fuente VAC o FGEN para el análisis AC.</translation>
         <location filename="../main.py" line="2811"/>
         <source>Select (SEL)</source>
         <translation>Selección (SEL)</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3072"/>
+        <source>Position</source>
+        <translation>Posición</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3069"/>
+        <source>ON 1</source>
+        <translation>ENCENDIDO 1</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3071"/>
+        <source>OFF</source>
+        <translation>APAGADO</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3078"/>
+        <source>ON 2</source>
+        <translation>ENCENDIDO 2</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3074"/>
+        <source>Common (COM)</source>
+        <translation>Común (COM)</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3090"/>
+        <source>Common A</source>
+        <translation>Común A</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3090"/>
+        <source>A 1</source>
+        <translation>A 1</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3090"/>
+        <source>A 2</source>
+        <translation>A 2</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3090"/>
+        <source>Common B</source>
+        <translation>Común B</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3090"/>
+        <source>B 2</source>
+        <translation>B 2</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3090"/>
+        <source>B 1</source>
+        <translation>B 1</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3081"/>
+        <source>Toggle key:</source>
+        <translation>Tecla de conmutación:</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3081"/>
+        <source>ON 1 key:</source>
+        <translation>Tecla ENCENDIDO 1:</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3081"/>
+        <source>OFF key:</source>
+        <translation>Tecla APAGADO:</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="3081"/>
+        <source>ON 2 key:</source>
+        <translation>Tecla ENCENDIDO 2:</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="842"/>
+        <source>Miscellaneous</source>
+        <translation>Misceláneos</translation>
     </message>
     <message>
         <location filename="../main.py" line="2827"/>

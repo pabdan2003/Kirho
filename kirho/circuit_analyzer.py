@@ -158,7 +158,7 @@ class AnalysisFlags:
 
 # Tipos que implican dominio analógico
 _ANALOG_TYPES: Set[str] = {
-    'R', 'C', 'L', 'V', 'I', 'VAC', 'D', 'LED',
+    'R', 'C', 'L', 'V', 'I', 'VAC', 'D', 'LED', 'LAMP', 'SPDT3', 'DPDT', 'RELAY',
     'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP', 'TL082', 'Z',
     # Instrumentos analógicos
     'FGEN',   # genera tensión (fuente)
@@ -169,7 +169,7 @@ _ANALOG_TYPES: Set[str] = {
 # LED/Diodo son consumidores pasivos: si están en la salida de una puerta digital,
 # se manejan con _evaluate_digital_gates, NO requieren co-simulación transitoria.
 _ANALOG_DRIVER_TYPES: Set[str] = {
-    'R', 'C', 'L', 'V', 'I', 'VAC',
+    'R', 'C', 'L', 'V', 'I', 'VAC', 'RELAY',
     'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP', 'TL082', 'Z',
     'FGEN',
 }
@@ -181,10 +181,10 @@ _AC_SOURCE_TYPES: Set[str] = {'VAC', 'FGEN'}
 # modo temporal (live transient) aunque no haya fuentes AC explícitas.
 # Un osciloscopio sin fuentes activas no tendría sentido, pero conectado
 # entre dos nodos DC podría querer ver la traza estática igual.
-_TIME_DOMAIN_HINT_TYPES: Set[str] = {'OSC', 'IC555'}
+_TIME_DOMAIN_HINT_TYPES: Set[str] = {'OSC', 'IC555', 'RELAY'}
 
 # Tipos no-lineales
-_NONLINEAR_TYPES: Set[str] = {'D', 'LED', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS'}
+_NONLINEAR_TYPES: Set[str] = {'D', 'LED', 'LAMP', 'RELAY', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS'}
 
 # Tipos que son puertas / flip-flops / bloques digitales puros
 _DIGITAL_GATE_TYPES: Set[str] = {

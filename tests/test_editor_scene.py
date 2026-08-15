@@ -3,7 +3,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QEvent, QPointF, Qt
+from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QApplication
 
 from main import MainWindow
@@ -61,6 +62,21 @@ def test_double_click_wire_helper_makes_an_orthogonal_corner():
     assert all(abs(w.line().dx()) < 1 or abs(w.line().dy()) < 1 for w in scene.wires)
 
 
+def test_wire_endpoint_on_another_wire_forms_a_t_junction_net():
+    scene = _scene()
+    first = scene.place_component("R", QPointF(0, 0), name="R1")
+    second = scene.place_component("R", QPointF(200, 60), name="R2")
+    for start, end in ((first.pin_positions_scene()[1], QPointF(200, 0)),
+                       (second.pin_positions_scene()[0], QPointF(160, 0))):
+        wire = WireItem(start, end)
+        scene.addItem(wire)
+        scene.wires.append(wire)
+
+    nets = scene.extract_netlist()
+
+    assert nets["R1__p2"] == nets["R2__p1"]
+
+
 def test_erc_flags_missing_ground_and_floating_pins():
     scene = _scene()
     scene.place_component("R", QPointF(0, 0), name="R1")
@@ -77,4 +93,19 @@ def test_snap_action_toggles_without_calling_a_parameterless_slot():
     assert not window.scene.snap_enabled
     assert any(action.text() == "Check Circuit (ERC)"
                for action in window._tools_button.menu().actions())
+    window.close()
+
+
+def test_switch_key_is_captured_while_simulation_has_focus():
+    window = MainWindow()
+    switch = window.scene.place_component("SPDT3", QPointF(0, 0), name="S1")
+    switch.switch_on1_key = "A"
+    window._sim_running = True
+
+    consumed = window.eventFilter(
+        window, QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_A,
+                          Qt.KeyboardModifier.NoModifier, "a"))
+
+    assert consumed is True
+    assert switch.value == -1.0
     window.close()
