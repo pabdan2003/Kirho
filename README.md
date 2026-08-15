@@ -79,11 +79,12 @@ python -m pip install ".[build]"
 sh scripts/build_macos.sh
 ```
 
-This produces `dist/Kirho.app` and `dist/Kirho-<version>-macOS.dmg`. Distribute
-the DMG and ask users to drag **Kirho.app** to **Applications**. For each new
-release, build it with an increased `version` in `pyproject.toml`; replacing
-the existing app in Applications updates it in place, without duplicating the
-application. User preferences and custom themes remain in `~/.kirho`.
+This produces `dist/Kirho.app` and `dist/Kirho-<version>-macOS.dmg`. The DMG
+includes a branded background and an **Applications** shortcut; drag
+**Kirho.app** onto it to install. For each new release, build it with an
+increased `version` in `pyproject.toml`; replacing the existing app in
+Applications updates it in place, without duplicating the application. User
+preferences and custom themes remain in `~/.kirho`.
 
 Before distributing outside a small trusted group, sign and notarize the app
 with an Apple Developer certificate; otherwise macOS will show a security
