@@ -16,6 +16,7 @@ if (-not $Version) {
     --noconfirm `
     --clean `
     --windowed `
+    --onedir `
     --name Kirho `
     --icon assets\kirho.ico `
     --add-data "i18n;i18n" `
