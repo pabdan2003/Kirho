@@ -1,0 +1,29 @@
+name: Build Debian packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [amd64, arm64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.architecture }} package
+        run: bash scripts/build_deb.sh "${{ matrix.architecture }}"
+
+      - name: Upload ${{ matrix.architecture }} package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kirho-Linux-${{ matrix.architecture }}
+          path: dist/Kirho-*-Linux-${{ matrix.architecture }}.deb
+          if-no-files-found: error
+          retention-days: 14
