@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$Version = ([regex]::Match((Get-Content "pyproject.toml" -Raw), '(?m)^version = "([^"]+)"$')).Groups[1].Value
+$Version = ([regex]::Match((Get-Content "pyproject.toml" -Raw), '(?m)^\s*version\s*=\s*"([^"]+)"\s*$')).Groups[1].Value
 if (-not $Version) {
     throw "Could not determine the application version."
 }

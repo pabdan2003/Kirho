@@ -34,7 +34,7 @@ jobs:
       - name: Create portable archive
         shell: pwsh
         run: |
-          $version = ([regex]::Match((Get-Content "pyproject.toml" -Raw), '(?m)^version = "([^"]+)"$')).Groups[1].Value
+          $version = ([regex]::Match((Get-Content "pyproject.toml" -Raw), '(?m)^\s*version\s*=\s*"([^"]+)"\s*$')).Groups[1].Value
           if (-not $version -or -not (Test-Path "dist\Kirho\Kirho.exe")) { throw "Windows build output is incomplete." }
           Compress-Archive -Path "dist\Kirho" -DestinationPath "dist\Kirho-$version-Windows-x64-portable.zip" -Force
 
