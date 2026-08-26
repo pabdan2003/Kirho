@@ -17,16 +17,18 @@ from PyQt6.QtWidgets import (
     QToolBar, QLabel, QDockWidget, QTreeWidget, QTreeWidgetItem,
     QTableWidget, QTableWidgetItem, QSplitter, QDialog,
     QLineEdit, QDialogButtonBox, QMessageBox, QStatusBar,
-    QGraphicsPathItem, QPushButton, QComboBox, QDoubleSpinBox,
-    QGroupBox, QTextEdit, QFileDialog, QCheckBox, QFormLayout,
+    QGraphicsPathItem, QPushButton, QGroupBox, QTextEdit, QFileDialog,
     QListWidget, QTabWidget, QInputDialog, QStyledItemDelegate, QMenu
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QPainterPath, QPolygonF,
-    QAction, QTransform
+    QAction, QTransform, QKeySequence, QPageLayout, QPageSize
 )
 from PyQt6.QtCore import (
-    QEvent, Qt, QPointF, QRectF, QLineF, pyqtSignal, QObject, QSize
+    QEvent, Qt, QPointF, QRectF, QLineF, pyqtSignal, QObject, QSize, QSizeF, QTimer,
+)
+from PyQt6.QtPrintSupport import (
+    QPrintDialog, QPrintPreviewWidget, QPrinter, QPrinterInfo,
 )
 
 # Motor MNA
@@ -47,6 +49,7 @@ from kirho.ui.dialogs.component_picker_dialog import ComponentPickerDialog
 from kirho.ui.dialogs.power_triangle_dialog import PowerTriangleDialog
 from kirho.ui.dialogs.resistor_calc_dialog import ResistorCalcDialog
 from kirho.ui.dialogs.settings_dialog import SettingsDialog
+from kirho.ui.dialogs.title_block_dialog import TitleBlockDialog
 from kirho.i18n import load_translator
 from kirho.spice import export_netlist, parse_netlist
 
@@ -77,7 +80,8 @@ from kirho.ui.items.wire_item import WireItem
 # ESCENA DEL CIRCUITO (extraída)
 # ══════════════════════════════════════════════════════════════
 from kirho.ui.scene import (
-    CircuitScene, build_engine_components_for_item, expand_subcircuits,
+    CircuitScene, PAPER_FORMATS, PAPER_LINE_WIDTH,
+    build_engine_components_for_item, expand_subcircuits,
 )
 
 
@@ -108,7 +112,7 @@ class CircuitView(QGraphicsView):
                 self._zoom_at(1.15 ** (delta / 120), event.position())
                 event.accept()
                 return
-        super().wheelEvent(event)
+            super().wheelEvent(event)
 
     def viewportEvent(self, event):
         if (event.type() == QEvent.Type.NativeGesture
@@ -118,6 +122,15 @@ class CircuitView(QGraphicsView):
             return True
         return super().viewportEvent(event)
 
+
+class ResponsivePrintPreview(QPrintPreviewWidget):
+    """Notifica cambios de tamaño para conservar el ajuste de cada hoja."""
+
+    resized = pyqtSignal()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.resized.emit()
 
 # ══════════════════════════════════════════════════════════════
 # VENTANA PRINCIPAL
@@ -266,7 +279,12 @@ class MainWindow(QMainWindow):
         """
         from PyQt6.QtCore import QEvent
         et = event.type()
-        if et == QEvent.Type.KeyPress:
+        if et == QEvent.Type.FileOpen:
+            path = event.file()
+            if path:
+                self._open_circuit(path)
+                return True
+        elif et == QEvent.Type.KeyPress:
             mods = event.modifiers()
             sc = self.scene
             if (self._sim_running and sc is not None
@@ -426,22 +444,10 @@ class MainWindow(QMainWindow):
         btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         menu = QMenu(btn)
-        act_freq = QAction(self.tr("CLK Frequency…"), self)
-        act_freq.triggered.connect(self._set_clk_frequency)
-        menu.addAction(act_freq)
-        act_analyze = QAction(self.tr("Analyze Circuit…"), self)
-        act_analyze.triggered.connect(self._open_circuit_analyzer)
-        menu.addAction(act_analyze)
-        act_bode = QAction(self.tr("Bode / Transfer Analysis…"), self)
-        act_bode.triggered.connect(self._open_bode_analyzer)
-        menu.addAction(act_bode)
-        act_resistor_calc = QAction(self.tr("Resistor Color Code…"), self)
-        act_resistor_calc.triggered.connect(self._open_resistor_calculator)
-        menu.addAction(act_resistor_calc)
+        for key in ('clk_frequency', 'analyze', 'bode', 'resistor_calc'):
+            menu.addAction(self._shared_actions[key])
         menu.addSeparator()
-        act_erc = QAction(self.tr("Check Circuit (ERC)"), self)
-        act_erc.triggered.connect(self._run_erc)
-        menu.addAction(act_erc)
+        menu.addAction(self._shared_actions['erc'])
         btn.setMenu(menu)
         # Mostrar el menú también al pasar el cursor (hover)
         btn.installEventFilter(self)
@@ -478,6 +484,7 @@ class MainWindow(QMainWindow):
 
         # En macOS Qt la muestra en la barra global; en Windows y Linux
         # permanece integrada en la ventana.
+        self._build_shared_actions()
         self._build_menu_bar()
 
         # ── Toolbar PRINCIPAL (fila 1: archivo, zoom, etc.) ──────────────
@@ -510,6 +517,7 @@ class MainWindow(QMainWindow):
         scene.status_message.connect(self.statusBar().showMessage)
         scene.logic_state_toggled.connect(self._on_logic_state_toggled)
         scene.instrument_changed.connect(self._on_instrument_changed)
+        scene.title_block_edit_requested.connect(self._edit_title_block)
 
         view = CircuitView(scene)
         view.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -545,7 +553,73 @@ class MainWindow(QMainWindow):
         if 0 <= index < len(self._sheets):
             if hasattr(self, '_snap_action'):
                 self._snap_action.setChecked(self.scene.snap_enabled)
+            self._update_paper_visibility_action()
+            self._update_title_block_visibility_action()
+            self._update_paper_actions()
             self.statusBar().showMessage(self.tr("Active sheet: {name}").format(name=self._sheets[index]['name']))
+
+    def _set_paper_format(self, paper_format: str):
+        if self.scene.set_paper_format(paper_format):
+            self._update_paper_actions()
+            if self.scene.paper_visible:
+                self._fit_paper_in_view()
+            label = PAPER_FORMATS[paper_format][0]
+            self.statusBar().showMessage(
+                self.tr("Paper size: {format}").format(format=label))
+
+    def _set_paper_line_width(self):
+        width, ok = QInputDialog.getDouble(
+            self,
+            self.tr("Paper line width"),
+            self.tr("Width:"),
+            self.scene.paper_line_width,
+            0.5,
+            10.0,
+            1,
+        )
+        if ok:
+            self.scene.set_paper_line_width(width)
+
+    def _update_paper_actions(self):
+        if not hasattr(self, '_paper_actions'):
+            return
+        current = self.scene.paper_format
+        for paper_id, action in self._paper_actions.items():
+            action.setChecked(paper_id == current)
+
+    def _toggle_paper_frame(self, visible: bool):
+        self.scene.set_paper_visible(visible)
+        if visible:
+            self._fit_paper_in_view()
+        self._update_paper_visibility_action()
+
+    def _toggle_title_block(self, visible: bool):
+        if visible and not self.scene.paper_visible:
+            self.scene.set_paper_visible(True)
+            self._update_paper_visibility_action()
+        self.scene.set_title_block_visible(visible)
+        if visible:
+            self._fit_paper_in_view()
+        self._update_title_block_visibility_action()
+
+    def _edit_title_block(self):
+        dialog = TitleBlockDialog(self.scene.title_block, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.scene.set_title_block(dialog.values())
+            self._toggle_title_block(True)
+
+    def _update_title_block_visibility_action(self):
+        if hasattr(self, '_title_block_visibility_action'):
+            self._title_block_visibility_action.setChecked(
+                self.scene.title_block_visible)
+
+    def _fit_paper_in_view(self):
+        self.view.fitInView(
+            self.scene.paper_rect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+    def _update_paper_visibility_action(self):
+        if hasattr(self, '_paper_visibility_action'):
+            self._paper_visibility_action.setChecked(self.scene.paper_visible)
 
     def _rename_sheet(self, index: int):
         if 0 <= index < len(self._sheets):
@@ -617,47 +691,85 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_power_triangle)
         self._last_ac_result = None   # guardamos el resultado AC para el popup
 
+    def _build_shared_actions(self):
+        self._shared_actions = {}
+        specs = [
+            ('new', 'New', self._new_circuit, 'Ctrl+N'),
+            ('open', 'Open', self._open_circuit, 'Ctrl+O'),
+            ('import_spice', 'Import SPICE', self._import_spice, None),
+            ('save', 'Save', self._save_circuit, 'Ctrl+S'),
+            ('save_as', 'Save As…', self._save_circuit_as, 'Ctrl+Shift+S'),
+            ('print', 'Print…', self._print_sheet, None),
+            ('export_spice', 'Export SPICE', self._export_spice, 'Ctrl+E'),
+            ('add_sheet', '+ Sheet', lambda: self._add_sheet(), 'Ctrl+T'),
+            ('clear', 'Clear', self._clear_circuit, 'Ctrl+L'),
+            ('zoom_in', 'Zoom +', lambda: self.view.scale(1.2, 1.2), None),
+            ('zoom_out', 'Zoom −', lambda: self.view.scale(1 / 1.2, 1 / 1.2), None),
+            ('reset', 'Reset', self._reset_zoom, 'Ctrl+0'),
+            ('settings', '⚙ Settings', self._open_settings_dialog, 'Ctrl+,'),
+            ('undo', 'Undo', self._undo_active_sheet, None),
+            ('redo', 'Redo', self._redo_active_sheet, None),
+            ('copy', 'Copy', self._copy_active_selection, None),
+            ('cut', 'Cut', self._cut_active_selection, None),
+            ('paste', 'Paste', self._paste_active_selection, None),
+            ('duplicate', 'Duplicate', self._duplicate_active_selection, None),
+            ('select', 'Select', self._set_select_mode, None),
+            ('wire', 'Wire', self._set_wire_mode, None),
+            ('align_left', 'Left', lambda: self._align_selection('left'), None),
+            ('align_right', 'Right', lambda: self._align_selection('right'), None),
+            ('align_top', 'Top', lambda: self._align_selection('top'), None),
+            ('align_bottom', 'Bottom', lambda: self._align_selection('bottom'), None),
+            ('distribute_horizontal', 'Horizontally', lambda: self._distribute_selection('x'), None),
+            ('distribute_vertical', 'Vertically', lambda: self._distribute_selection('y'), None),
+            ('clk_frequency', 'CLK Frequency…', self._set_clk_frequency, None),
+            ('analyze', 'Analyze Circuit…', self._open_circuit_analyzer, None),
+            ('bode', 'Bode / Transfer Analysis…', self._open_bode_analyzer, None),
+            ('resistor_calc', 'Resistor Color Code…', self._open_resistor_calculator, None),
+            ('erc', 'Check Circuit (ERC)', self._run_erc, None),
+            ('about', 'About Kirho', self._show_about, None),
+            ('quit', 'Quit Kirho', self.close, None),
+        ]
+        for key, text, slot, shortcut in specs:
+            action = QAction(self.tr(text), self)
+            if shortcut:
+                action.setShortcut(shortcut)
+            action.triggered.connect(slot)
+            self._shared_actions[key] = action
+
+        self._shared_actions['print'].setShortcut(
+            QKeySequence(QKeySequence.StandardKey.Print))
+
+        self._snap_action = QAction(self.tr('Snap to Grid'), self)
+        self._snap_action.setCheckable(True)
+        self._snap_action.setChecked(self.scene.snap_enabled)
+        self._snap_action.toggled.connect(self._toggle_snap)
+        self._shared_actions['snap'] = self._snap_action
+
+        clk_action = QAction(self.tr('Toggle CLK'), self)
+        clk_action.setShortcut('Ctrl+K')
+        clk_action.triggered.connect(self._toggle_clk_running)
+        self.addAction(clk_action)
+
     def _build_main_toolbar(self):
         """Barra superior (fila 1): archivo, zoom, etc."""
         tb = self.addToolBar("Principal")
         tb.setMovable(False)
         tb.setObjectName("main_toolbar")
+        tb.setVisible(sys.platform != 'darwin')
 
         actions = [
-            (self.tr("New"),             "Ctrl+N",          self._new_circuit),
-            (self.tr("Open"),            "Ctrl+O",          self._open_circuit),
-            (self.tr("Import SPICE"),    None,              self._import_spice),
-            (self.tr("Save"),            "Ctrl+S",          self._save_circuit),
-            (self.tr("Save As…"),        "Ctrl+Shift+S",    self._save_circuit_as),
-            (self.tr("Export SPICE"),    "Ctrl+E",          self._export_spice),
-            ("|", None, None),
-            (self.tr("+ Sheet"),      "Ctrl+T", lambda: self._add_sheet()),
-            ("__TOOLS__", None, None),                    # placeholder Herramientas
-            (self.tr("Clear"),        "Ctrl+L", self._clear_circuit),
-            # Zoom: sin atajo para no chocar con la rotación Ctrl++/Ctrl+-.
-            # El zoom sigue disponible vía botón en la toolbar y Ctrl+rueda.
-            (self.tr("Zoom +"),       None,     lambda: self.view.scale(1.2, 1.2)),
-            (self.tr("Zoom −"),       None,     lambda: self.view.scale(1/1.2, 1/1.2)),
-            (self.tr("Reset"),        "Ctrl+0", self._reset_zoom),
+            'new', 'open', 'import_spice', 'save', 'save_as', 'export_spice',
+            '|', 'add_sheet', '__TOOLS__', 'clear',
+            'zoom_in', 'zoom_out', 'reset',
         ]
-        for name, shortcut, fn in actions:
-            if name == '|':
+        for key in actions:
+            if key == '|':
                 tb.addSeparator()
                 continue
-            if name == '__TOOLS__':
+            if key == '__TOOLS__':
                 tb.addWidget(self._build_tools_button())
                 continue
-            act = QAction(name, self)
-            if shortcut:
-                act.setShortcut(shortcut)
-            act.triggered.connect(fn)
-            tb.addAction(act)
-
-        # ── Atajo global Ctrl+K para conmutar oscilación de CLK ──────────
-        clk_act = QAction("Toggle CLK", self)
-        clk_act.setShortcut("Ctrl+K")
-        clk_act.triggered.connect(self._toggle_clk_running)
-        self.addAction(clk_act)
+            tb.addAction(self._shared_actions[key])
 
         # ── Botón Configuración (alineado a la derecha) ──────────────────
         tb.addSeparator()
@@ -667,11 +779,9 @@ class MainWindow(QMainWindow):
                              QSizePolicy.Policy.Preferred)
         tb.addWidget(spacer)
 
-        act_settings = QAction(self.tr("⚙ Settings"), self)
-        act_settings.setShortcut("Ctrl+,")
+        act_settings = self._shared_actions['settings']
         act_settings.setToolTip(
             self.tr("Open settings window (themes, preferences…)") )
-        act_settings.triggered.connect(self._open_settings_dialog)
         tb.addAction(act_settings)
 
         self._current_file: Optional[str] = None
@@ -679,61 +789,77 @@ class MainWindow(QMainWindow):
     def _build_menu_bar(self):
         """Menús nativos que exponen las mismas acciones de la barra de herramientas."""
         menu_bar = self.menuBar()
+        menu_bar.setNativeMenuBar(sys.platform == 'darwin')
 
         app_menu = menu_bar.addMenu("Kirho")
-        app_menu.addAction(self.tr("Settings…"), self._open_settings_dialog)
-        app_menu.addAction(self.tr("About Kirho"), self._show_about)
+        app_menu.addAction(self._shared_actions['settings'])
+        app_menu.addAction(self._shared_actions['about'])
         app_menu.addSeparator()
-        app_menu.addAction(self.tr("Quit Kirho"), self.close)
+        app_menu.addAction(self._shared_actions['quit'])
 
         file_menu = menu_bar.addMenu(self.tr("File"))
-        file_menu.addAction(self.tr("New"), self._new_circuit)
-        file_menu.addAction(self.tr("Open"), self._open_circuit)
-        file_menu.addAction(self.tr("Import SPICE"), self._import_spice)
-        file_menu.addAction(self.tr("Save"), self._save_circuit)
-        file_menu.addAction(self.tr("Save As…"), self._save_circuit_as)
+        for key in ('new', 'open', 'import_spice', 'save', 'save_as', 'print'):
+            file_menu.addAction(self._shared_actions[key])
         file_menu.addSeparator()
-        file_menu.addAction(self.tr("Export SPICE"), self._export_spice)
-        file_menu.addAction(self.tr("+ Sheet"), self._add_sheet)
+        for key in ('export_spice', 'add_sheet'):
+            file_menu.addAction(self._shared_actions[key])
 
         edit_menu = menu_bar.addMenu(self.tr("Edit"))
-        edit_menu.addAction(self.tr("Undo"), self._undo_active_sheet)
-        edit_menu.addAction(self.tr("Redo"), self._redo_active_sheet)
+        for key in ('undo', 'redo'):
+            edit_menu.addAction(self._shared_actions[key])
         edit_menu.addSeparator()
-        edit_menu.addAction(self.tr("Copy"), self._copy_active_selection)
-        edit_menu.addAction(self.tr("Cut"), self._cut_active_selection)
-        edit_menu.addAction(self.tr("Paste"), self._paste_active_selection)
-        edit_menu.addAction(self.tr("Duplicate"), self._duplicate_active_selection)
+        for key in ('copy', 'cut', 'paste', 'duplicate'):
+            edit_menu.addAction(self._shared_actions[key])
         edit_menu.addSeparator()
-        edit_menu.addAction(self.tr("Select"), self._set_select_mode)
-        edit_menu.addAction(self.tr("Wire"), self._set_wire_mode)
+        for key in ('select', 'wire'):
+            edit_menu.addAction(self._shared_actions[key])
         align_menu = edit_menu.addMenu(self.tr("Align"))
-        align_menu.addAction(self.tr("Left"), lambda: self._align_selection('left'))
-        align_menu.addAction(self.tr("Right"), lambda: self._align_selection('right'))
-        align_menu.addAction(self.tr("Top"), lambda: self._align_selection('top'))
-        align_menu.addAction(self.tr("Bottom"), lambda: self._align_selection('bottom'))
+        for key in ('align_left', 'align_right', 'align_top', 'align_bottom'):
+            align_menu.addAction(self._shared_actions[key])
         distribute_menu = edit_menu.addMenu(self.tr("Distribute"))
-        distribute_menu.addAction(self.tr("Horizontally"), lambda: self._distribute_selection('x'))
-        distribute_menu.addAction(self.tr("Vertically"), lambda: self._distribute_selection('y'))
+        for key in ('distribute_horizontal', 'distribute_vertical'):
+            distribute_menu.addAction(self._shared_actions[key])
         edit_menu.addSeparator()
-        edit_menu.addAction(self.tr("Clear"), self._clear_circuit)
+        edit_menu.addAction(self._shared_actions['clear'])
 
         view_menu = menu_bar.addMenu(self.tr("View"))
-        view_menu.addAction(self.tr("Zoom +"), lambda: self.view.scale(1.2, 1.2))
-        view_menu.addAction(self.tr("Zoom −"), lambda: self.view.scale(1 / 1.2, 1 / 1.2))
-        view_menu.addAction(self.tr("Reset"), self._reset_zoom)
-        self._snap_action = view_menu.addAction(self.tr("Snap to Grid"))
-        self._snap_action.setCheckable(True)
-        self._snap_action.setChecked(self.scene.snap_enabled)
-        self._snap_action.toggled.connect(self._toggle_snap)
+        for key in ('zoom_in', 'zoom_out', 'reset', 'snap'):
+            view_menu.addAction(self._shared_actions[key])
+
+        self._paper_visibility_action = view_menu.addAction(
+            self.tr("Show Paper Frame"))
+        self._paper_visibility_action.setCheckable(True)
+        self._paper_visibility_action.setChecked(self.scene.paper_visible)
+        self._paper_visibility_action.toggled.connect(self._toggle_paper_frame)
+
+        self._title_block_visibility_action = view_menu.addAction(
+            self.tr("Show Title Block"))
+        self._title_block_visibility_action.setCheckable(True)
+        self._title_block_visibility_action.setChecked(
+            self.scene.title_block_visible)
+        self._title_block_visibility_action.toggled.connect(
+            self._toggle_title_block)
+        view_menu.addAction(self.tr("Edit Title Block…"), self._edit_title_block)
+        view_menu.addAction(
+            self.tr("Paper line width…"), self._set_paper_line_width)
+
+        paper_menu = view_menu.addMenu(self.tr("Paper Size"))
+        self._paper_actions = {}
+        for paper_id, (label, width_mm, height_mm) in PAPER_FORMATS.items():
+            width_mm, height_mm = max(width_mm, height_mm), min(width_mm, height_mm)
+            action = paper_menu.addAction(
+                self.tr(f"{label} ({width_mm} × {height_mm} mm)"))
+            action.setCheckable(True)
+            action.triggered.connect(
+                lambda checked, paper_id=paper_id: self._set_paper_format(paper_id))
+            self._paper_actions[paper_id] = action
+        self._update_paper_actions()
 
         tools_menu = menu_bar.addMenu(self.tr("Tools"))
-        tools_menu.addAction(self.tr("CLK Frequency…"), self._set_clk_frequency)
-        tools_menu.addAction(self.tr("Analyze Circuit…"), self._open_circuit_analyzer)
-        tools_menu.addAction(self.tr("Bode / Transfer Analysis…"), self._open_bode_analyzer)
-        tools_menu.addAction(self.tr("Resistor Color Code…"), self._open_resistor_calculator)
+        for key in ('clk_frequency', 'analyze', 'bode', 'resistor_calc'):
+            tools_menu.addAction(self._shared_actions[key])
         tools_menu.addSeparator()
-        tools_menu.addAction(self.tr("Check Circuit (ERC)"), self._run_erc)
+        tools_menu.addAction(self._shared_actions['erc'])
 
     def _show_about(self):
         QMessageBox.about(
@@ -3222,7 +3348,15 @@ class MainWindow(QMainWindow):
 
     # ── Serialización de una hoja ─────────────────
     def _serialize_sheet(self, scene: CircuitScene) -> dict:
-        sheet_data = {'components': [], 'wires': []}
+        sheet_data = {
+            'components': [],
+            'wires': [],
+            'paper_format': scene.paper_format,
+            'paper_line_width': scene.paper_line_width,
+            'paper_visible': scene.paper_visible,
+            'title_block_visible': scene.title_block_visible,
+            'title_block': dict(scene.title_block),
+        }
         for item in scene.components:
             entry = {
                 'type':  item.comp_type,
@@ -3333,6 +3467,12 @@ class MainWindow(QMainWindow):
         return sheet_data
 
     def _load_sheet_data(self, scene: CircuitScene, sheet_data: dict):
+        scene.set_paper_format(sheet_data.get('paper_format', 'A4'))
+        scene.set_paper_line_width(
+            sheet_data.get('paper_line_width', PAPER_LINE_WIDTH))
+        scene.set_paper_visible(sheet_data.get('paper_visible', False))
+        scene.set_title_block(sheet_data.get('title_block', {}))
+        scene.set_title_block_visible(sheet_data.get('title_block_visible', False))
         # Los NE555 guardados antes de la cuadrícula actual tenían pines a
         # ±50/±30 px. Conservamos sus cables al abrirlos y los llevamos a los
         # nuevos pines, todos múltiplos de GRID_SIZE.
@@ -3509,11 +3649,12 @@ class MainWindow(QMainWindow):
         self._save_circuit()
 
     # ── Abrir (.csin) ────────────────────────────
-    def _open_circuit(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, self.tr("Open Circuit"), "",
-            self.tr("Kirho (*.csin);;All Files (*)")
-        )
+    def _open_circuit(self, path=None):
+        if not isinstance(path, str) or not path:
+            path, _ = QFileDialog.getOpenFileName(
+                self, self.tr("Open Circuit"), "",
+                self.tr("Kirho (*.csin);;All Files (*)")
+            )
         if not path:
             return
 
@@ -3541,6 +3682,9 @@ class MainWindow(QMainWindow):
             self._add_sheet(name=name)
             scene = self._sheets[-1]['scene']
             self._load_sheet_data(scene, sd)
+
+        if self.scene.paper_visible:
+            self._fit_paper_in_view()
 
         self._current_file = path
         self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
@@ -3616,7 +3760,117 @@ class MainWindow(QMainWindow):
             detail
         )
 
+    def _print_sheet(self):
+        scenes = [sheet['scene'] for sheet in self._sheets]
+        if not scenes:
+            return
+
+        scene = scenes[0]
+        label, width_mm, height_mm = PAPER_FORMATS[scene.paper_format]
+        orientation = (
+            QPageLayout.Orientation.Landscape
+            if scene.paper_rect().width() >= scene.paper_rect().height()
+            else QPageLayout.Orientation.Portrait
+        )
+
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setPageSize(QPageSize(
+            QSizeF(width_mm, height_mm),
+            QPageSize.Unit.Millimeter,
+            label,
+        ))
+        printer.setPageOrientation(orientation)
+        printer.setColorMode(QPrinter.ColorMode.GrayScale)
+        default_printer = QPrinterInfo.defaultPrinterName()
+        if default_printer:
+            printer.setPrinterName(default_printer)
+
+        preview = QDialog(self)
+        preview.setWindowTitle(self.tr("Print Preview"))
+        preview.resize(900, 700)
+        preview.setMinimumSize(720, 560)
+        preview_layout = QVBoxLayout(preview)
+        preview_widget = ResponsivePrintPreview(printer, preview)
+        preview_widget.setZoomMode(QPrintPreviewWidget.ZoomMode.FitInView)
+        preview_widget.paintRequested.connect(
+            lambda target_printer: self._render_print_pages(
+                scenes,
+                target_printer,
+                monochrome=True))
+        preview_widget.resized.connect(
+            lambda: preview_widget.setZoomMode(
+                QPrintPreviewWidget.ZoomMode.FitInView))
+        preview_layout.addWidget(preview_widget, 1)
+
+        buttons = QDialogButtonBox(preview)
+        buttons.addButton(
+            self.tr("Cancel"), QDialogButtonBox.ButtonRole.RejectRole)
+        buttons.addButton(
+            self.tr("Print"), QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.accepted.connect(preview.accept)
+        buttons.rejected.connect(preview.reject)
+        preview_layout.addWidget(buttons)
+
+        if preview.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        print_dialog = QPrintDialog(printer, self)
+        if print_dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._render_print_pages(
+            scenes,
+            printer,
+            monochrome=True)
+
+    def _render_print_page(self, scene: CircuitScene, printer: QPrinter):
+        self._render_print_pages(
+            [scene], printer, monochrome=True)
+
+    def _render_print_pages(self, scenes: List[CircuitScene], printer: QPrinter,
+                            monochrome: bool = True):
+        if not scenes:
+            return
+        painter = QPainter()
+        if not painter.begin(printer):
+            self.statusBar().showMessage(self.tr("Could not start printing"))
+            return
+
+        try:
+            for index, scene in enumerate(scenes):
+                old_paper_visible = scene.paper_visible
+                old_title_block_visible = scene.title_block_visible
+                old_print_mode = scene.print_mode
+                old_print_monochrome = scene.print_monochrome
+                has_title_block_data = any(
+                    str(value).strip() for value in scene.title_block.values())
+                try:
+                    scene.set_paper_visible(True)
+                    scene.set_title_block_visible(
+                        old_title_block_visible or has_title_block_data)
+                    scene.set_print_mode(True, monochrome=monochrome)
+                    page_rect = printer.pageLayout().paintRectPixels(
+                        printer.resolution())
+                    source_rect = scene.paper_rect().united(
+                        scene.itemsBoundingRect())
+                    scene.render(
+                        painter,
+                        QRectF(page_rect),
+                        source_rect,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                    )
+                finally:
+                    scene.set_paper_visible(old_paper_visible)
+                    scene.set_title_block_visible(old_title_block_visible)
+                    scene.set_print_mode(old_print_mode, old_print_monochrome)
+                if index < len(scenes) - 1:
+                    printer.newPage()
+        finally:
+            painter.end()
+
     def _reset_zoom(self):
+        if self.scene.paper_visible:
+            self._fit_paper_in_view()
+            return
         self.view.resetTransform()
         self.view.centerOn(0, 0)
 
@@ -3630,6 +3884,8 @@ def main():
     load_translator(app, THEME_MANAGER.load_language())
     window = MainWindow()
     window.show()
+    if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+        window._open_circuit(sys.argv[1])
     sys.exit(app.exec())
 
 

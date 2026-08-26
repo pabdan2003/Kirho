@@ -11,6 +11,7 @@ DMG_RW="dist/.Kirho-${VERSION}-macOS-rw.dmg"
 
 python3 -m PyInstaller \
   --noconfirm \
+  --clean \
   --windowed \
   --name Kirho \
   --osx-bundle-identifier com.github.pabdan2003.kirho \
@@ -18,12 +19,41 @@ python3 -m PyInstaller \
   --add-data "i18n:i18n" \
   main.py
 
+PLIST="dist/Kirho.app/Contents/Info.plist"
+
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
-  "dist/Kirho.app/Contents/Info.plist"
+  "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" \
-  "dist/Kirho.app/Contents/Info.plist" 2>/dev/null || \
+  "$PLIST" 2>/dev/null || \
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" \
-    "dist/Kirho.app/Contents/Info.plist"
+    "$PLIST"
+
+# Register .csin so Finder can use Kirho's document icon and open the file.
+cp assets/kirho.icns "dist/Kirho.app/Contents/Resources/kirho.icns"
+plist_add() {
+  /usr/libexec/PlistBuddy -c "$1" "$PLIST" 2>/dev/null || true
+}
+plist_add "Add :UTExportedTypeDeclarations array"
+plist_add "Add :UTExportedTypeDeclarations:0 dict"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeIdentifier string com.github.pabdan2003.kirho.csin"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeDescription string Kirho Circuit"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeConformsTo array"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeConformsTo:0 string public.data"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification dict"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension array"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension:0 string csin"
+plist_add "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification:public.mime-type string application/x-kirho-circuit"
+plist_add "Add :CFBundleDocumentTypes array"
+plist_add "Add :CFBundleDocumentTypes:0 dict"
+plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeName string Kirho Circuit"
+plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string Editor"
+plist_add "Add :CFBundleDocumentTypes:0:LSHandlerRank string Owner"
+plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions array"
+plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions:0 string csin"
+plist_add "Add :CFBundleDocumentTypes:0:LSItemContentTypes array"
+plist_add "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string com.github.pabdan2003.kirho.csin"
+plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeIconFiles array"
+plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeIconFiles:0 string kirho.icns"
 codesign --force --deep --sign - "dist/Kirho.app"
 
 rm -f "$DMG" "$DMG_RW"

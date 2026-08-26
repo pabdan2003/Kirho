@@ -30,6 +30,7 @@ WizardImageFile=..\..\assets\windows-installer-sidebar.bmp
 WizardSmallImageFile=..\..\assets\windows-installer-small.bmp
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -44,6 +45,12 @@ Source: "..\..\dist\Kirho\*"; DestDir: "{app}"; Flags: ignoreversion recursesubd
 [Icons]
 Name: "{autoprograms}\Kirho"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
 Name: "{autodesktop}\Kirho"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[Registry]
+Root: HKCU; Subkey: "Software\Classes\.csin"; ValueType: string; ValueName: ""; ValueData: "Kirho.Circuit"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\Kirho.Circuit"; ValueType: string; ValueName: ""; ValueData: "Kirho Circuit"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Kirho.Circuit\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExeName},0"
+Root: HKCU; Subkey: "Software\Classes\Kirho.Circuit\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Launch Kirho"; Flags: nowait postinstall skipifsilent

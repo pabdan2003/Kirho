@@ -32,3 +32,27 @@ def test_load_sheet_restores_digital_configuration():
     assert item.dig_analog_node == "sense"
     assert item.dig_input_nodes == ["A", "B"]
     assert item.dig_input_neg == [True, False, True, False]
+
+
+def test_load_sheet_restores_paper_settings():
+    scene = CircuitScene()
+
+    MainWindow._load_sheet_data(None, scene, {
+        "paper_format": "LETTER",
+        "paper_visible": True,
+        "title_block_visible": True,
+        "title_block": {
+            "title": "Fuente 10 V",
+            "project": "Prueba",
+            "author": "Pablo",
+        },
+        "components": [],
+        "wires": [],
+    })
+
+    assert scene.paper_format == "LETTER"
+    assert scene.paper_visible
+    assert scene.title_block_visible
+    assert scene.title_block["title"] == "Fuente 10 V"
+    assert scene.title_block["author"] == "Pablo"
+    assert scene.paper_rect().width() > scene.paper_rect().height()

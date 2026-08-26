@@ -44,7 +44,15 @@ class WireItem(QGraphicsLineItem):
         self.setLine(QLineF(p1, p2))
 
     def paint(self, painter, option, widget):
-        if self.isSelected():
+        printing = self.scene() is not None and getattr(self.scene(), 'print_mode', False)
+        monochrome = printing and getattr(self.scene(), 'print_monochrome', True)
+        if monochrome:
+            self.setPen(QPen(QColor('#000000'), 2, Qt.PenStyle.SolidLine,
+                             Qt.PenCapStyle.RoundCap))
+        elif printing:
+            self.setPen(QPen(QColor(COLORS['wire']), 2, Qt.PenStyle.SolidLine,
+                             Qt.PenCapStyle.RoundCap))
+        elif self.isSelected():
             self.setPen(QPen(QColor(COLORS['wire_sel']), 2.5))
         else:
             self.setPen(QPen(QColor(COLORS['wire']), 2, Qt.PenStyle.SolidLine,

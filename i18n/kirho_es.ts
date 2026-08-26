@@ -577,6 +577,30 @@
         <source>Flip on Y Axis</source>
         <translation>Reflejar en el eje Y</translation>
     </message>
+    <message>
+        <source>Title</source>
+        <translation>Título</translation>
+    </message>
+    <message>
+        <source>Project</source>
+        <translation>Proyecto</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>Autor</translation>
+    </message>
+    <message>
+        <source>Date</source>
+        <translation>Fecha</translation>
+    </message>
+    <message>
+        <source>Revision</source>
+        <translation>Revisión</translation>
+    </message>
+    <message>
+        <source>Sheet</source>
+        <translation>Hoja</translation>
+    </message>
 </context>
 <context>
     <name>ComponentDialog</name>
@@ -1507,6 +1531,251 @@ Si la simulación está activa, el efecto se ve al instante.</translation>
         <location filename="../main.py" line="599"/>
         <source>Reset</source>
         <translation>Restablecer</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>Archivo</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Editar</translation>
+    </message>
+    <message>
+        <source>View</source>
+        <translation>Vista</translation>
+    </message>
+    <message>
+        <source>Snap to Grid</source>
+        <translation>Ajustar a la cuadrícula</translation>
+    </message>
+    <message>
+        <source>Show Paper Frame</source>
+        <translation>Mostrar marco de papel</translation>
+    </message>
+    <message>
+        <source>Show Title Block</source>
+        <translation>Mostrar cajetín</translation>
+    </message>
+    <message>
+        <source>Edit Title Block…</source>
+        <translation>Editar cajetín…</translation>
+    </message>
+    <message>
+        <source>Paper Size</source>
+        <translation>Tamaño del papel</translation>
+    </message>
+    <message>
+        <source>Paper line width…</source>
+        <translation>Grosor de líneas del papel…</translation>
+    </message>
+    <message>
+        <source>Paper line width</source>
+        <translation>Grosor de líneas del papel</translation>
+    </message>
+    <message>
+        <source>Width:</source>
+        <translation>Grosor:</translation>
+    </message>
+    <message>
+        <source>Paper size: {format}</source>
+        <translation>Tamaño del papel: {format}</translation>
+    </message>
+    <message>
+        <source>Print…</source>
+        <translation>Imprimir…</translation>
+    </message>
+    <message>
+        <source>Print Preview</source>
+        <translation>Vista previa de impresión</translation>
+    </message>
+    <message>
+        <source>Printer</source>
+        <translation>Impresora</translation>
+    </message>
+    <message>
+        <source>Default printer</source>
+        <translation>Impresora predeterminada</translation>
+    </message>
+    <message>
+        <source>Printer status is managed by the system.</source>
+        <translation>El estado de la impresora lo gestiona el sistema.</translation>
+    </message>
+    <message>
+        <source>Printer selection is managed by the system.</source>
+        <translation>La selección de impresora la gestiona el sistema.</translation>
+    </message>
+    <message>
+        <source>No printer available.</source>
+        <translation>No hay impresora disponible.</translation>
+    </message>
+    <message>
+        <source>Printer is ready.</source>
+        <translation>La impresora está lista.</translation>
+    </message>
+    <message>
+        <source>Printer is printing.</source>
+        <translation>La impresora está imprimiendo.</translation>
+    </message>
+    <message>
+        <source>Printer is unavailable.</source>
+        <translation>La impresora no está disponible.</translation>
+    </message>
+    <message>
+        <source>Printer has an error.</source>
+        <translation>La impresora tiene un error.</translation>
+    </message>
+    <message>
+        <source>Checking printer status…</source>
+        <translation>Comprobando el estado de la impresora…</translation>
+    </message>
+    <message>
+        <source>Printer connection could not be verified.</source>
+        <translation>No se pudo verificar la conexión de la impresora.</translation>
+    </message>
+    <message>
+        <source>Printer queue is ready.</source>
+        <translation>La cola de impresión está lista.</translation>
+    </message>
+    <message>
+        <source>No printers available</source>
+        <translation>No hay impresoras disponibles</translation>
+    </message>
+    <message>
+        <source>Presets</source>
+        <translation>Preconfiguraciones</translation>
+    </message>
+    <message>
+        <source>Default Settings</source>
+        <translation>Configuración predeterminada</translation>
+    </message>
+    <message>
+        <source>Copies</source>
+        <translation>Copias</translation>
+    </message>
+    <message>
+        <source>Pages</source>
+        <translation>Páginas</translation>
+    </message>
+    <message>
+        <source>All (1 page)</source>
+        <translation>Todas (1 página)</translation>
+    </message>
+    <message>
+        <source>All ({count} page(s))</source>
+        <translation>Todas ({count} página(s))</translation>
+    </message>
+    <message>
+        <source>Selection in Preview</source>
+        <translation>Selección en vista previa</translation>
+    </message>
+    <message>
+        <source>Page range</source>
+        <translation>Intervalo de páginas</translation>
+    </message>
+    <message>
+        <source>to</source>
+        <translation>a</translation>
+    </message>
+    <message>
+        <source>Selection</source>
+        <translation>Selección</translation>
+    </message>
+    <message>
+        <source>Select pages in the preview</source>
+        <translation>Selecciona las páginas en la vista previa</translation>
+    </message>
+    <message>
+        <source>Print in color</source>
+        <translation>Imprimir a color</translation>
+    </message>
+    <message>
+        <source>This preview is printed in black and white.</source>
+        <translation>Esta vista previa se imprime en blanco y negro.</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>Vista previa</translation>
+    </message>
+    <message>
+        <source>Auto rotate</source>
+        <translation>Giro automático</translation>
+    </message>
+    <message>
+        <source>Show notes</source>
+        <translation>Mostrar notas</translation>
+    </message>
+    <message>
+        <source>Scale:</source>
+        <translation>Escala:</translation>
+    </message>
+    <message>
+        <source>Fit to page:</source>
+        <translation>Ajustar a la página:</translation>
+    </message>
+    <message>
+        <source>Print entire image</source>
+        <translation>Imprimir toda la imagen</translation>
+    </message>
+    <message>
+        <source>Fill the paper</source>
+        <translation>Llenar el papel</translation>
+    </message>
+    <message>
+        <source>Copies per page:</source>
+        <translation>Copias por página:</translation>
+    </message>
+    <message>
+        <source>Save as PDF</source>
+        <translation>Guardar como PDF</translation>
+    </message>
+    <message>
+        <source>PDF Files (*.pdf)</source>
+        <translation>Archivos PDF (*.pdf)</translation>
+    </message>
+    <message>
+        <source>Document</source>
+        <translation>Documento</translation>
+    </message>
+    <message>
+        <source>Paper size</source>
+        <translation>Tamaño del papel</translation>
+    </message>
+    <message>
+        <source>Orientation</source>
+        <translation>Orientación</translation>
+    </message>
+    <message>
+        <source>Landscape</source>
+        <translation>Horizontal</translation>
+    </message>
+    <message>
+        <source>Portrait</source>
+        <translation>Vertical</translation>
+    </message>
+    <message>
+        <source>Color mode</source>
+        <translation>Modo de color</translation>
+    </message>
+    <message>
+        <source>Black and white</source>
+        <translation>Blanco y negro</translation>
+    </message>
+    <message>
+        <source>Print</source>
+        <translation>Imprimir</translation>
+    </message>
+    <message>
+        <location filename="../main.py" line="4169"/>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>The preview contains only the schematic vectors, margins and title block.</source>
+        <translation>La vista previa contiene solo los vectores del esquemático, los márgenes y el cajetín.</translation>
+    </message>
+    <message>
+        <source>Could not start printing</source>
+        <translation>No se pudo iniciar la impresión</translation>
     </message>
     <message>
         <location filename="../main.py" line="628"/>
@@ -2820,6 +3089,37 @@ Edita los colores y haz clic en «Recargar lista» para verla en el selector.</t
 {path}</source>
         <translation>No se pudo guardar el archivo:
 {path}</translation>
+    </message>
+</context>
+<context>
+    <name>TitleBlockDialog</name>
+    <message>
+        <source>Edit Title Block</source>
+        <translation>Editar cajetín</translation>
+    </message>
+    <message>
+        <source>Title:</source>
+        <translation>Título:</translation>
+    </message>
+    <message>
+        <source>Project:</source>
+        <translation>Proyecto:</translation>
+    </message>
+    <message>
+        <source>Author:</source>
+        <translation>Autor:</translation>
+    </message>
+    <message>
+        <source>Date:</source>
+        <translation>Fecha:</translation>
+    </message>
+    <message>
+        <source>Revision:</source>
+        <translation>Revisión:</translation>
+    </message>
+    <message>
+        <source>Sheet:</source>
+        <translation>Hoja:</translation>
     </message>
 </context>
 <context>

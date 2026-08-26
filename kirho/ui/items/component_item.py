@@ -16,6 +16,53 @@ from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF
 from kirho.ui.style import COLORS, GRID_SIZE, COMP_W, COMP_H, PIN_RADIUS, _qfont, format_si_value
 
 
+class _MonochromePainter:
+    """Adapta los colores de los componentes al modo de impresión vectorial."""
+
+    def __init__(self, painter, item):
+        self._painter = painter
+        self._item = item
+        self.upright_text = True
+
+    def __getattr__(self, name):
+        return getattr(self._painter, name)
+
+    def setPen(self, pen):
+        if isinstance(pen, QPen):
+            pen = QPen(QColor('#000000'), pen.widthF(), pen.style())
+        elif isinstance(pen, QColor):
+            pen = QColor('#000000')
+        return self._painter.setPen(pen)
+
+    def setBrush(self, brush):
+        if isinstance(brush, QBrush):
+            if brush.style() != Qt.BrushStyle.NoBrush:
+                brush = QBrush(QColor('#ffffff'), brush.style())
+        elif isinstance(brush, QColor):
+            brush = QColor('#ffffff')
+        return self._painter.setBrush(brush)
+
+    def setFont(self, font):
+        if isinstance(font, QFont) and font.pointSizeF() > 0:
+            font = QFont(font)
+            font.setPixelSize(max(6, round(font.pointSizeF())))
+        return self._painter.setFont(font)
+
+    def drawText(self, *args):
+        # Los textos internos (+/−, V+/V−, pinout, etc.) deben permanecer
+        # legibles aunque el símbolo esté girado.
+        if not self.upright_text:
+            return self._painter.drawText(*args)
+        self._painter.save()
+        item_transform, invertible = self._item.transform().inverted()
+        if invertible:
+            self._painter.setWorldTransform(
+                item_transform * self._painter.worldTransform(), False)
+        result = self._painter.drawText(*args)
+        self._painter.restore()
+        return result
+
+
 # ══════════════════════════════════════════════════════════════
 # ÍTEM DE COMPONENTE EN EL CANVAS
 # ══════════════════════════════════════════════════════════════
@@ -312,7 +359,7 @@ class ComponentItem(QGraphicsItem):
             # Cuerpo cuadrado con display + puntas de prueba en la parte inferior
             return QRectF(-44, -50, 88, 100)
         if self.comp_type == 'LAMP':
-            return QRectF(-52, -48, 104, 96)
+            return QRectF(-52, -64, 104, 140)
         if self.comp_type == 'DPDT':
             return QRectF(-62, -62, 124, 124)
         if self.comp_type == 'TL082':
@@ -634,13 +681,25 @@ class ComponentItem(QGraphicsItem):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         selected = self.isSelected()
-        body_color  = QColor(COLORS['comp_sel'] if selected else COLORS['comp_body'])
-        line_color  = QColor(COLORS['comp_sel'] if selected else COLORS['component'])
-        text_color  = QColor(COLORS['text'])
+        printing = self.scene() is not None and getattr(self.scene(), 'print_mode', False)
+        monochrome = printing and getattr(self.scene(), 'print_monochrome', True)
+        if monochrome:
+            painter = _MonochromePainter(painter, self)
+        if printing:
+            print_font = QFont(_qfont('Menlo', 8))
+            print_font.setPixelSize(8)
+            painter.setFont(print_font)
+        body_color  = QColor('#ffffff' if monochrome else
+                             COLORS['comp_body'] if printing else
+                             COLORS['comp_sel'] if selected else COLORS['comp_body'])
+        line_color  = QColor('#000000' if monochrome else
+                             COLORS['component'] if printing else
+                             COLORS['comp_sel'] if selected else COLORS['component'])
+        text_color  = QColor('#000000' if printing else COLORS['text'])
 
         pen_body = QPen(line_color, 2)
-        pen_wire = QPen(QColor(COLORS['wire']), 2)
-        pen_pin  = QPen(QColor(COLORS['pin']),  2)
+        pen_wire = QPen(QColor('#000000' if monochrome else COLORS['wire']), 2)
+        pen_pin  = QPen(QColor('#000000' if monochrome else COLORS['pin']),  2)
 
         if self.comp_type == 'GND':
             self._draw_gnd(painter, pen_body)
@@ -2327,10 +2386,20 @@ class ComponentItem(QGraphicsItem):
                          Qt.AlignmentFlag.AlignCenter, self.name)
 
     def _draw_labels(self, painter, text_color):
+        if isinstance(painter, _MonochromePainter):
+            painter.upright_text = False
+        self._draw_labels_content(painter, text_color)
+        if isinstance(painter, _MonochromePainter):
+            painter.upright_text = True
+
+    def _draw_labels_content(self, painter, text_color):
         if self.comp_type in ('GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT',
                                'PORT', 'SUBCKT'):
             return
         font = _qfont('Menlo', 8)
+        if self.scene() is not None and getattr(self.scene(), 'print_mode', False):
+            font = QFont(font)
+            font.setPixelSize(8)
         painter.setFont(font)
         painter.setPen(QPen(text_color))
 
@@ -2348,20 +2417,28 @@ class ComponentItem(QGraphicsItem):
             return
 
         # Nombre arriba
-        name_rect = QRectF(-COMP_W//2, -COMP_H//2 - 18, COMP_W, 16)
+        if self.comp_type == 'LAMP':
+            name_y = -52
+        elif self.comp_type == 'DPDT':
+            name_y = -60
+        else:
+            name_y = -COMP_H//2 - 18
+        name_rect = QRectF(-COMP_W//2, name_y, COMP_W, 16)
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, self.name)
 
         # Valor abajo
         if self.value != 0 and self.comp_type not in ('COUNTER', 'SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY'):
             val_str = self._format_value()
-            val_rect = QRectF(-COMP_W//2, COMP_H//2 + 2, COMP_W, 16)
+            value_y = 38 if self.comp_type == 'LAMP' else COMP_H//2 + 2
+            val_rect = QRectF(-COMP_W//2, value_y, COMP_W, 16)
             painter.setPen(QPen(QColor(COLORS['text_dim'])))
             painter.drawText(val_rect, Qt.AlignmentFlag.AlignCenter, val_str)
 
         # Resultado de simulación
         if self.result_voltage is not None:
             res_str = f"{self.result_voltage:.3f}V"
-            res_rect = QRectF(-COMP_W//2, COMP_H//2 + 16, COMP_W, 16)
+            result_y = 54 if self.comp_type == 'LAMP' else COMP_H//2 + 16
+            res_rect = QRectF(-COMP_W//2, result_y, COMP_W, 16)
             painter.setPen(QPen(QColor(COLORS['voltage'])))
             painter.drawText(res_rect, Qt.AlignmentFlag.AlignCenter, res_str)
 

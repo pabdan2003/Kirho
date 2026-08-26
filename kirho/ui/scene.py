@@ -16,13 +16,43 @@ import re
 from typing import Optional, List, Dict, Tuple
 
 from PyQt6.QtWidgets import QGraphicsScene, QMenu, QDialog
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QFontMetricsF
 from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF, pyqtSignal
 
-from kirho.ui.style import COLORS, GRID_SIZE, PIN_RADIUS, theme_revision
+from kirho.ui.style import COLORS, GRID_SIZE, PIN_RADIUS, _qfont, theme_revision
 from kirho.ui.items.component_item import ComponentItem
 from kirho.ui.dialogs.component_dialog import ComponentDialog
 from kirho.ui.items.wire_item import WireItem
+
+
+# Tamaños ISO 216 y formatos habituales en milímetros.
+PAPER_FORMATS = {
+    'LETTER': ('Letter / Carta', 216, 279),
+    'LEGAL':  ('Legal / Oficio', 216, 356),
+    'A0': ('A0', 841, 1189),
+    'A1': ('A1', 594, 841),
+    'A2': ('A2', 420, 594),
+    'A3': ('A3', 297, 420),
+    'A4': ('A4', 210, 297),
+    'A5': ('A5', 148, 210),
+    'A6': ('A6', 105, 148),
+    'A7': ('A7', 74, 105),
+    'A8': ('A8', 52, 74),
+    'A9': ('A9', 37, 52),
+    'A10': ('A10', 26, 37),
+}
+DEFAULT_PAPER_FORMAT = 'A4'
+PAPER_UNITS_PER_MM = 7.0
+PAPER_MARGIN_MM = 12.0
+PAPER_LINE_WIDTH = 2.5
+TITLE_BLOCK_FIELDS = (
+    ('title', 'Title'),
+    ('project', 'Project'),
+    ('author', 'Author'),
+    ('date', 'Date'),
+    ('revision', 'Revision'),
+    ('sheet', 'Sheet'),
+)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -33,6 +63,7 @@ class CircuitScene(QGraphicsScene):
     status_message       = pyqtSignal(str)
     logic_state_toggled  = pyqtSignal(object)   # emitido cuando LOGIC_STATE cambia
     instrument_changed   = pyqtSignal(object)   # cambió un parámetro de instrumento
+    title_block_edit_requested = pyqtSignal()
 
     # Portapapeles compartido entre escenas (todas las hojas) — guarda un
     # snapshot de la selección.
@@ -80,6 +111,13 @@ class CircuitScene(QGraphicsScene):
         self._redo_stack: List[dict] = []
         self._undo_max: int = 50
         self.snap_enabled: bool = True
+        self.paper_format = DEFAULT_PAPER_FORMAT
+        self.paper_line_width = PAPER_LINE_WIDTH
+        self.paper_visible = False
+        self.title_block_visible = False
+        self.print_mode = False
+        self.print_monochrome = True
+        self.title_block = {key: '' for key, _ in TITLE_BLOCK_FIELDS}
 
     @staticmethod
     def _counter_key_for_type(comp_type: str) -> str:
@@ -125,7 +163,170 @@ class CircuitScene(QGraphicsScene):
             self._grid_pens_rev = rev
         return self._grid_pen_minor, self._grid_pen_major
 
+    def paper_rect(self) -> QRectF:
+        """Rectángulo de la hoja en unidades del canvas."""
+        _, width_mm, height_mm = PAPER_FORMATS[self.paper_format]
+        width = max(width_mm, height_mm) * PAPER_UNITS_PER_MM
+        height = min(width_mm, height_mm) * PAPER_UNITS_PER_MM
+        return QRectF(-width / 2, -height / 2, width, height)
+
+    def _paper_inner_rect(self) -> QRectF:
+        paper = self.paper_rect()
+        margin = min(
+            PAPER_MARGIN_MM * PAPER_UNITS_PER_MM,
+            paper.width() * 0.08,
+            paper.height() * 0.15,
+        )
+        return paper.adjusted(margin, margin, -margin, -margin)
+
+    def _title_block_layout(self, inner_rect: QRectF):
+        block_height = min(150.0, inner_rect.height() * 0.35)
+        row_height = block_height / len(TITLE_BLOCK_FIELDS)
+        font_size = max(6, min(24, int(row_height * 0.75)))
+        lines = [
+            f'{self.tr(label)}: {self.title_block.get(key, "")}'
+            for key, label in TITLE_BLOCK_FIELDS
+        ]
+
+        # Ajusta la fuente solo si el texto no cabe en el ancho útil de la
+        # hoja; normalmente el cajetín crece horizontalmente.
+        while font_size > 6:
+            font = _qfont('Menlo', font_size)
+            if self.print_mode:
+                font = QFont(font)
+                font.setPixelSize(font_size)
+            text_width = max(
+                QFontMetricsF(font).horizontalAdvance(line) for line in lines
+            )
+            if text_width + 16 <= inner_rect.width():
+                break
+            font_size -= 1
+
+        font = _qfont('Menlo', font_size)
+        if self.print_mode:
+            font = QFont(font)
+            font.setPixelSize(font_size)
+        text_width = max(
+            QFontMetricsF(font).horizontalAdvance(line) for line in lines
+        )
+        base_width = min(420.0, inner_rect.width() * 0.45)
+        block_width = min(inner_rect.width(), max(base_width, text_width + 16))
+        block = QRectF(
+            inner_rect.right() - block_width,
+            inner_rect.bottom() - block_height,
+            block_width,
+            block_height,
+        )
+        return block, font, lines
+
+    def title_block_rect(self) -> QRectF:
+        return self._title_block_layout(self._paper_inner_rect())[0]
+
+    def set_paper_format(self, paper_format: str) -> bool:
+        if paper_format not in PAPER_FORMATS:
+            return False
+        self.paper_format = paper_format
+        self.setSceneRect(self.sceneRect().united(
+            self.paper_rect().adjusted(-100, -100, 100, 100)))
+        self.update()
+        return True
+
+    def set_paper_line_width(self, width: float):
+        self.paper_line_width = max(0.5, min(10.0, float(width)))
+        self.update()
+
+    def set_paper_visible(self, visible: bool):
+        self.paper_visible = bool(visible)
+        self.update()
+
+    def set_title_block_visible(self, visible: bool):
+        self.title_block_visible = bool(visible)
+        self.update()
+
+    def set_print_mode(self, enabled: bool, monochrome: bool = True):
+        self.print_mode = bool(enabled)
+        self.print_monochrome = bool(monochrome)
+        self.update()
+
+    def set_title_block(self, values: dict):
+        values = values if isinstance(values, dict) else {}
+        self.title_block = {
+            key: str(values.get(key, '') or '')
+            for key, _ in TITLE_BLOCK_FIELDS
+        }
+        self.update()
+
+    def _draw_title_block(self, painter: QPainter, inner_rect: QRectF):
+        if not self.title_block_visible:
+            return
+        if inner_rect.width() <= 0 or inner_rect.height() <= 0:
+            return
+
+        block, font, lines = self._title_block_layout(inner_rect)
+        border_color = QColor('#000000' if self.print_mode else
+                              COLORS.get('comp_sel', COLORS.get('panel_brd', COLORS['grid_line'])))
+        panel_color = QColor('#ffffff' if self.print_mode else
+                             COLORS.get('panel', COLORS.get('bg', '#000000')))
+        panel_color.setAlpha(235)
+
+        pen = QPen(border_color, self.paper_line_width)
+        painter.setPen(pen)
+        painter.setBrush(QBrush(panel_color))
+        painter.drawRect(block)
+        # El cajetín se dibuja en coordenadas de escena, por lo que una fuente
+        # pequeña desaparece al ajustar la hoja completa al viewport.
+        row_height = block.height() / len(TITLE_BLOCK_FIELDS)
+        painter.setFont(font)
+        for index, line in enumerate(lines):
+            row = QRectF(block.left(), block.top() + index * row_height,
+                         block.width(), row_height)
+            if index:
+                painter.setPen(QPen(border_color, self.paper_line_width))
+                painter.drawLine(row.topLeft(), row.topRight())
+            painter.setPen(QPen(QColor('#000000' if self.print_mode else
+                                       COLORS.get('text', '#FFFFFF')), 0))
+            painter.drawText(
+                row.adjusted(8, 0, -8, 0),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                line,
+            )
+
+    def _draw_paper(self, painter: QPainter, rect: QRectF):
+        if not self.paper_visible:
+            return
+        paper = self.paper_rect()
+        if not rect.intersects(paper):
+            return
+
+        painter.save()
+        if self.print_mode:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(QColor('#ffffff')))
+            painter.drawRect(paper)
+
+        if not self.print_mode:
+            border = QPen(QColor(COLORS.get('panel_brd', COLORS['grid_line'])),
+                          self.paper_line_width)
+            painter.setPen(border)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(paper)
+
+        margin_rect = self._paper_inner_rect()
+        margin_pen = QPen(
+            QColor('#000000' if self.print_mode else
+                   COLORS.get('comp_sel', COLORS['panel_brd'])),
+            self.paper_line_width)
+        margin_pen.setStyle(Qt.PenStyle.SolidLine if self.print_mode
+                            else Qt.PenStyle.DashLine)
+        painter.setPen(margin_pen)
+        painter.drawRect(margin_rect)
+        self._draw_title_block(painter, margin_rect)
+        painter.restore()
+
     def drawBackground(self, painter: QPainter, rect: QRectF):
+        if self.print_mode:
+            self._draw_paper(painter, rect)
+            return
         super().drawBackground(painter, rect)
 
         left   = int(math.floor(rect.left()  / GRID_SIZE)) * GRID_SIZE
@@ -161,10 +362,14 @@ class CircuitScene(QGraphicsScene):
         painter.drawLines(lines_minor)
         painter.setPen(pen_major)
         painter.drawLines(lines_major)
+        self._draw_paper(painter, rect)
 
     # ── Punto de unión (junction dot) ───────────
     def drawForeground(self, painter: QPainter, rect: QRectF):
         super().drawForeground(painter, rect)
+
+        if self.print_mode:
+            return
 
         # Cuenta extremos LIBRES de cables (sin componente conectado) por
         # posición snapeada. Cuando concurren más de 3 en un mismo punto
@@ -669,6 +874,12 @@ class CircuitScene(QGraphicsScene):
         return None
 
     def mouseDoubleClickEvent(self, event):
+        if (self._mode == 'select' and self.paper_visible
+                and self.title_block_visible
+                and self.title_block_rect().contains(event.scenePos())):
+            self.title_block_edit_requested.emit()
+            return
+
         items = self.items(event.scenePos())
         if self._mode == 'select':
             wire = next((item for item in items if isinstance(item, WireItem)), None)

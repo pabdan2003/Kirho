@@ -1,11 +1,13 @@
 """Regresiones de las acciones básicas del editor esquemático."""
 import os
+import re
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QEvent, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtPrintSupport import QPrinter
+from PyQt6.QtWidgets import QApplication, QMenu, QToolBar
 
 from main import MainWindow
 from kirho.ui.items.wire_item import WireItem
@@ -51,6 +53,34 @@ def test_snap_can_be_disabled_for_precise_placement():
     assert item.pos() == QPointF(13, 17)
 
 
+def test_paper_format_changes_the_canvas_page():
+    scene = _scene()
+
+    assert scene.paper_format == "A4"
+    assert not scene.paper_visible
+    assert scene.set_paper_format("LEGAL")
+    assert scene.paper_rect().width() == 2492
+    assert scene.paper_rect().height() == 1512
+    scene.set_paper_visible(True)
+    assert scene.paper_visible
+    assert not scene.set_paper_format("unknown")
+
+
+def test_title_block_rect_is_inside_the_paper():
+    scene = _scene()
+
+    assert scene.paper_rect().contains(scene.title_block_rect())
+
+
+def test_title_block_grows_for_long_text():
+    scene = _scene()
+    default_width = scene.title_block_rect().width()
+    scene.set_title_block({'title': 'A' * 80})
+
+    assert scene.title_block_rect().width() > default_width
+    assert scene.paper_rect().contains(scene.title_block_rect())
+
+
 def test_double_click_wire_helper_makes_an_orthogonal_corner():
     scene = _scene()
     wire = WireItem(QPointF(0, 0), QPointF(40, 40))
@@ -93,6 +123,32 @@ def test_snap_action_toggles_without_calling_a_parameterless_slot():
     assert not window.scene.snap_enabled
     assert any(action.text() == "Check Circuit (ERC)"
                for action in window._tools_button.menu().actions())
+    window.close()
+
+
+def test_toolbar_and_native_menu_share_the_same_action_objects():
+    window = MainWindow()
+    save = window._shared_actions['save']
+
+    assert any(save in toolbar.actions()
+               for toolbar in window.findChildren(QToolBar))
+    assert any(save in menu.actions()
+               for menu in window.findChildren(QMenu))
+    window.close()
+
+
+def test_print_renderer_outputs_one_page_per_open_sheet(tmp_path):
+    window = MainWindow()
+    window._add_sheet("Sheet 2")
+    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
+    output = tmp_path / "sheets.pdf"
+    printer.setOutputFileName(str(output))
+
+    window._render_print_pages(
+        [sheet['scene'] for sheet in window._sheets], printer)
+
+    assert len(re.findall(rb'/Type\s*/Page\b', output.read_bytes())) == 2
     window.close()
 
 
