@@ -3121,6 +3121,38 @@ Edita los colores y haz clic en «Recargar lista» para verla en el selector.</t
         <source>Sheet:</source>
         <translation>Hoja:</translation>
     </message>
+    <message>
+        <source>Color</source>
+        <translation>Color</translation>
+    </message>
+    <message>
+        <source>Vectorized / monochrome</source>
+        <translation>Vectorizado / monocromático</translation>
+    </message>
+    <message>
+        <source>No logo</source>
+        <translation>Sin logo</translation>
+    </message>
+    <message>
+        <source>Load…</source>
+        <translation>Cargar…</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Limpiar</translation>
+    </message>
+    <message>
+        <source>Logo:</source>
+        <translation>Logo:</translation>
+    </message>
+    <message>
+        <source>Load Logo</source>
+        <translation>Cargar logo</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg)</source>
+        <translation>Imágenes (*.png *.jpg *.jpeg)</translation>
+    </message>
 </context>
 <context>
     <name>SubcircuitAppearanceDialog</name>

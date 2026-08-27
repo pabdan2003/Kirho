@@ -16,8 +16,8 @@ import re
 from typing import Optional, List, Dict, Tuple
 
 from PyQt6.QtWidgets import QGraphicsScene, QMenu, QDialog
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QFontMetricsF
-from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF, pyqtSignal
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QFontMetricsF, QImage
+from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF, pyqtSignal, QByteArray
 
 from kirho.ui.style import COLORS, GRID_SIZE, PIN_RADIUS, _qfont, theme_revision
 from kirho.ui.items.component_item import ComponentItem
@@ -118,6 +118,9 @@ class CircuitScene(QGraphicsScene):
         self.print_mode = False
         self.print_monochrome = True
         self.title_block = {key: '' for key, _ in TITLE_BLOCK_FIELDS}
+        self.title_block.update({'logo_data': '', 'logo_mode': 'color'})
+        self._title_block_logo_cache_key = None
+        self._title_block_logo_cache = QImage()
 
     @staticmethod
     def _counter_key_for_type(comp_type: str) -> str:
@@ -187,6 +190,8 @@ class CircuitScene(QGraphicsScene):
             f'{self.tr(label)}: {self.title_block.get(key, "")}'
             for key, label in TITLE_BLOCK_FIELDS
         ]
+        logo = self._title_block_logo()
+        logo_width = min(120.0, inner_rect.width() * 0.12) if not logo.isNull() else 0
 
         # Ajusta la fuente solo si el texto no cabe en el ancho útil de la
         # hoja; normalmente el cajetín crece horizontalmente.
@@ -198,7 +203,7 @@ class CircuitScene(QGraphicsScene):
             text_width = max(
                 QFontMetricsF(font).horizontalAdvance(line) for line in lines
             )
-            if text_width + 16 <= inner_rect.width():
+            if text_width + 16 + logo_width <= inner_rect.width():
                 break
             font_size -= 1
 
@@ -210,14 +215,17 @@ class CircuitScene(QGraphicsScene):
             QFontMetricsF(font).horizontalAdvance(line) for line in lines
         )
         base_width = min(420.0, inner_rect.width() * 0.45)
-        block_width = min(inner_rect.width(), max(base_width, text_width + 16))
+        block_width = min(
+            inner_rect.width(), max(base_width, text_width + 16 + logo_width))
         block = QRectF(
             inner_rect.right() - block_width,
             inner_rect.bottom() - block_height,
             block_width,
             block_height,
         )
-        return block, font, lines
+        logo_rect = QRectF(block.left(), block.top(), logo_width, block.height())
+        text_rect = block.adjusted(logo_width, 0, 0, 0)
+        return block, font, lines, logo_rect, text_rect
 
     def title_block_rect(self) -> QRectF:
         return self._title_block_layout(self._paper_inner_rect())[0]
@@ -254,7 +262,40 @@ class CircuitScene(QGraphicsScene):
             key: str(values.get(key, '') or '')
             for key, _ in TITLE_BLOCK_FIELDS
         }
+        self.title_block['logo_data'] = str(values.get('logo_data', '') or '')
+        self.title_block['logo_mode'] = (
+            'monochrome' if values.get('logo_mode') == 'monochrome' else 'color')
         self.update()
+
+    def _title_block_logo(self) -> QImage:
+        data = self.title_block.get('logo_data', '')
+        mode = self.title_block.get('logo_mode', 'color')
+        key = (data, mode)
+        if key == self._title_block_logo_cache_key:
+            return self._title_block_logo_cache
+
+        image = QImage()
+        if data:
+            try:
+                image = QImage.fromData(
+                    QByteArray.fromBase64(QByteArray(data.encode('ascii'))))
+            except (UnicodeEncodeError, ValueError):
+                image = QImage()
+        if not image.isNull() and mode == 'monochrome':
+            image = image.convertToFormat(QImage.Format.Format_ARGB32)
+            for y in range(image.height()):
+                for x in range(image.width()):
+                    color = image.pixelColor(x, y)
+                    gray = round(
+                        0.299 * color.red()
+                        + 0.587 * color.green()
+                        + 0.114 * color.blue())
+                    color.setRgb(gray, gray, gray, color.alpha())
+                    image.setPixelColor(x, y, color)
+
+        self._title_block_logo_cache_key = key
+        self._title_block_logo_cache = image
+        return image
 
     def _draw_title_block(self, painter: QPainter, inner_rect: QRectF):
         if not self.title_block_visible:
@@ -262,7 +303,7 @@ class CircuitScene(QGraphicsScene):
         if inner_rect.width() <= 0 or inner_rect.height() <= 0:
             return
 
-        block, font, lines = self._title_block_layout(inner_rect)
+        block, font, lines, logo_rect, text_rect = self._title_block_layout(inner_rect)
         border_color = QColor('#000000' if self.print_mode else
                               COLORS.get('comp_sel', COLORS.get('panel_brd', COLORS['grid_line'])))
         panel_color = QColor('#ffffff' if self.print_mode else
@@ -273,13 +314,18 @@ class CircuitScene(QGraphicsScene):
         painter.setPen(pen)
         painter.setBrush(QBrush(panel_color))
         painter.drawRect(block)
+        logo = self._title_block_logo()
+        if not logo.isNull():
+            painter.drawImage(logo_rect.adjusted(8, 8, -8, -8), logo)
+            painter.setPen(QPen(border_color, self.paper_line_width))
+            painter.drawLine(logo_rect.topRight(), logo_rect.bottomRight())
         # El cajetín se dibuja en coordenadas de escena, por lo que una fuente
         # pequeña desaparece al ajustar la hoja completa al viewport.
-        row_height = block.height() / len(TITLE_BLOCK_FIELDS)
+        row_height = text_rect.height() / len(TITLE_BLOCK_FIELDS)
         painter.setFont(font)
         for index, line in enumerate(lines):
-            row = QRectF(block.left(), block.top() + index * row_height,
-                         block.width(), row_height)
+            row = QRectF(text_rect.left(), text_rect.top() + index * row_height,
+                         text_rect.width(), row_height)
             if index:
                 painter.setPen(QPen(border_color, self.paper_line_width))
                 painter.drawLine(row.topLeft(), row.topRight())
