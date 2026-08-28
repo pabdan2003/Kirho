@@ -74,6 +74,8 @@ from kirho.ui.scene import (
 from kirho.ui.simulation_controller import SimulationController
 from kirho.ui.document_controller import DocumentController, ResponsivePrintPreview
 from kirho.ui.main_window_ui import MainWindowUI
+from kirho.pcb import PcbBoard
+from kirho.ui.pcb_editor import PcbEditorWidget
 
 
 class CircuitView(QGraphicsView):
@@ -162,16 +164,31 @@ class MainWindow(MainWindowUI, QMainWindow):
             sh.activated.connect(fn)
 
         def do_copy():
+            pcb = self._active_pcb_editor()
+            if pcb is not None:
+                if pcb.copy_selected():
+                    _msg(self.tr("Selection copied (Ctrl+C)"))
+                return
             sc = self.scene
             if sc is not None and sc.copy_selected():
                 _msg(self.tr("Selection copied (Ctrl+C)"))
 
         def do_cut():
+            pcb = self._active_pcb_editor()
+            if pcb is not None:
+                if pcb.cut_selected():
+                    _msg(self.tr("Selection cut (Ctrl+X)"))
+                return
             sc = self.scene
             if sc is not None and sc.cut_selected():
                 _msg(self.tr("Selection cut (Ctrl+X)"))
 
         def do_paste():
+            pcb = self._active_pcb_editor()
+            if pcb is not None:
+                _msg(self.tr("Pasted (Ctrl+V)")) if pcb.paste() else _msg(
+                    self.tr("Clipboard is empty"))
+                return
             sc = self.scene
             if sc is None:
                 return
@@ -181,6 +198,11 @@ class MainWindow(MainWindowUI, QMainWindow):
                 _msg(self.tr("Clipboard is empty"))
 
         def do_undo():
+            pcb = self._active_pcb_editor()
+            if pcb is not None:
+                _msg(self.tr("Action undone (Ctrl+Z)")) if pcb.undo() else _msg(
+                    self.tr("Nothing to undo"))
+                return
             sc = self.scene
             if sc is None:
                 return
@@ -190,6 +212,11 @@ class MainWindow(MainWindowUI, QMainWindow):
                 _msg(self.tr("Nothing to undo"))
 
         def do_redo():
+            pcb = self._active_pcb_editor()
+            if pcb is not None:
+                _msg(self.tr("Action redone")) if pcb.redo() else _msg(
+                    self.tr("Nothing to redo"))
+                return
             sc = self.scene
             if sc is not None and sc.redo():
                 _msg(self.tr("Action redone"))
@@ -197,6 +224,11 @@ class MainWindow(MainWindowUI, QMainWindow):
                 _msg(self.tr("Nothing to redo"))
 
         def do_duplicate():
+            pcb = self._active_pcb_editor()
+            if pcb is not None:
+                if pcb.duplicate_selected():
+                    _msg(self.tr("Selection duplicated"))
+                return
             sc = self.scene
             if sc is not None and sc.copy_selected() and sc.paste():
                 _msg(self.tr("Selection duplicated"))
@@ -237,13 +269,19 @@ class MainWindow(MainWindowUI, QMainWindow):
             if mods & Qt.KeyboardModifier.ControlModifier:
                 k = event.key()
                 if k in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
-                    if sc is not None and sc.rotate_selected(delta=-90):
+                    pcb = self._active_pcb_editor()
+                    rotated = (pcb is not None and pcb.rotate_selected(delta=-90))
+                    if ((sc is not None and sc.rotate_selected(delta=-90))
+                            or rotated):
                         self.statusBar().showMessage(
                             "Rotado 90° a la izquierda (Ctrl+-)")
                     return True
                 if k in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
                     sc = self.scene
-                    if sc is not None and sc.rotate_selected(delta=90):
+                    pcb = self._active_pcb_editor()
+                    rotated = (pcb is not None and pcb.rotate_selected(delta=90))
+                    if ((sc is not None and sc.rotate_selected(delta=90))
+                            or rotated):
                         self.statusBar().showMessage(
                             "Rotado 90° a la derecha (Ctrl++)")
                     return True
@@ -267,20 +305,24 @@ class MainWindow(MainWindowUI, QMainWindow):
         mod = event.modifiers()
         if mod & Qt.KeyboardModifier.ControlModifier:
             sc = self.scene
-            if sc is not None:
-                k = event.key()
-                if k in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
-                    if sc.rotate_selected(delta=-90):
-                        self.statusBar().showMessage(
-                            "Rotado 90° a la izquierda (Ctrl+-)")
-                    event.accept()
-                    return
-                if k in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
-                    if sc.rotate_selected(delta=90):
-                        self.statusBar().showMessage(
-                            "Rotado 90° a la derecha (Ctrl++)")
-                    event.accept()
-                    return
+            pcb = self._active_pcb_editor()
+            k = event.key()
+            if k in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
+                rotated = (sc is not None and sc.rotate_selected(delta=-90))
+                rotated = pcb.rotate_selected(delta=-90) if pcb is not None else rotated
+                if rotated:
+                    self.statusBar().showMessage(
+                        "Rotado 90° a la izquierda (Ctrl+-)")
+                event.accept()
+                return
+            if k in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
+                rotated = (sc is not None and sc.rotate_selected(delta=90))
+                rotated = pcb.rotate_selected(delta=90) if pcb is not None else rotated
+                if rotated:
+                    self.statusBar().showMessage(
+                        "Rotado 90° a la derecha (Ctrl++)")
+                event.accept()
+                return
         super().keyPressEvent(event)
 
     # ── CLK (oscilador global) ────────────────────────────────────────────
@@ -295,7 +337,7 @@ class MainWindow(MainWindowUI, QMainWindow):
     def _tick_clk(self):
         """Conmuta los CLK que están en modo automático."""
         any_active = False
-        for sheet in self._sheets:
+        for sheet in self._schematic_sheets():
             for it in sheet['scene'].components:
                 if it.comp_type == 'CLK' and it.clk_running:
                     it.value = 0.0 if it.value else 1.0
@@ -312,6 +354,8 @@ class MainWindow(MainWindowUI, QMainWindow):
         """Atajo Ctrl+K: invierte el estado oscilando de los CLK seleccionados.
         Si no hay ninguno seleccionado, conmuta todos los CLK del canvas.
         """
+        if self.scene is None:
+            return
         sel = [it for it in self.scene.selectedItems()
                if isinstance(it, ComponentItem) and it.comp_type == 'CLK']
         targets = sel if sel else [
@@ -328,7 +372,7 @@ class MainWindow(MainWindowUI, QMainWindow):
             it.update()
         # Iniciar/parar el timer global
         any_running_now = any(
-            it.clk_running for sheet in self._sheets
+            it.clk_running for sheet in self._schematic_sheets()
             for it in sheet['scene'].components if it.comp_type == 'CLK')
         if any_running_now:
             self._update_clk_timer_interval()
@@ -373,23 +417,44 @@ class MainWindow(MainWindowUI, QMainWindow):
         """Abre el analizador de Bode (barrido AC + plots de magnitud y fase).
         No-modal: se puede dejar abierto mientras editas el circuito y
         recalcular al gusto."""
+        if self.scene is None:
+            return
         from kirho.ui.dialogs.bode_dialog import BodeDialog
         dlg = BodeDialog(self.scene, COLORS, parent=self)
         dlg.show()
 
-    @property
-    def scene(self) -> 'CircuitScene':
+    def _active_tab(self) -> Optional[Dict]:
         idx = self.tab_widget.currentIndex()
-        if idx < 0 or idx >= len(self._sheets):
-            return self._sheets[0]['scene']
-        return self._sheets[idx]['scene']
+        if 0 <= idx < len(self._sheets):
+            return self._sheets[idx]
+        return None
+
+    def _schematic_sheets(self) -> List[Dict]:
+        return [sheet for sheet in self._sheets
+                if sheet.get('kind', 'schematic') == 'schematic']
+
+    def _is_pcb_tab(self) -> bool:
+        tab = self._active_tab()
+        return bool(tab and tab.get('kind') == 'pcb')
+
+    def _active_pcb_editor(self):
+        tab = self._active_tab()
+        return tab['widget'] if tab and tab.get('kind') == 'pcb' else None
+
+    @property
+    def scene(self) -> Optional['CircuitScene']:
+        tab = self._active_tab()
+        if tab is None or tab.get('kind', 'schematic') != 'schematic':
+            return None
+        return tab['scene']
 
     @property
     def view(self) -> QGraphicsView:
+        tab = self._active_tab()
+        if tab is not None:
+            return tab['view']
         idx = self.tab_widget.currentIndex()
-        if idx < 0 or idx >= len(self._sheets):
-            return self._sheets[0]['view']
-        return self._sheets[idx]['view']
+        return self._sheets[0]['view'] if idx < 0 and self._sheets else None
 
     def _create_scene_view(self) -> Tuple[CircuitScene, QGraphicsView]:
         scene = CircuitScene()
@@ -411,26 +476,89 @@ class MainWindow(MainWindowUI, QMainWindow):
             idx = len(self._sheets) + 1
             name = self.tr("Sheet {number}").format(number=idx)
         scene, view = self._create_scene_view()
-        sheet = {'scene': scene, 'view': view, 'name': name}
+        sheet = {'kind': 'schematic', 'scene': scene, 'view': view,
+                 'widget': view, 'name': name}
         self._sheets.append(sheet)
         tab_idx = self.tab_widget.addTab(view, name)
         self.tab_widget.setCurrentIndex(tab_idx)
 
+    def _open_pcb_editor(self, board: PcbBoard | None = None,
+                         source_scene=None):
+        """Abre la vista PCB como una pestaña del proyecto actual."""
+        for index, sheet in enumerate(self._sheets):
+            if sheet.get('kind') == 'pcb':
+                self.tab_widget.setCurrentIndex(index)
+                return
+        if source_scene is None:
+            source_scene = self.scene
+        if board is None and source_scene is not None:
+            pcb_path = self._pcb_file or self.documents._default_pcb_path()
+            if pcb_path and os.path.isfile(pcb_path):
+                board = self.documents._load_pcb_board(pcb_path)
+                if board is None:
+                    return
+            elif self._legacy_pcb_data is not None:
+                board = PcbBoard.from_dict(self._legacy_pcb_data)
+            if board is not None and pcb_path:
+                self._pcb_file = os.path.abspath(pcb_path)
+        if source_scene is None and board is None:
+            return
+
+        pcb_widget = PcbEditorWidget(source_scene, board, self.tab_widget)
+        sheet = {
+            'kind': 'pcb',
+            'scene': None,
+            'view': pcb_widget.view,
+            'widget': pcb_widget,
+            'name': self.tr('PCB'),
+            'board': pcb_widget.board,
+            'source_scene': source_scene,
+        }
+        pcb_widget.board_changed.connect(
+            lambda updated, entry=sheet: entry.__setitem__('board', updated))
+        self._sheets.append(sheet)
+        tab_idx = self.tab_widget.addTab(pcb_widget, sheet['name'])
+        self.tab_widget.setCurrentIndex(tab_idx)
+
+    def _regenerate_pcb(self):
+        tab = self._active_tab()
+        if not tab or tab.get('kind') != 'pcb':
+            return
+        tab['widget']._regenerate()
+
+    def _set_pcb_unit(self, unit: str):
+        tab = self._active_tab()
+        if tab and tab.get('kind') == 'pcb':
+            tab['widget'].set_unit(unit)
+
+    def _set_pcb_area_mode(self):
+        tab = self._active_tab()
+        if tab and tab.get('kind') == 'pcb':
+            tab['widget'].set_area_mode(not tab['widget'].area_mode)
+
     def _close_sheet(self, index: int):
-        if len(self._sheets) <= 1:
+        if not 0 <= index < len(self._sheets):
+            return
+        entry = self._sheets[index]
+        if entry.get('kind', 'schematic') == 'schematic' and len(self._schematic_sheets()) <= 1:
             self.statusBar().showMessage(self.tr("The last sheet cannot be closed"))
             return
         reply = QMessageBox.question(
             self, self.tr("Close Sheet"),
-            self.tr("Close \"{name}\"? Its components will be lost.").format(name=self._sheets[index]['name']),
+            self.tr("Close \"{name}\"? Its components will be lost.").format(name=entry['name']),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
             self._sheets.pop(index)
             self.tab_widget.removeTab(index)
+            self._on_sheet_changed(self.tab_widget.currentIndex())
 
     def _on_sheet_changed(self, index: int):
         if 0 <= index < len(self._sheets):
+            self._update_tab_mode()
+            if self._sheets[index].get('kind') == 'pcb':
+                self.statusBar().showMessage(self.tr("Active tab: PCB"))
+                return
             if hasattr(self, '_snap_action'):
                 self._snap_action.setChecked(self.scene.snap_enabled)
             self._update_paper_visibility_action()
@@ -438,7 +566,13 @@ class MainWindow(MainWindowUI, QMainWindow):
             self._update_paper_actions()
             self.statusBar().showMessage(self.tr("Active sheet: {name}").format(name=self._sheets[index]['name']))
 
+    def _on_tab_moved(self, from_index: int, to_index: int):
+        entry = self._sheets.pop(from_index)
+        self._sheets.insert(to_index, entry)
+
     def _set_paper_format(self, paper_format: str):
+        if self.scene is None:
+            return
         if self.scene.set_paper_format(paper_format):
             self._update_paper_actions()
             if self.scene.paper_visible:
@@ -448,6 +582,8 @@ class MainWindow(MainWindowUI, QMainWindow):
                 self.tr("Paper size: {format}").format(format=label))
 
     def _set_paper_line_width(self):
+        if self.scene is None:
+            return
         width, ok = QInputDialog.getDouble(
             self,
             self.tr("Paper line width"),
@@ -461,19 +597,23 @@ class MainWindow(MainWindowUI, QMainWindow):
             self.scene.set_paper_line_width(width)
 
     def _update_paper_actions(self):
-        if not hasattr(self, '_paper_actions'):
+        if not hasattr(self, '_paper_actions') or self.scene is None:
             return
         current = self.scene.paper_format
         for paper_id, action in self._paper_actions.items():
             action.setChecked(paper_id == current)
 
     def _toggle_paper_frame(self, visible: bool):
+        if self.scene is None:
+            return
         self.scene.set_paper_visible(visible)
         if visible:
             self._fit_paper_in_view()
         self._update_paper_visibility_action()
 
     def _toggle_title_block(self, visible: bool):
+        if self.scene is None:
+            return
         if visible and not self.scene.paper_visible:
             self.scene.set_paper_visible(True)
             self._update_paper_visibility_action()
@@ -483,22 +623,26 @@ class MainWindow(MainWindowUI, QMainWindow):
         self._update_title_block_visibility_action()
 
     def _edit_title_block(self):
+        if self.scene is None:
+            return
         dialog = TitleBlockDialog(self.scene.title_block, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.scene.set_title_block(dialog.values())
             self._toggle_title_block(True)
 
     def _update_title_block_visibility_action(self):
-        if hasattr(self, '_title_block_visibility_action'):
+        if hasattr(self, '_title_block_visibility_action') and self.scene is not None:
             self._title_block_visibility_action.setChecked(
                 self.scene.title_block_visible)
 
     def _fit_paper_in_view(self):
+        if self.scene is None:
+            return
         self.view.fitInView(
             self.scene.paper_rect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def _update_paper_visibility_action(self):
-        if hasattr(self, '_paper_visibility_action'):
+        if hasattr(self, '_paper_visibility_action') and self.scene is not None:
             self._paper_visibility_action.setChecked(self.scene.paper_visible)
 
     def _rename_sheet(self, index: int):
@@ -518,25 +662,48 @@ class MainWindow(MainWindowUI, QMainWindow):
         )
 
     def _undo_active_sheet(self):
-        if not self.scene.undo():
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            if not pcb.undo():
+                self.statusBar().showMessage(self.tr("Nothing to undo"))
+            return
+        if self.scene is None or not self.scene.undo():
             self.statusBar().showMessage(self.tr("Nothing to undo"))
 
     def _redo_active_sheet(self):
-        if not self.scene.redo():
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            if not pcb.redo():
+                self.statusBar().showMessage(self.tr("Nothing to redo"))
+            return
+        if self.scene is None or not self.scene.redo():
             self.statusBar().showMessage(self.tr("Nothing to redo"))
 
     def _copy_active_selection(self):
-        self.scene.copy_selected()
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            return pcb.copy_selected()
+        return self.scene is not None and self.scene.copy_selected()
 
     def _cut_active_selection(self):
-        self.scene.cut_selected()
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            return pcb.cut_selected()
+        return self.scene is not None and self.scene.cut_selected()
 
     def _paste_active_selection(self):
-        self.scene.paste()
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            return pcb.paste()
+        return self.scene is not None and self.scene.paste()
 
     def _duplicate_active_selection(self):
-        if self.scene.copy_selected():
-            self.scene.paste()
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            return pcb.duplicate_selected()
+        if self.scene is not None and self.scene.copy_selected():
+            return self.scene.paste()
+        return False
 
     def _align_selection(self, edge: str):
         if not self.scene.align_selected(edge):
@@ -593,7 +760,7 @@ class MainWindow(MainWindowUI, QMainWindow):
     def _refresh_theme_in_ui(self):
         """Re-aplica stylesheet y fuerza redibujo del canvas tras cambiar tema."""
         self._apply_style()
-        for sheet in self._sheets:
+        for sheet in self._schematic_sheets():
             sheet['scene'].setBackgroundBrush(QBrush(QColor(COLORS['bg'])))
             sheet['scene'].update()
             sheet['view'].viewport().update()
@@ -953,7 +1120,8 @@ class MainWindow(MainWindowUI, QMainWindow):
         # para la frecuencia ANTERIOR, lo que produce aliasing severo y
         # hace que el circuito “no responda” al cambio de frecuencia.
         if item.comp_type in ('VAC', 'FGEN'):
-            all_items = [it for sh in self._sheets for it in sh['scene'].components]
+            all_items = [it for sh in self._schematic_sheets()
+                         for it in sh['scene'].components]
             new_freq = self._max_ac_source_frequency(all_items)
             if new_freq:
                 prev_freq = self._live_freq
@@ -1186,6 +1354,8 @@ class MainWindow(MainWindowUI, QMainWindow):
 
     def _clear_circuit(self):
         """Limpia solo la hoja activa."""
+        if self.scene is None:
+            return
         for item in self.scene.components + self.scene.wires:
             self.scene.removeItem(item)
         self.scene.components.clear()
@@ -1193,9 +1363,9 @@ class MainWindow(MainWindowUI, QMainWindow):
         self.scene._comp_counter.clear()
         self.results_text.clear()
 
-    def _clear_all_sheets(self):
-        """Elimina todas las hojas y crea una nueva vacía."""
-        for sheet in self._sheets:
+    def _clear_all_sheets(self, create_sheet=True):
+        """Elimina todas las hojas y opcionalmente crea una nueva vacía."""
+        for sheet in self._schematic_sheets():
             sc = sheet['scene']
             for item in sc.components + sc.wires:
                 sc.removeItem(item)
@@ -1204,7 +1374,10 @@ class MainWindow(MainWindowUI, QMainWindow):
             sc._comp_counter.clear()
         self._sheets.clear()
         self.tab_widget.clear()
-        self._add_sheet(name=self.tr("Sheet 1"))
+        self._pcb_file = None
+        self._legacy_pcb_data = None
+        if create_sheet:
+            self._add_sheet(name=self.tr("Sheet 1"))
         self.results_text.clear()
         self._current_file = None
         self.setWindowTitle(self.tr("Kirho — Circuit Simulator"))
@@ -1219,13 +1392,20 @@ class MainWindow(MainWindowUI, QMainWindow):
         return controller._load_sheet_data(scene, sheet_data)
 
     def _save_circuit(self):
+        if self._is_pcb_tab():
+            return self.documents._save_pcb()
         return self.documents._save_circuit()
 
     def _save_circuit_as(self):
+        if self._is_pcb_tab():
+            return self.documents._save_pcb_as()
         return self.documents._save_circuit_as()
 
     def _open_circuit(self, path=None):
         return self.documents._open_circuit(path)
+
+    def _open_pcb_file(self, path=None):
+        return self.documents._open_pcb_file(path)
 
     def _import_spice(self):
         return self.documents._import_spice()
@@ -1244,6 +1424,10 @@ class MainWindow(MainWindowUI, QMainWindow):
         return self.documents._render_print_pages(scenes, printer, monochrome)
 
     def _reset_zoom(self):
+        if self.scene is None:
+            self.view.resetTransform()
+            self.view.fitInView(self.view.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            return
         if self.scene.paper_visible:
             self._fit_paper_in_view()
             return

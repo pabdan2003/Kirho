@@ -67,7 +67,7 @@ class SimulationController:
         merged_pin_node: Dict[str, str] = {}
 
         sheet_netlists = []
-        for i, sheet in enumerate(self._sheets):
+        for i, sheet in enumerate(self._schematic_sheets()):
             sc = sheet['scene']
             pn = sc.extract_netlist()
             prefix = f"_s{i}_"
@@ -85,7 +85,7 @@ class SimulationController:
         # Aquí unimos los nets canónicos de cada hoja que comparten label.
         label_canonical: Dict[str, str] = {}  # label → net canónico global
 
-        for i, sheet in enumerate(self._sheets):
+        for i, sheet in enumerate(self._schematic_sheets()):
             pn = sheet_netlists[i]
             for comp in sheet['scene'].components:
                 if comp.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT') and comp.sheet_label:
@@ -114,10 +114,10 @@ class SimulationController:
         """Retorna (all_comps, pin_node) considerando net labels multi-hoja."""
         has_net_labels = any(
             comp.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT')
-            for sheet in self._sheets
+            for sheet in self._schematic_sheets()
             for comp in sheet['scene'].components
         )
-        if has_net_labels or len(self._sheets) > 1:
+        if has_net_labels or len(self._schematic_sheets()) > 1:
             comps, pin_node = self._merge_all_sheets()
         else:
             comps = list(self.scene.components)
@@ -199,7 +199,7 @@ class SimulationController:
         self._live_phasor_summary = ""
         self.run_btn.setChecked(False)
         self.run_btn.setText(self.tr("▶  SIMULATE"))
-        for sheet in self._sheets:
+        for sheet in self._schematic_sheets():
             for item in sheet['scene'].components:
                 if item.comp_type in ComponentItem.LIGHT_TYPES:
                     item.led_on = False
@@ -615,7 +615,7 @@ class SimulationController:
     def _refresh_open_multimeter_panels(self):
         """Refresca cada panel abierto de multímetro para que muestre la lectura
         recién calculada. Llamado desde los flujos de simulación."""
-        for sheet in self._sheets:
+        for sheet in self._schematic_sheets():
             for item in sheet['scene'].components:
                 if item.comp_type != 'MULTIMETER':
                     continue
@@ -1132,7 +1132,7 @@ class SimulationController:
             self._evaluate_digital_gates(pin_node, _dig_voltages, silent=silent, out=out, sim_comps=sim_comps)
             if not silent:
                 self.results_text.setPlainText('\n'.join(out))
-            for sheet in self._sheets:
+            for sheet in self._schematic_sheets():
                 sheet['scene'].update()
             return
 
@@ -1275,7 +1275,7 @@ class SimulationController:
 
         if not silent:
             self.results_text.setPlainText('\n'.join(out))
-        for sheet in self._sheets:
+        for sheet in self._schematic_sheets():
             sheet['scene'].update()
         self._refresh_open_multimeter_panels()
 

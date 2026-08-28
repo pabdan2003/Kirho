@@ -22,6 +22,7 @@ from PyQt6.QtPrintSupport import (
 )
 
 from kirho.spice import export_netlist, parse_netlist
+from kirho.pcb import PcbBoard
 from kirho.ui.items.component_item import ComponentItem
 from kirho.ui.items.wire_item import WireItem
 from kirho.ui.scene import (
@@ -51,6 +52,14 @@ class DocumentController:
     @_current_file.setter
     def _current_file(self, value):
         self._window._current_file = value
+
+    @property
+    def _pcb_file(self):
+        return getattr(self._window, '_pcb_file', None)
+
+    @_pcb_file.setter
+    def _pcb_file(self, value):
+        self._window._pcb_file = value
 
     def __getattr__(self, name):
         return getattr(self._window, name)
@@ -330,12 +339,28 @@ class DocumentController:
             path += '.csin'
 
         sheets = []
-        for sheet in self._sheets:
+        for sheet in self._schematic_sheets():
             sd = self._serialize_sheet(sheet['scene'])
             sd['name'] = sheet['name']
             sheets.append(sd)
 
-        data = {'version': '2.0', 'sheets': sheets}
+        data = {'version': '2.1', 'format': 'kirho-schematic', 'sheets': sheets}
+        pcb_tab = next((sheet for sheet in self._sheets
+                        if sheet.get('kind') == 'pcb'), None)
+        pcb_path = self._pcb_file
+        if pcb_path is None and pcb_tab is not None:
+            pcb_path = os.path.splitext(path)[0] + '.kpcb'
+            self._pcb_file = os.path.abspath(pcb_path)
+        if pcb_path:
+            data['pcb_file'] = os.path.relpath(
+                pcb_path, os.path.dirname(os.path.abspath(path)) or '.')
+        if pcb_path and pcb_tab is not None:
+            self._write_pcb_file(pcb_path, pcb_tab['board'])
+        elif pcb_path and self._window._legacy_pcb_data is not None:
+            legacy_board = PcbBoard.from_dict(self._window._legacy_pcb_data)
+            if legacy_board is not None and not os.path.exists(pcb_path):
+                self._write_pcb_file(pcb_path, legacy_board)
+                self._window._legacy_pcb_data = None
 
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -343,6 +368,66 @@ class DocumentController:
         self._current_file = path
         self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
         self.statusBar().showMessage(self.tr("Saved: {path}").format(path=path))
+
+    def _default_pcb_path(self, circuit_path=None):
+        circuit_path = circuit_path or self._current_file
+        if not circuit_path:
+            return None
+        return os.path.splitext(circuit_path)[0] + '.kpcb'
+
+    def _load_pcb_board(self, path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(
+                self._window, self.tr("Error"),
+                self.tr("Could not open PCB file:\n{error}").format(error=exc))
+            return None
+        board = PcbBoard.from_dict(data.get('board', data)
+                                   if isinstance(data, dict) else None)
+        if board is None:
+            QMessageBox.critical(
+                self._window, self.tr("Error"),
+                self.tr("The PCB file does not contain a valid board."))
+        return board
+
+    def _write_pcb_file(self, path, board):
+        data = {
+            'version': '1.0',
+            'format': 'kirho-pcb',
+            'source_circuit': os.path.basename(self._current_file)
+            if self._current_file else None,
+            'board': board.to_dict(),
+        }
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+    def _save_pcb(self, path=None):
+        pcb_tab = next((sheet for sheet in self._sheets
+                        if sheet.get('kind') == 'pcb'), None)
+        if pcb_tab is None:
+            return
+        path = path or self._pcb_file or self._default_pcb_path()
+        if not path:
+            path, _ = QFileDialog.getSaveFileName(
+                self._window, self.tr("Save PCB"), "",
+                self.tr("Kirho PCB (*.kpcb);;All Files (*)"))
+        if not path:
+            return
+        if not path.lower().endswith('.kpcb'):
+            path += '.kpcb'
+
+        self._write_pcb_file(path, pcb_tab['board'])
+        self._pcb_file = os.path.abspath(path)
+        self.statusBar().showMessage(self.tr("PCB saved: {path}").format(path=path))
+
+    def _save_pcb_as(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self._window, self.tr("Save PCB As"), "",
+            self.tr("Kirho PCB (*.kpcb);;All Files (*)"))
+        if path:
+            self._save_pcb(path)
 
     # ── Guardar como (.csin) ─────────────────────
     def _save_circuit_as(self):
@@ -359,13 +444,17 @@ class DocumentController:
 
     # ── Abrir (.csin) ────────────────────────────
     def _open_circuit(self, path=None):
+        if isinstance(path, str) and path.lower().endswith('.kpcb'):
+            return self._open_pcb_file(path)
         if not isinstance(path, str) or not path:
             path, _ = QFileDialog.getOpenFileName(
                 self._window, self.tr("Open Circuit"), "",
-                self.tr("Kirho (*.csin);;All Files (*)")
+                self.tr("Kirho files (*.csin *.kpcb);;Kirho schematic (*.csin);;Kirho PCB (*.kpcb);;All Files (*)")
             )
         if not path:
             return
+        if path.lower().endswith('.kpcb'):
+            return self._open_pcb_file(path)
 
         try:
             with open(path, 'r', encoding='utf-8') as f:
@@ -395,12 +484,40 @@ class DocumentController:
         if self.scene.paper_visible:
             self._fit_paper_in_view()
 
+        pcb_ref = data.get('pcb_file')
+        if not isinstance(pcb_ref, str) or not pcb_ref:
+            pcb_ref = os.path.splitext(os.path.basename(path))[0] + '.kpcb'
+        self._pcb_file = os.path.abspath(
+            pcb_ref if os.path.isabs(pcb_ref)
+            else os.path.join(os.path.dirname(os.path.abspath(path)), pcb_ref))
+        self._window._legacy_pcb_data = data.get('pcb')
+
         self._current_file = path
         self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
         self.statusBar().showMessage(self.tr("Opened: {path}").format(path=path))
 
+    def _open_pcb_file(self, path=None):
+        if not isinstance(path, str) or not path:
+            path, _ = QFileDialog.getOpenFileName(
+                self._window, self.tr("Open PCB"), "",
+                self.tr("Kirho PCB (*.kpcb);;All Files (*)"))
+        if not path:
+            return
+        board = self._load_pcb_board(path)
+        if board is None:
+            return
+        self._clear_all_sheets(create_sheet=False)
+        self._current_file = None
+        self._pcb_file = os.path.abspath(path)
+        self._window._legacy_pcb_data = None
+        self._open_pcb_editor(board, source_scene=None)
+        self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
+        self.statusBar().showMessage(self.tr("Opened PCB: {path}").format(path=path))
+
     # ── Importar netlist SPICE ────────────────────────────────────────────
     def _import_spice(self):
+        if self.scene is None:
+            return
         path, _ = QFileDialog.getOpenFileName(
             self._window, self.tr("Import SPICE Netlist"), "",
             self.tr("SPICE Netlist (*.cir *.net *.sp);;All Files (*)"))
@@ -445,6 +562,8 @@ class DocumentController:
 
     # ── Exportar netlist SPICE (.net) ────────────
     def _export_spice(self):
+        if self.scene is None:
+            return
         path, _ = QFileDialog.getSaveFileName(
             self._window, self.tr("Export SPICE Netlist"), "",
             self.tr("SPICE Netlist (*.cir *.net *.sp);;All Files (*)")
@@ -470,7 +589,7 @@ class DocumentController:
         )
 
     def _print_sheet(self):
-        scenes = [sheet['scene'] for sheet in self._sheets]
+        scenes = [sheet['scene'] for sheet in self._schematic_sheets()]
         if not scenes:
             return
 
@@ -492,7 +611,7 @@ class DocumentController:
         color_logo = any(
             sheet['scene'].title_block.get('logo_mode') == 'color'
             and sheet['scene'].title_block.get('logo_data')
-            for sheet in self._sheets
+            for sheet in self._schematic_sheets()
         )
         printer.setColorMode(
             QPrinter.ColorMode.Color if color_logo

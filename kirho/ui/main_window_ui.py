@@ -4,7 +4,7 @@ import sys
 from typing import Dict, List
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QTableWidget, QTextEdit,
+    QWidget, QVBoxLayout, QLabel, QTableWidget, QTextEdit, QComboBox,
     QPushButton, QSplitter, QTabWidget, QToolBar,
 )
 from PyQt6.QtGui import QAction, QFont, QKeySequence
@@ -43,12 +43,13 @@ class MainWindowUI:
 
     def _build_ui(self):
         # Sistema de hojas (tabs) — cada hoja tiene su propia escena y vista
-        self._sheets: List[Dict] = []  # [{scene, view, name}]
+        self._sheets: List[Dict] = []  # [{kind, scene, view, name, widget}]
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabsClosable(True)
         self.tab_widget.setMovable(True)
         self.tab_widget.tabCloseRequested.connect(self._close_sheet)
         self.tab_widget.currentChanged.connect(self._on_sheet_changed)
+        self.tab_widget.tabBar().tabMoved.connect(self._on_tab_moved)
 
         # El botón para agregar hojas vive en la toolbar principal (+ Hoja)
         # Doble-click en la pestaña para renombrar
@@ -78,6 +79,8 @@ class MainWindowUI:
 
         # ── Toolbar SECUNDARIA (fila 2: categorías, herramientas, simulación)
         self._build_component_toolbar()
+        self._build_pcb_toolbar()
+        self._update_tab_mode()
 
         # Status bar
         self.statusBar().showMessage(self.tr("Ready — Choose a category to place components"))
@@ -154,6 +157,9 @@ class MainWindowUI:
             ('save_as', 'Save As…', self._save_circuit_as, 'Ctrl+Shift+S'),
             ('print', 'Print…', self._print_sheet, None),
             ('export_spice', 'Export SPICE', self._export_spice, 'Ctrl+E'),
+            ('open_pcb', 'Open PCB Editor', lambda checked=False: self._open_pcb_editor(), None),
+            ('regenerate_pcb', 'Regenerate PCB', self._regenerate_pcb, None),
+            ('pcb_area', 'Define PCB Area', lambda checked=False: self._set_pcb_area_mode(), None),
             ('add_sheet', '+ Sheet', lambda: self._add_sheet(), 'Ctrl+T'),
             ('clear', 'Clear', self._clear_circuit, 'Ctrl+L'),
             ('zoom_in', 'Zoom +', lambda: self.view.scale(1.2, 1.2), None),
@@ -213,6 +219,7 @@ class MainWindowUI:
 
         actions = [
             'new', 'open', 'import_spice', 'save', 'save_as', 'export_spice',
+            'open_pcb',
             '|', 'add_sheet', '__TOOLS__', 'clear',
             'zoom_in', 'zoom_out', 'reset',
         ]
@@ -239,6 +246,8 @@ class MainWindowUI:
         tb.addAction(act_settings)
 
         self._current_file: Optional[str] = None
+        self._pcb_file: Optional[str] = None
+        self._legacy_pcb_data = None
 
 
     def _build_menu_bar(self):
@@ -256,7 +265,7 @@ class MainWindowUI:
         for key in ('new', 'open', 'import_spice', 'save', 'save_as', 'print'):
             file_menu.addAction(self._shared_actions[key])
         file_menu.addSeparator()
-        for key in ('export_spice', 'add_sheet'):
+        for key in ('export_spice', 'open_pcb', 'add_sheet'):
             file_menu.addAction(self._shared_actions[key])
 
         edit_menu = menu_bar.addMenu(self.tr("Edit"))
@@ -326,6 +335,7 @@ class MainWindowUI:
         tb.setMovable(False)
         tb.setObjectName("component_toolbar")
         self.addToolBar(tb)
+        self._component_toolbar = tb
 
         # ── Categorías de componentes ────────────────────────────────────
         categories = [
@@ -450,6 +460,65 @@ class MainWindowUI:
         self.run_btn.clicked.connect(self._toggle_simulation)
         tb.addWidget(self.run_btn)
 
+    def _build_pcb_toolbar(self):
+        """Barra secundaria visible sólo cuando la pestaña PCB está activa."""
+        tb = QToolBar("PCB", self)
+        tb.setMovable(False)
+        tb.setObjectName("pcb_toolbar")
+        tb.setVisible(False)
+        self.addToolBar(tb)
+        tb.addAction(self._shared_actions['regenerate_pcb'])
+        tb.addAction(self._shared_actions['pcb_area'])
+        tb.addSeparator()
+        tb.addWidget(QLabel(self.tr('Grid:')))
+        self._pcb_unit_combo = QComboBox()
+        self._pcb_unit_combo.addItems(['mm', 'in'])
+        self._pcb_unit_combo.setToolTip(self.tr('PCB grid units'))
+        self._pcb_unit_combo.currentTextChanged.connect(self._set_pcb_unit)
+        tb.addWidget(self._pcb_unit_combo)
+        self._pcb_toolbar = tb
+
+    def _update_tab_mode(self):
+        """Cambia los controles superiores según la pestaña activa."""
+        if not hasattr(self, '_component_toolbar'):
+            return
+        pcb_active = self._is_pcb_tab()
+        self._component_toolbar.setVisible(not pcb_active)
+        self._pcb_toolbar.setVisible(pcb_active)
+
+        schematic_only = (
+            'import_spice', 'print', 'export_spice', 'clear', 'select', 'wire',
+            'align_left', 'align_right', 'align_top', 'align_bottom',
+            'distribute_horizontal', 'distribute_vertical', 'clk_frequency',
+            'analyze', 'bode', 'erc', 'open_pcb',
+        )
+        for key in schematic_only:
+            action = self._shared_actions.get(key)
+            if action is not None:
+                action.setEnabled(not pcb_active)
+                if key == 'open_pcb':
+                    action.setVisible(not pcb_active)
+        active = self._active_tab()
+        self._shared_actions['regenerate_pcb'].setEnabled(
+            pcb_active and active.get('source_scene') is not None
+            if active else False)
+        self._shared_actions['pcb_area'].setEnabled(pcb_active)
+        if pcb_active and active is not None:
+            self._pcb_unit_combo.blockSignals(True)
+            self._pcb_unit_combo.setCurrentText(active['widget'].unit)
+            self._pcb_unit_combo.blockSignals(False)
+
+        if hasattr(self, '_snap_action'):
+            self._snap_action.setVisible(not pcb_active)
+        for action in (
+            getattr(self, '_paper_visibility_action', None),
+            getattr(self, '_title_block_visibility_action', None),
+        ):
+            if action is not None:
+                action.setVisible(not pcb_active)
+        for action in getattr(self, '_paper_actions', {}).values():
+            action.setVisible(not pcb_active)
+
     # ── Estilo ───────────────────────────────────
 
     def _apply_style(self):
@@ -466,6 +535,10 @@ class MainWindowUI:
                 spacing: 6px;
             }}
             QToolBar#component_toolbar {{
+                background: {COLORS['panel']};
+                border-bottom: 2px solid {COLORS['panel_brd']};
+            }}
+            QToolBar#pcb_toolbar {{
                 background: {COLORS['panel']};
                 border-bottom: 2px solid {COLORS['panel_brd']};
             }}
