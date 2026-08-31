@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import os
 
-from PyQt6.QtCore import QUrl
+from PyQt6.QtCore import QUrl, Qt
 from PyQt6.QtGui import QDesktopServices, QFont
 from PyQt6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFileDialog, QGroupBox,
     QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout,
+    QApplication, QInputDialog,
 )
+
+from kirho.external_libraries import ExternalLibraryManager
 
 
 class SettingsDialog(QDialog):
@@ -22,7 +25,8 @@ class SettingsDialog(QDialog):
                  current_theme_id: str = 'dark',
                  on_theme_change=None,
                  current_language: str = 'en',
-                 on_language_change=None):
+                 on_language_change=None,
+                 library_manager: ExternalLibraryManager | None = None):
         super().__init__(parent)
         self.theme_manager = theme_manager
         self.colors = colors
@@ -30,8 +34,9 @@ class SettingsDialog(QDialog):
         self._on_theme_change = on_theme_change
         self._current_language = current_language
         self._on_language_change = on_language_change
+        self.library_manager = library_manager or ExternalLibraryManager()
         self.setWindowTitle(self.tr("Settings"))
-        self.setMinimumSize(560, 380)
+        self.setMinimumSize(560, 520)
         self._build_ui()
 
     def _build_ui(self):
@@ -97,6 +102,41 @@ class SettingsDialog(QDialog):
 
         main.addWidget(gb_theme)
 
+        gb_libraries = QGroupBox(self.tr("External libraries"))
+        libraries_layout = QVBoxLayout(gb_libraries)
+        self.external_libraries_path = QLabel()
+        self.external_libraries_path.setWordWrap(True)
+        libraries_layout.addWidget(self.external_libraries_path)
+
+        self.external_libraries_list = QLabel()
+        self.external_libraries_list.setWordWrap(True)
+        self.external_libraries_list.setFont(QFont('Menlo', 8))
+        libraries_layout.addWidget(self.external_libraries_list)
+
+        libraries_buttons = QHBoxLayout()
+        btn_open_libraries = QPushButton(self.tr("📁  Open libraries folder"))
+        btn_open_libraries.clicked.connect(self._open_libraries_folder)
+        libraries_buttons.addWidget(btn_open_libraries)
+
+        btn_install_library = QPushButton(self.tr("Install package…"))
+        btn_install_library.clicked.connect(self._install_external_library)
+        libraries_buttons.addWidget(btn_install_library)
+
+        btn_reload_libraries = QPushButton(self.tr("Reload list"))
+        btn_reload_libraries.clicked.connect(self._refresh_external_libraries)
+        libraries_buttons.addWidget(btn_reload_libraries)
+        libraries_buttons.addStretch()
+        libraries_layout.addLayout(libraries_buttons)
+
+        libraries_hint = QLabel(self.tr(
+            "Optional simulator backends are installed separately and loaded "
+            "only when needed. Install only packages you trust."))
+        libraries_hint.setWordWrap(True)
+        libraries_hint.setFont(QFont('Menlo', 8))
+        libraries_hint.setStyleSheet(f"color: {self.colors['text_dim']};")
+        libraries_layout.addWidget(libraries_hint)
+        main.addWidget(gb_libraries)
+
         gb_language = QGroupBox(self.tr("Language"))
         language_layout = QHBoxLayout(gb_language)
         language_layout.addWidget(QLabel(self.tr("Interface language:")))
@@ -119,6 +159,50 @@ class SettingsDialog(QDialog):
         main.addWidget(bbox)
 
         self._refresh_theme_description()
+        self._refresh_external_libraries()
+
+    def _refresh_external_libraries(self):
+        path = self.library_manager.ensure_user_dir()
+        self.external_libraries_path.setText(
+            self.tr("Folder: {path}").format(path=path))
+        packages = self.library_manager.list_installed()
+        backends = self.library_manager.list_backends()
+        lines = [f"{p['name']} {p['version']}" for p in packages]
+        if backends:
+            lines.append(self.tr("Backends: ") + ", ".join(
+                backend['name'] for backend in backends))
+        self.external_libraries_list.setText(
+            "\n".join(lines) if lines else self.tr("No external libraries installed."))
+
+    def _open_libraries_folder(self):
+        path = self.library_manager.ensure_user_dir()
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    def _install_external_library(self):
+        spec, ok = QInputDialog.getText(
+            self,
+            self.tr("Install external library"),
+            self.tr("Package name, local wheel, or URL:"))
+        if not ok or not spec.strip():
+            return
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            result = self.library_manager.install(spec)
+        except Exception as exc:
+            QMessageBox.critical(self, self.tr("Installation error"), str(exc))
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+        if result.returncode:
+            detail = (result.stderr or result.stdout or
+                      self.tr("pip returned an error.")).strip()
+            QMessageBox.critical(self, self.tr("Installation error"), detail[-3000:])
+            return
+        self.library_manager.activate()
+        self._refresh_external_libraries()
+        QMessageBox.information(
+            self, self.tr("Library installed"),
+            self.tr("The external library was installed successfully."))
 
     def _on_language_changed(self, _index: int):
         language = self.language_combo.currentData()

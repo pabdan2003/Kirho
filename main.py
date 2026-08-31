@@ -74,8 +74,9 @@ from kirho.ui.scene import (
 from kirho.ui.simulation_controller import SimulationController
 from kirho.ui.document_controller import DocumentController, ResponsivePrintPreview
 from kirho.ui.main_window_ui import MainWindowUI
-from kirho.pcb import PcbBoard
+from kirho.pcb import PcbBoard, footprint_names_for_type
 from kirho.ui.pcb_editor import PcbEditorWidget
+from kirho.external_libraries import ExternalLibraryManager
 
 
 class CircuitView(QGraphicsView):
@@ -128,6 +129,8 @@ class MainWindow(MainWindowUI, QMainWindow):
         # La coordinación y el estado de simulación viven fuera de la ventana.
         self.simulation = SimulationController(self)
         self.documents = DocumentController(self)
+        self.external_libraries = ExternalLibraryManager()
+        self.external_libraries.activate()
 
         # ── Reloj global para componentes CLK ──────────────────────────────
         # Cada CLK con clk_running=True conmuta su valor cada medio período
@@ -460,6 +463,8 @@ class MainWindow(MainWindowUI, QMainWindow):
         scene = CircuitScene()
         scene.component_selected.connect(self._on_component_selected)
         scene.status_message.connect(self.statusBar().showMessage)
+        scene.mode_changed.connect(
+            lambda mode, source=scene: self._on_scene_mode_changed(source, mode))
         scene.logic_state_toggled.connect(self._on_logic_state_toggled)
         scene.instrument_changed.connect(self._on_instrument_changed)
         scene.title_block_edit_requested.connect(self._edit_title_block)
@@ -470,6 +475,19 @@ class MainWindow(MainWindowUI, QMainWindow):
         view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         view.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         return scene, view
+
+    def _on_scene_mode_changed(self, source, mode: str):
+        if self.scene is not source:
+            return
+        self.btn_select.blockSignals(True)
+        self.btn_wire.blockSignals(True)
+        self.btn_select.setChecked(mode == 'select')
+        self.btn_wire.setChecked(mode == 'wire')
+        self.btn_select.blockSignals(False)
+        self.btn_wire.blockSignals(False)
+        self.view.setDragMode(
+            QGraphicsView.DragMode.RubberBandDrag
+            if mode == 'select' else QGraphicsView.DragMode.NoDrag)
 
     def _add_sheet(self, name: str = ''):
         if not name:
@@ -516,6 +534,12 @@ class MainWindow(MainWindowUI, QMainWindow):
         }
         pcb_widget.board_changed.connect(
             lambda updated, entry=sheet: entry.__setitem__('board', updated))
+        pcb_widget.footprint_selected.connect(
+            self._on_pcb_footprint_selected)
+        pcb_widget.route_mode_changed.connect(
+            lambda enabled: self._shared_actions['pcb_route'].setChecked(enabled))
+        pcb_widget.layer_changed.connect(self._on_pcb_layer_changed)
+        pcb_widget.route_status.connect(self.statusBar().showMessage)
         self._sheets.append(sheet)
         tab_idx = self.tab_widget.addTab(pcb_widget, sheet['name'])
         self.tab_widget.setCurrentIndex(tab_idx)
@@ -530,6 +554,35 @@ class MainWindow(MainWindowUI, QMainWindow):
         tab = self._active_tab()
         if tab and tab.get('kind') == 'pcb':
             tab['widget'].set_unit(unit)
+
+    def _set_pcb_layer(self, layer: str):
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            pcb.set_active_layer(layer)
+
+    def _on_pcb_layer_changed(self, layer: str):
+        combo = getattr(self, '_pcb_layer_combo', None)
+        if combo is None:
+            return
+        combo.blockSignals(True)
+        combo.setCurrentText(layer)
+        combo.blockSignals(False)
+
+    def _set_pcb_track_width(self, width_mm):
+        pcb = self._active_pcb_editor()
+        if pcb is not None and width_mm is not None:
+            pcb.set_track_width(float(width_mm))
+
+    def _toggle_pcb_route(self, enabled: bool):
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            pcb.set_route_mode(enabled)
+            return
+        action = self._shared_actions.get('pcb_route')
+        if action is not None:
+            action.blockSignals(True)
+            action.setChecked(False)
+            action.blockSignals(False)
 
     def _set_pcb_area_mode(self):
         tab = self._active_tab()
@@ -557,6 +610,7 @@ class MainWindow(MainWindowUI, QMainWindow):
         if 0 <= index < len(self._sheets):
             self._update_tab_mode()
             if self._sheets[index].get('kind') == 'pcb':
+                self._on_component_selected(None)
                 self.statusBar().showMessage(self.tr("Active tab: PCB"))
                 return
             if hasattr(self, '_snap_action'):
@@ -718,8 +772,14 @@ class MainWindow(MainWindowUI, QMainWindow):
             self.statusBar().showMessage(self.tr("Select at least three components to distribute"))
 
     def _toggle_snap(self, enabled: bool):
-        self.scene.snap_enabled = enabled
-        self.statusBar().showMessage(self.tr("Snap to grid enabled") if enabled else self.tr("Snap to grid disabled"))
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            pcb.set_snap_enabled(enabled)
+        elif self.scene is not None:
+            self.scene.snap_enabled = enabled
+        self.statusBar().showMessage(
+            self.tr("Snap to grid enabled") if enabled
+            else self.tr("Snap to grid disabled"))
 
     def _run_erc(self):
         warnings = self.scene.electrical_rule_warnings()
@@ -737,7 +797,8 @@ class MainWindow(MainWindowUI, QMainWindow):
                              current_theme_id=self._active_theme_id,
                              on_theme_change=self._apply_theme_change,
                              current_language=THEME_MANAGER.load_language(),
-                             on_language_change=self._apply_language_change)
+                             on_language_change=self._apply_language_change,
+                             library_manager=self.external_libraries)
         dlg.exec()
 
     def _apply_theme_change(self, theme_id: str):
@@ -1193,6 +1254,20 @@ class MainWindow(MainWindowUI, QMainWindow):
 
     def _on_component_selected(self, item):
         self.prop_table.setRowCount(0)
+        self._selected_component = item
+        options = footprint_names_for_type(item.comp_type) if item else ()
+        self.footprint_combo.blockSignals(True)
+        self.footprint_combo.clear()
+        if options:
+            selected = getattr(item, 'footprint_name', '')
+            if selected not in options:
+                selected = options[0]
+                item.footprint_name = selected
+            self.footprint_combo.addItems(options)
+            self.footprint_combo.setCurrentText(selected)
+        self.footprint_combo.blockSignals(False)
+        self.footprint_label.setVisible(bool(options))
+        self.footprint_combo.setVisible(bool(options))
         # ── Slider del potenciómetro ──────────────────────────────────────
         if item is not None and item.comp_type == 'POT':
             self._selected_pot = item
@@ -1221,6 +1296,8 @@ class MainWindow(MainWindowUI, QMainWindow):
             (self.tr("Value"),    f"{item.value} {item.unit}"),
             (self.tr("Rotation"), f"{item._angle}°"),
         ]
+        if options:
+            rows.insert(1, (self.tr("Footprint"), item.footprint_name))
 
         if item.comp_type in DIGITAL_GATE_TYPES:
             n_in = item.dig_inputs if item.comp_type != 'NOT' else 1
@@ -1322,6 +1399,45 @@ class MainWindow(MainWindowUI, QMainWindow):
             self.prop_table.insertRow(r)
             self.prop_table.setItem(r, 0, QTableWidgetItem(label))
             self.prop_table.setItem(r, 1, QTableWidgetItem(str(val)))
+
+    def _on_footprint_changed(self, footprint_name: str):
+        item = getattr(self, '_selected_component', None)
+        if item is None or footprint_name not in footprint_names_for_type(
+                item.comp_type):
+            return
+        item.footprint_name = footprint_name
+        for row in range(self.prop_table.rowCount()):
+            field = self.prop_table.item(row, 0)
+            value = self.prop_table.item(row, 1)
+            if field is not None and value is not None \
+                    and field.text() == self.tr("Footprint"):
+                value.setText(footprint_name)
+                break
+        self.statusBar().showMessage(
+            self.tr("{component}: footprint set to {footprint}; regenerate PCB to apply").format(
+                component=item.name, footprint=footprint_name))
+
+    def _on_pcb_footprint_selected(self, footprint):
+        self._on_component_selected(None)
+        if footprint is None:
+            return
+        pcb = self._active_pcb_editor()
+        format_length = pcb._format_length if pcb is not None else str
+        rows = [
+            (self.tr("Reference"), footprint.reference),
+            (self.tr("Footprint"), footprint.footprint_name),
+            (self.tr("Value"), footprint.value),
+            (self.tr("Position X"), format_length(footprint.x_mm)),
+            (self.tr("Position Y"), format_length(footprint.y_mm)),
+            (self.tr("Rotation"), f"{footprint.angle:g}°"),
+            (self.tr("Side"), footprint.side),
+            (self.tr("Pads"), str(len(footprint.pads))),
+        ]
+        for label, value in rows:
+            row = self.prop_table.rowCount()
+            self.prop_table.insertRow(row)
+            self.prop_table.setItem(row, 0, QTableWidgetItem(label))
+            self.prop_table.setItem(row, 1, QTableWidgetItem(str(value)))
 
     # ── Circuito de demo ─────────────────────────
     def _load_demo_circuit(self):

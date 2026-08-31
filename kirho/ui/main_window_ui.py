@@ -96,6 +96,20 @@ class MainWindowUI:
         prop_label.setFont(_qfont('Menlo', 9, QFont.Weight.Bold))
         layout.addWidget(prop_label)
 
+        self.footprint_label = QLabel(self.tr("PCB FOOTPRINT"))
+        self.footprint_label.setFont(_qfont('Menlo', 8, QFont.Weight.Bold))
+        self.footprint_label.setVisible(False)
+        layout.addWidget(self.footprint_label)
+
+        self.footprint_combo = QComboBox()
+        self.footprint_combo.setToolTip(
+            self.tr("Select the package used when generating the PCB"))
+        self.footprint_combo.currentTextChanged.connect(
+            self._on_footprint_changed)
+        self.footprint_combo.setVisible(False)
+        layout.addWidget(self.footprint_combo)
+        self._selected_component = None
+
         self.prop_table = QTableWidget(0, 2)
         self.prop_table.setHorizontalHeaderLabels([self.tr("Field"), self.tr("Value")])
         self.prop_table.horizontalHeader().setStretchLastSection(True)
@@ -157,7 +171,7 @@ class MainWindowUI:
             ('save_as', 'Save As…', self._save_circuit_as, 'Ctrl+Shift+S'),
             ('print', 'Print…', self._print_sheet, None),
             ('export_spice', 'Export SPICE', self._export_spice, 'Ctrl+E'),
-            ('open_pcb', 'Open PCB Editor', lambda checked=False: self._open_pcb_editor(), None),
+            ('open_pcb', 'Open PCB Editor', lambda checked=False: self._open_pcb_editor(), 'Ctrl+Shift+P'),
             ('regenerate_pcb', 'Regenerate PCB', self._regenerate_pcb, None),
             ('pcb_area', 'Define PCB Area', lambda checked=False: self._set_pcb_area_mode(), None),
             ('add_sheet', '+ Sheet', lambda: self._add_sheet(), 'Ctrl+T'),
@@ -173,7 +187,7 @@ class MainWindowUI:
             ('paste', 'Paste', self._paste_active_selection, None),
             ('duplicate', 'Duplicate', self._duplicate_active_selection, None),
             ('select', 'Select', self._set_select_mode, None),
-            ('wire', 'Wire', self._set_wire_mode, None),
+            ('wire', 'Wire', self._set_wire_mode, 'W'),
             ('align_left', 'Left', lambda: self._align_selection('left'), None),
             ('align_right', 'Right', lambda: self._align_selection('right'), None),
             ('align_top', 'Top', lambda: self._align_selection('top'), None),
@@ -203,6 +217,13 @@ class MainWindowUI:
         self._snap_action.setChecked(self.scene.snap_enabled)
         self._snap_action.toggled.connect(self._toggle_snap)
         self._shared_actions['snap'] = self._snap_action
+
+        route_action = QAction(self.tr('Route Track'), self)
+        route_action.setCheckable(True)
+        route_action.setToolTip(
+            self.tr('Click pads to route; press V to place a via and change layer'))
+        route_action.toggled.connect(self._toggle_pcb_route)
+        self._shared_actions['pcb_route'] = route_action
 
         clk_action = QAction(self.tr('Toggle CLK'), self)
         clk_action.setShortcut('Ctrl+K')
@@ -469,6 +490,21 @@ class MainWindowUI:
         self.addToolBar(tb)
         tb.addAction(self._shared_actions['regenerate_pcb'])
         tb.addAction(self._shared_actions['pcb_area'])
+        tb.addAction(self._shared_actions['pcb_route'])
+        tb.addSeparator()
+        tb.addWidget(QLabel(self.tr('Layer:')))
+        self._pcb_layer_combo = QComboBox()
+        self._pcb_layer_combo.addItems(['F.Cu', 'B.Cu'])
+        self._pcb_layer_combo.currentTextChanged.connect(self._set_pcb_layer)
+        tb.addWidget(self._pcb_layer_combo)
+        tb.addWidget(QLabel(self.tr('Width:')))
+        self._pcb_width_combo = QComboBox()
+        for width in (0.20, 0.25, 0.50, 1.00):
+            self._pcb_width_combo.addItem(f'{width:.2f} mm', width)
+        self._pcb_width_combo.currentIndexChanged.connect(
+            lambda index: self._set_pcb_track_width(
+                self._pcb_width_combo.itemData(index)))
+        tb.addWidget(self._pcb_width_combo)
         tb.addSeparator()
         tb.addWidget(QLabel(self.tr('Grid:')))
         self._pcb_unit_combo = QComboBox()
@@ -503,13 +539,34 @@ class MainWindowUI:
             pcb_active and active.get('source_scene') is not None
             if active else False)
         self._shared_actions['pcb_area'].setEnabled(pcb_active)
+        route_action = self._shared_actions['pcb_route']
+        route_action.setEnabled(pcb_active)
+        route_action.blockSignals(True)
+        route_action.setChecked(
+            active['widget'].route_mode if pcb_active and active else False)
+        route_action.blockSignals(False)
         if pcb_active and active is not None:
+            self._pcb_layer_combo.blockSignals(True)
+            self._pcb_layer_combo.setCurrentText(active['widget'].active_layer)
+            self._pcb_layer_combo.blockSignals(False)
+            self._pcb_width_combo.blockSignals(True)
+            width_index = self._pcb_width_combo.findData(
+                active['widget'].track_width_mm)
+            if width_index >= 0:
+                self._pcb_width_combo.setCurrentIndex(width_index)
+            self._pcb_width_combo.blockSignals(False)
             self._pcb_unit_combo.blockSignals(True)
             self._pcb_unit_combo.setCurrentText(active['widget'].unit)
             self._pcb_unit_combo.blockSignals(False)
 
         if hasattr(self, '_snap_action'):
-            self._snap_action.setVisible(not pcb_active)
+            self._snap_action.setVisible(True)
+            self._snap_action.blockSignals(True)
+            self._snap_action.setChecked(
+                active['widget'].snap_enabled if pcb_active and active
+                else self.scene.snap_enabled if self.scene is not None
+                else False)
+            self._snap_action.blockSignals(False)
         for action in (
             getattr(self, '_paper_visibility_action', None),
             getattr(self, '_title_block_visibility_action', None),

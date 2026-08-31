@@ -61,6 +61,7 @@ TITLE_BLOCK_FIELDS = (
 class CircuitScene(QGraphicsScene):
     component_selected   = pyqtSignal(object)
     status_message       = pyqtSignal(str)
+    mode_changed         = pyqtSignal(str)
     logic_state_toggled  = pyqtSignal(object)   # emitido cuando LOGIC_STATE cambia
     instrument_changed   = pyqtSignal(object)   # cambió un parámetro de instrumento
     title_block_edit_requested = pyqtSignal()
@@ -508,6 +509,7 @@ class CircuitScene(QGraphicsScene):
                 self.removeItem(self._wire_preview)
                 self._wire_preview = None
             self._wire_start = None
+        self.mode_changed.emit(mode)
 
     def _snap_to_pin_or_grid(self, pos: QPointF, threshold: float = 16.0) -> QPointF:
         """
@@ -615,6 +617,8 @@ class CircuitScene(QGraphicsScene):
             value = defaults.get(comp_type, 0.0)
 
         item = ComponentItem(comp_type, name, value, unit, node1, node2, node3)
+        from kirho.pcb import default_footprint_name
+        item.footprint_name = default_footprint_name(comp_type)
         if comp_type == 'NOT':
             item.dig_inputs = 1
         if comp_type == 'MUX2':
@@ -741,17 +745,12 @@ class CircuitScene(QGraphicsScene):
                 )
                 self.addItem(wire)
                 self.wires.append(wire)
-                # Preparar para siguiente cable
-                self._wire_start = snap
-                self._wire_start_comp = end_comp
-                self._wire_start_pin = end_pin or 0
                 if self._wire_preview:
                     self.removeItem(self._wire_preview)
-                self._wire_preview = WireItem(snap, snap)
-                self.addItem(self._wire_preview)
-                self._wire_start = snap
-                self._wire_start_comp = comp
-                self._wire_start_pin = pin_idx
+                self._wire_preview = None
+                self._wire_start = None
+                self._wire_start_comp = None
+                self._wire_start_pin = 0
                 self.status_message.emit("Cable colocado")
             return
 

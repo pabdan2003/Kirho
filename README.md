@@ -185,6 +185,7 @@ Kirho/
 ├── themes/                  # JSON themes (data)
 ├── examples/                 # Ready-to-open .csin circuits
 ├── firmware/                # Protocol and firmware examples for a physical probe
+├── docs/external-libraries.md # Optional backend installation
 └── tests/                   # pytest suite (engine, editor, SPICE, and project I/O)
 ```
 

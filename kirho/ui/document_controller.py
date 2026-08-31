@@ -79,6 +79,7 @@ class DocumentController:
             entry = {
                 'type':  item.comp_type,
                 'name':  item.name,
+                'footprint_name': getattr(item, 'footprint_name', ''),
                 'value': item.value,
                 'unit':  item.unit,
                 'node1': item.node1,
@@ -204,6 +205,8 @@ class DocumentController:
                 node2=c.get('node2', ''),
                 node3=c.get('node3', '')
             )
+            item.footprint_name = c.get(
+                'footprint_name', getattr(item, 'footprint_name', ''))
             angle = c.get('angle', 0)
             flip_x = bool(c.get('flip_x', False))
             flip_y = bool(c.get('flip_y', False))

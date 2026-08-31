@@ -69,6 +69,7 @@ class ComponentItem(QGraphicsItem):
         super().__init__()
         self.comp_type = comp_type
         self.name = name
+        self.footprint_name = ''
         self.value = value
         self.unit = unit
         self.node1 = node1
