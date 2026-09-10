@@ -159,6 +159,12 @@ that a release still behaves correctly.
 | --- | --- |
 | ![Digital logic simulation](docs/img/examples/digital-logic-simulation.png) | ![Low-pass Bode plot](docs/img/examples/bode-low-pass.png) |
 
+### Power factor correction
+
+<p align="center">
+  <img src="docs/img/examples/power-factor.png" width="820" alt="Power factor correction">
+</p>
+
 ### Minimal example (engine from Python)
 
 ```python

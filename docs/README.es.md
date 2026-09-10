@@ -143,6 +143,12 @@ comprobar una versión nueva.
 | --- | --- |
 | ![Simulación lógica digital](img/examples/digital-logic-simulation.png) | ![Bode pasa bajos](img/examples/bode-low-pass.png) |
 
+### Corrección del factor de potencia
+
+<p align="center">
+  <img src="img/examples/power-factor.png" width="820" alt="Corrección del factor de potencia">
+</p>
+
 ### Ejemplo mínimo (motor desde Python)
 
 ```python
