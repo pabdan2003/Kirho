@@ -1,8 +1,22 @@
-# Kirho
+<p align="center">
+  <img src="assets/kirho-wordmark.png" width="620" alt="Kirho — Measure, Generate, Explore">
+  <br>
+  <a href="https://github.com/pabdan2003/Kirho/releases/latest"><img src="https://img.shields.io/github/v/release/pabdan2003/Kirho?style=flat-square&label=release&labelColor=173823&color=66735C" alt="Latest release"></a>
+  <a href="https://github.com/pabdan2003/Kirho/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pabdan2003/Kirho/ci.yml?branch=main&style=flat-square&label=tests&labelColor=173823&color=66735C" alt="Test status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-E6E2B5?style=flat-square&labelColor=173823" alt="MIT License"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-E6E2B5?style=flat-square&logo=python&logoColor=E6E2B5&labelColor=173823" alt="Python 3.10+"></a>
+</p>
 
-**Open-source electronic circuit simulator — analog, digital, and mixed-signal.**
+# Welcome to Kirho! ⚡
 
-[Documentación en español](docs/README.es.md)
+**Measure · Generate · Explore** with an open-source electronic circuit simulator for analog, digital, and mixed-signal systems.
+
+<p align="center">
+  <a href="#-quick-start">Quick start</a> ·
+  <a href="#-features">Features</a> ·
+  <a href="#-downloads">Downloads</a> ·
+  <a href="docs/README.es.md">Documentación en español</a>
+</p>
 
 Kirho is a schematic-capture and simulation environment built with Python + PyQt6. Its custom MNA (Modified Nodal Analysis) engine solves DC, AC, and transient analyses from the same netlist, with virtual instruments (a multimeter, two-channel oscilloscope, and function generator) integrated into the canvas.
 
@@ -10,7 +24,7 @@ Kirho is a schematic-capture and simulation environment built with Python + PyQt
 
 ---
 
-## Features
+## ⚙️ Features
 
 ### Simulation engine
 
@@ -53,7 +67,7 @@ into the schematic editor.
 
 ---
 
-## Installation
+## 📦 Installation
 
 **Requirements:** Python 3.10 or later; Windows, Linux, or macOS.
 
@@ -103,7 +117,7 @@ py -m pip install ".[build]"
 This produces `dist\Kirho-<version>-Windows-x64-Setup.exe` with Start menu and
 optional desktop shortcuts.
 
-## Downloads
+## 💾 Downloads
 
 | Platform | Status | Download |
 | --- | --- | --- |
@@ -117,7 +131,7 @@ For macOS, download the `.dmg` asset from the release, open it, and drag
 
 ---
 
-## Quick start
+## 🚀 Quick start
 
 1. Start Kirho with `python main.py`.
 2. Choose a category and component, then click the canvas to place it.
@@ -125,7 +139,7 @@ For macOS, download the `.dmg` asset from the release, open it, and drag
 4. Double-click a component to edit its value.
 5. Click **▶ SIMULATE**; Kirho automatically detects DC, AC, digital, or mixed-signal mode.
 
-## Examples
+## 🧪 Examples
 
 Open any project in [`examples/`](examples/) with **File → Open**. They are
 small, working circuits intended both for learning the editor and checking
@@ -162,7 +176,7 @@ print(result["voltages"]["out"])  # 5.0 V
 
 ---
 
-## Project structure
+## 🗂️ Project structure
 
 ```
 Kirho/
@@ -191,7 +205,7 @@ Kirho/
 
 ---
 
-## Testing
+## ✅ Testing
 
 ```bash
 pip install -r requirements-dev.txt
@@ -202,7 +216,7 @@ Pushes to `main` and pull requests run the suite on Python 3.10, 3.11 and 3.12 t
 
 ---
 
-## Roadmap
+## 🛣️ Roadmap
 
 - [x] Migrate tests to `pytest` + GitHub Actions CI.
 - [x] Bode plots (magnitude and phase) for the existing AC analysis.
@@ -216,7 +230,7 @@ Pushes to `main` and pull requests run the suite on Python 3.10, 3.11 and 3.12 t
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome. Before opening a pull request:
 
@@ -234,6 +248,6 @@ Quick package maps:
 
 ---
 
-## License
+## 📄 License
 
 Distributed under the [MIT License](LICENSE).
