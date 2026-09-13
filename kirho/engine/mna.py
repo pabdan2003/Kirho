@@ -17,6 +17,7 @@ Optimizaciones implementadas:
 Referencia: Vlach & Singhal, "Computer Methods for Circuit Analysis and Design"
 """
 
+import time
 import warnings
 import numpy as np
 from typing import Dict, List, Tuple, Optional
@@ -632,7 +633,9 @@ class MNASolver:
                         t_start: float = 0.0,
                         nr_tol: float = 1e-5,
                         nr_max_iter: int = 25,
-                        initial_state: Optional[Dict] = None) -> Dict:
+                        initial_state: Optional[Dict] = None,
+                        max_steps: int = None,
+                        max_runtime_s: float = None) -> Dict:
         """
         Análisis transitorio con:
 
@@ -658,6 +661,10 @@ class MNASolver:
                            se omite el cálculo del DC OP inicial. La
                            topología (componentes y nodos) DEBE ser idéntica
                            a la del estado guardado.
+            max_steps:     máximo de pasos aceptados antes de devolver el
+                           estado parcial (None = sin límite)
+            max_runtime_s: presupuesto de CPU; devuelve estado parcial al
+                           agotarse entre pasos (None = sin límite)
 
         Returns:
             {
@@ -673,6 +680,8 @@ class MNASolver:
         has_nonlinear = any(isinstance(c, _nonlinear_types) for c in components)
 
         try:
+            deadline = (time.perf_counter() + max(0.0, max_runtime_s)
+                        if max_runtime_s is not None else None)
             if dt_min is None:
                 dt_min = dt / 1000.0
             if dt_max is None:
@@ -740,6 +749,10 @@ class MNASolver:
             _lu_can_cache = (not has_nonlinear) and (not adaptive)
 
             while t_local < t_stop:
+                if max_steps is not None and steps >= max_steps:
+                    break
+                if deadline is not None and time.perf_counter() >= deadline:
+                    break
                 dt_cur = min(dt_cur, t_stop - t_local)
                 if dt_cur < dt_min:
                     dt_cur = dt_min

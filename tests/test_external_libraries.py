@@ -64,3 +64,33 @@ def test_install_rejects_empty_or_option_like_specs(tmp_path):
         manager.install("")
     with pytest.raises(ValueError):
         manager.install("--no-deps")
+
+
+def test_schematic_components_are_published_only_by_installed_backends(tmp_path):
+    manager = ExternalLibraryManager(tmp_path)
+    manager.list_backends = lambda: [{"name": "rp2040"}]
+    manager.load_backend = lambda _name: lambda: SimpleNamespace(
+        schematic_components=lambda: [{
+            "type": "RP2040",
+            "label": "RP2040 Dev Board",
+            "symbol": "▣40",
+            "board_definition": {"id": "rp2040-40-pin", "pins": []},
+        }])
+
+    assert manager.list_schematic_components() == [{
+        "type": "RP2040",
+        "label": "RP2040 Dev Board",
+        "symbol": "▣40",
+        "board_definition": {"id": "rp2040-40-pin", "pins": []},
+        "backend": "rp2040",
+    }]
+
+
+def test_create_micropython_runner_uses_backend_runtime(tmp_path):
+    manager = ExternalLibraryManager(tmp_path)
+    runtime = object()
+    runner = object()
+    manager.load_backend = lambda _name: lambda: SimpleNamespace(
+        create_micropython_runner=lambda value: runner if value is runtime else None)
+
+    assert manager.create_micropython_runner("rp2040", runtime) is runner

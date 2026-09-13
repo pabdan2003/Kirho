@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Optional, List, Dict, Tuple
 
 import numpy as np
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QObject, QThread, QTimer, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QApplication
 
 from kirho.engine import (
@@ -19,13 +19,29 @@ from kirho.ui.items.component_item import ComponentItem
 from kirho.ui.scene import build_engine_components_for_item, expand_subcircuits
 
 
+class _ExternalEventBridge(QObject):
+    event_received = pyqtSignal(object)
+
+    def __init__(self, handler, parent):
+        super().__init__(parent)
+        self._handler = handler
+        self.event_received.connect(
+            self._deliver, Qt.ConnectionType.QueuedConnection)
+
+    @pyqtSlot(object)
+    def _deliver(self, event):
+        self._handler(event)
+
+
 class SimulationController:
     # ── Estado y ciclo de vida de simulación ────────────────────────────────
     _LIVE_TIME_SCALE          = 1.0
     _LIVE_TICK_MS             = 50
     _LIVE_PANEL_REFRESH_TICKS = 5
-    _LIVE_MAX_STEPS_PER_TICK  = 600
-    _LIVE_SAMPLES_PER_PERIOD  = 12
+    _LIVE_ITEM_REFRESH_TICKS  = 2
+    _LIVE_MAX_STEPS_PER_TICK  = 120
+    _LIVE_SOLVER_BUDGET_MS    = 8
+    _LIVE_SAMPLES_PER_PERIOD  = 24
     _LIVE_TOL_ABS             = 1e-3
     _LIVE_TOL_REL             = 5e-2
     _LIVE_NR_TOL              = 1e-4
@@ -45,6 +61,10 @@ class SimulationController:
         self._live_tick_count = 0
         self._live_phasor_summary = ""
         self._live_nr_max = 20
+        self._live_adaptive = True
+        self._external_gpio_values: Dict[int, int] = {}
+        self._external_event_bridge = _ExternalEventBridge(
+            self._apply_external_runtime_event, window)
 
         self._sim_timer = QTimer(window)
         self._sim_timer.setInterval(self._DC_TICK_MS)
@@ -54,6 +74,36 @@ class SimulationController:
         # La simulación conserva acceso a la UI sin acoplar MainWindow al
         # detalle de cada widget.
         return getattr(self._window, name)
+
+    def bind_external_runtime(self, runtime) -> None:
+        """Conecta eventos GPIO de un backend opcional con la simulación."""
+        listener = getattr(runtime, "add_listener", None)
+        if callable(listener):
+            listener(self._on_external_runtime_event)
+
+    def _on_external_runtime_event(self, event: dict) -> None:
+        if QThread.currentThread() != self._window.thread():
+            self._external_event_bridge.event_received.emit(event)
+            return
+        self._apply_external_runtime_event(event)
+
+    def _apply_external_runtime_event(self, event: dict) -> None:
+        if (not isinstance(event, dict)
+                or event.get("type") != "gpio"
+                or event.get("source") != "firmware"):
+            return
+        try:
+            gpio = int(event["gpio"])
+            value = int(event["value"])
+        except (KeyError, TypeError, ValueError):
+            return
+        scene = self.scene
+        if scene is None:
+            return
+        if not event.get("net") and gpio not in scene.external_gpio_net_map():
+            return
+        self._external_gpio_values[gpio] = value
+        self._run_simulation_dc(silent=True)
 
     # ── Simulación automática ─────────────────────────────────────────────
     def _merge_all_sheets(self) -> Tuple[List[ComponentItem], Dict[str, str]]:
@@ -169,13 +219,16 @@ class SimulationController:
             self._run_simulation_auto(flags, pin_node)
         elif flags.has_ac:
             self._start_live_transient(flags, pin_node)
+            self._start_external_firmware()
         elif flags.has_dc or flags.has_digital:
             self._sim_running = True
             self._sim_mode    = 'dc_tick'
             self.run_btn.setText(self.tr("■  STOP"))
             self._sim_timer.setInterval(self._DC_TICK_MS)
-            self._sim_timer.start()
             self._run_simulation_dc()
+            firmware_running = self._start_external_firmware()
+            if not firmware_running:
+                self._sim_timer.start()
         else:
             self.run_btn.setChecked(False)
             self.run_btn.setText(self.tr("▶  SIMULATE"))
@@ -185,6 +238,7 @@ class SimulationController:
 
     def _stop_simulation(self):
         """Detiene la simulación y apaga todos los LEDs en todas las hojas."""
+        self._stop_external_firmware()
         self._sim_running = False
         self._sim_mode    = 'idle'
         self._sim_timer.stop()
@@ -197,6 +251,8 @@ class SimulationController:
         self._live_pin_node       = None
         self._live_tick_count     = 0
         self._live_phasor_summary = ""
+        self._live_adaptive       = True
+        self._external_gpio_values.clear()
         self.run_btn.setChecked(False)
         self.run_btn.setText(self.tr("▶  SIMULATE"))
         for sheet in self._schematic_sheets():
@@ -207,7 +263,76 @@ class SimulationController:
                 elif item.comp_type == 'MULTIMETER':
                     item.meter_reading = None
                     item.update()
+                elif item.comp_type == 'KEYPAD4X4':
+                    item.keypad_pressed = [False] * len(item.keypad_pressed)
+                    item.update()
         self._refresh_open_multimeter_panels()
+
+    def _external_firmware_items(self):
+        for sheet in self._schematic_sheets():
+            for item in sheet['scene'].components:
+                if getattr(item, 'external_backend', ''):
+                    yield item
+
+    def _load_external_firmware(self, item):
+        image = getattr(item, 'external_firmware_image', None)
+        if image is not None:
+            return image
+        path = getattr(item, 'external_firmware_path', '')
+        manager = getattr(self._window, 'external_libraries', None)
+        backend_name = getattr(item, 'external_backend', '')
+        if not path or manager is None or not backend_name:
+            return None
+        image = manager.load_firmware(backend_name, path)
+        if image is not None:
+            item.external_firmware_image = image
+        return image
+
+    def _start_external_firmware(self):
+        """Ejecuta el MicroPython cargado cuando inicia SIMULATE."""
+        runners = []
+        reset_runtimes = set()
+        for item in self._external_firmware_items():
+            image = self._load_external_firmware(item)
+            if image is None or image.format != 'py':
+                continue
+            runner = getattr(item, 'external_firmware_runner', None)
+            if runner is None:
+                manager = getattr(self._window, 'external_libraries', None)
+                runtime = getattr(self._window, '_external_runtimes', {}).get(
+                    item.external_backend)
+                if manager is not None:
+                    runner = manager.create_micropython_runner(
+                        item.external_backend, runtime)
+                    item.external_firmware_runner = runner
+            if runner is None:
+                continue
+            runtime = getattr(runner, 'runtime', None)
+            if runtime is not None and id(runtime) not in reset_runtimes:
+                reset = getattr(runtime, 'reset', None)
+                if callable(reset):
+                    reset()
+                reset_runtimes.add(id(runtime))
+            runners.append((item, runner, image))
+
+        for item, runner, image in runners:
+            try:
+                runner.start(image.source, filename=image.path)
+                item.external_firmware_error = ''
+            except Exception as exc:
+                item.external_firmware_error = str(exc) or exc.__class__.__name__
+        return bool(runners)
+
+    def _stop_external_firmware(self):
+        stopped = set()
+        for item in self._external_firmware_items():
+            runner = getattr(item, 'external_firmware_runner', None)
+            if runner is None or id(runner) in stopped:
+                continue
+            stop = getattr(runner, 'stop', None)
+            if callable(stop):
+                stop()
+            stopped.add(id(runner))
 
     def _tick_simulation(self):
         """Llamado por QTimer: dispatcher por modo."""
@@ -307,6 +432,10 @@ class SimulationController:
         # exponenciales pueden requerir más pasos para converger que un
         # circuito puramente lineal.
         self._live_nr_max = 40 if flags.has_nonlinear else 20
+        # En circuitos lineales el dt ya está fijado por la resolución de la
+        # señal. Desactivar LTE permite reutilizar la factorización LU del
+        # solver; los no lineales mantienen el control adaptativo.
+        self._live_adaptive = bool(flags.has_nonlinear)
 
         self.run_btn.setText(self.tr("■  STOP"))
         self.run_btn.setChecked(True)
@@ -337,7 +466,7 @@ class SimulationController:
         """Avanza el solver `dt_sim` segundos y actualiza la UI.
 
         Estrategia para mantener la UI fluida en cualquier frecuencia:
-          1. `dt_internal` se elige para tener ~50 muestras por período
+          1. `dt_internal` se elige para tener 24 muestras por período
              de la onda más rápida (resolución suficiente para osciloscopio).
           2. `dt_advance` arranca como `tick_ms · TIME_SCALE` (slow-motion
              a baja frecuencia, igual que antes).
@@ -373,9 +502,16 @@ class SimulationController:
             t_stop        = dt_advance,
             dt            = dt_internal,
             method        = 'trapezoidal',
-            adaptive      = True,
+            adaptive      = self._live_adaptive,
             tol_abs       = self._LIVE_TOL_ABS,
             tol_rel       = self._LIVE_TOL_REL,
+            # El adaptativo puede reducir el paso para converger, pero nunca
+            # saltarse muestras de la onda que alimenta al osciloscopio.
+            dt_max        = dt_internal,
+            # ponytail: cap de pasos por tick; pasar el solver a un worker si
+            # más adelante se necesita tiempo real en circuitos muy stiff.
+            max_steps     = self._LIVE_MAX_STEPS_PER_TICK,
+            max_runtime_s = self._LIVE_SOLVER_BUDGET_MS / 1000.0,
             # dt_min bajo: durante la conmutación de un diodo el NR puede
             # necesitar pasos de nanosegundos para converger.
             dt_min        = 1e-10,
@@ -396,8 +532,10 @@ class SimulationController:
         self._live_state = tr['final_state']
         self._live_tick_count += 1
 
-        # Refresco visual de los items (LEDs y voltajes instantáneos)
-        self._update_items_from_live(tr)
+        # El canvas no necesita repintar todos los componentes a la misma
+        # frecuencia que recibe muestras el osciloscopio.
+        if self._live_tick_count % self._LIVE_ITEM_REFRESH_TICKS == 0:
+            self._update_items_from_live(tr)
 
         # Texto del panel cada N ticks (no abrumar la UI)
         if self._live_tick_count % self._LIVE_PANEL_REFRESH_TICKS == 0:
@@ -540,7 +678,7 @@ class SimulationController:
                     item.led_on = float(np.mean(i_led)) > 1e-4
 
             if item.comp_type == 'MULTIMETER' and n1:
-                vd = _vd_array(n1, n2)
+                vd = self._voltage_drop_array(v_dict, n1, n2)
                 if vd is not None and len(vd) > 0:
                     self._update_multimeter_from_array(item, vd)
 
@@ -1059,6 +1197,16 @@ class SimulationController:
                 components.extend(build_engine_components_for_item(item, pin_node))
             except Exception as e:
                 errors.append(f"{item.name}: {e}")
+
+        # La salida de un backend externo se modela como una fuente ideal de
+        # 0/3.3 V para que los pasivos sigan pasando por el solver existente.
+        external_nets = self.scene.external_gpio_net_map()
+        for gpio, value in self._external_gpio_values.items():
+            net = external_nets.get(gpio)
+            if net and net not in ('0', 'gnd', 'GND'):
+                components.append(VoltageSource(
+                    f"__external_gpio_{gpio}", net, '0',
+                    DEFAULT_STANDARD.Voh if value else DEFAULT_STANDARD.Vol))
 
         # ── Excluir LEDs/Diodos cuyo ánodo es salida exclusiva de puerta digital ──
         # Esos componentes no tienen driver analógico → matriz singular.

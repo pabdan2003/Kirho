@@ -141,6 +141,8 @@ class ComponentPainter:
             self._draw_bridge_rectifier(painter, pen_body, pen_wire, body_color)
         elif self.comp_type in ('SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY'):
             self._draw_switch(painter, pen_body, pen_wire, body_color)
+        elif self.comp_type == 'KEYPAD4X4':
+            self._draw_keypad(painter, pen_body, pen_wire, body_color)
         # ── Instrumentos ─────────────────────────────────────────────────
         elif self.comp_type == 'FGEN':
             self._draw_fgen(painter, pen_body, pen_wire, body_color)
@@ -183,6 +185,8 @@ class ComponentPainter:
             self._draw_port(painter, pen_body, pen_wire, body_color)
         elif self.comp_type == 'SUBCKT':
             self._draw_subcircuit(painter, pen_body, pen_wire, body_color)
+        elif self.is_external_component():
+            self._draw_external_board(painter, pen_body, pen_wire, body_color)
 
         # Nombre y valor
         self._draw_labels(painter, text_color)
@@ -195,8 +199,8 @@ class ComponentPainter:
                           'SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY',
                           'IC555',
                           'PORT', 'SUBCKT',   # dibujan sus propios pines
-                          'MULTIMETER')   # _draw_multimeter pinta sus pines
-        if self.comp_type not in three_terminal:
+                          'MULTIMETER', 'KEYPAD4X4')  # pines propios
+        if self.comp_type not in three_terminal and not self.is_external_component():
             for pin in self.pin_positions():
                 painter.setPen(pen_pin)
                 painter.setBrush(QBrush(QColor(COLORS['pin'])))
@@ -1771,6 +1775,95 @@ class ComponentPainter:
         painter.drawText(QRectF(-w / 2, -h / 2 - 18, w, 16),
                          Qt.AlignmentFlag.AlignCenter, self.name)
 
+    def _draw_external_board(self, painter, pen_body, pen_wire, body_color):
+        """Símbolo de una placa publicada por una librería externa."""
+        width, height, _, _ = self._external_board_geometry()
+        y_offset = self._external_board_y_offset()
+        rect = QRectF(-width / 2, -height / 2 + y_offset, width, height)
+        edge = QColor(COLORS['comp_sel'] if self.isSelected()
+                      else COLORS['component'])
+        painter.setPen(QPen(edge, 2))
+        painter.setBrush(QBrush(QColor(COLORS['comp_body'])))
+        painter.drawRoundedRect(rect, 8, 8)
+
+        pins = self._external_board_pins()
+        points = self._external_board_pin_positions()
+        side_count = (len(pins) + 1) // 2
+        painter.setFont(_qfont('Menlo', 6))
+        for index, (pin, point) in enumerate(zip(pins, points)):
+            left = index < side_count
+            edge_x = -width / 2 if left else width / 2
+            painter.setPen(pen_wire)
+            painter.drawLine(QPointF(edge_x, point.y()), point)
+            painter.setPen(QPen(QColor(COLORS['pin']), 2))
+            painter.setBrush(QBrush(QColor(COLORS['pin'])))
+            painter.drawEllipse(point, PIN_RADIUS, PIN_RADIUS)
+
+            label = f"{pin.get('number', '')} {pin.get('name', '')}".strip()
+            text_rect = (QRectF(-width / 2 + 8, point.y() - 7,
+                                width / 2 - 24, 14) if left else
+                         QRectF(16, point.y() - 7, width / 2 - 24, 14))
+            alignment = (Qt.AlignmentFlag.AlignLeft |
+                         Qt.AlignmentFlag.AlignVCenter if left else
+                         Qt.AlignmentFlag.AlignRight |
+                         Qt.AlignmentFlag.AlignVCenter)
+            painter.setPen(QPen(QColor(COLORS['text']), 1))
+            painter.drawText(text_rect, alignment, label)
+
+        painter.setPen(QPen(QColor(COLORS['text']), 1))
+        painter.setFont(_qfont('Menlo', 10, QFont.Weight.Bold))
+        definition = getattr(self, 'external_definition', None) or {}
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter,
+                         definition.get('name', 'External board'))
+        painter.setFont(_qfont('Menlo', 8))
+        painter.drawText(QRectF(-width / 2, -height / 2 + y_offset - 18,
+                                width, 16),
+                         Qt.AlignmentFlag.AlignCenter, self.name)
+
+    def _draw_keypad(self, painter, pen_body, pen_wire, body_color):
+        """Símbolo de keypad 4x4 con cuatro filas y cuatro columnas."""
+        from kirho.ui.component_metadata import KEYPAD_BUTTON_LABELS
+
+        body = QRectF(-90, -82, 180, 164)
+        painter.setPen(pen_body)
+        # La selección del keypad se muestra solo en el borde; sus botones y
+        # el cuerpo conservan el relleno normal del componente.
+        painter.setBrush(QBrush(QColor(COLORS['comp_body'])))
+        painter.drawRoundedRect(body, 10, 10)
+
+        painter.setFont(_qfont('Menlo', 7, QFont.Weight.Bold))
+        painter.setPen(QPen(QColor(COLORS['text']), 1))
+        painter.drawText(QRectF(-78, -78, 156, 14),
+                         Qt.AlignmentFlag.AlignCenter, self.name)
+
+        pressed = list(getattr(self, 'keypad_pressed', []) or [])
+        for index, label in enumerate(KEYPAD_BUTTON_LABELS):
+            button = self._keypad_button_rect(index)
+            is_pressed = index < len(pressed) and pressed[index]
+            painter.setPen(QPen(QColor(COLORS['comp_sel']), 1.5))
+            painter.setBrush(QBrush(QColor(
+                COLORS['comp_sel'] if is_pressed else COLORS['panel'])))
+            painter.drawRoundedRect(button, 5, 5)
+            painter.setPen(QPen(QColor(COLORS['text']), 1))
+            painter.drawText(button, Qt.AlignmentFlag.AlignCenter, label)
+
+        for index, point in enumerate(self._keypad_pin_positions()):
+            left = index < 4
+            edge_x = -90 if left else 90
+            painter.setPen(pen_wire)
+            painter.drawLine(QPointF(edge_x, point.y()), point)
+            painter.setPen(QPen(QColor(COLORS['pin']), 2))
+            painter.setBrush(QBrush(QColor(COLORS['pin'])))
+            painter.drawEllipse(point, PIN_RADIUS, PIN_RADIUS)
+            painter.setFont(_qfont('Menlo', 6))
+            painter.setPen(QPen(QColor(COLORS['text_dim']), 1))
+            label = f"{'R' if left else 'C'}{index + 1 if left else index - 3}"
+            text_rect = (QRectF(-132, point.y() - 7, 18, 14) if left else
+                         QRectF(114, point.y() - 7, 18, 14))
+            alignment = (Qt.AlignmentFlag.AlignRight if left else
+                         Qt.AlignmentFlag.AlignLeft) | Qt.AlignmentFlag.AlignVCenter
+            painter.drawText(text_rect, alignment, label)
+
     def _draw_labels(self, painter, text_color):
         if isinstance(painter, _MonochromePainter):
             painter.upright_text = False
@@ -1779,8 +1872,9 @@ class ComponentPainter:
             painter.upright_text = True
 
     def _draw_labels_content(self, painter, text_color):
-        if self.comp_type in ('GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT',
-                               'PORT', 'SUBCKT'):
+        if (self.comp_type in ('GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT',
+                               'PORT', 'SUBCKT', 'KEYPAD4X4')
+                or self.is_external_component()):
             return
         font = _qfont('Menlo', 8)
         if self.scene() is not None and getattr(self.scene(), 'print_mode', False):

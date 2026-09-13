@@ -1,0 +1,5 @@
+Tool: built-in ImageGen (background extraction)
+Source: codex-clipboard-09bbdb9d-d8f9-4aa4-bfb9-027a629a2142.png
+Output: assets/kirho.png; encoded as assets/kirho.icns and assets/kirho.ico
+
+Use case: background-extraction. Asset type: Kirho desktop application icon, square transparent PNG. Input image 1 is the edit target. Remove only the light cream exterior background OUTSIDE the dark green rounded-square icon. Produce real alpha transparency, never a painted checkerboard. Preserve the entire dark green rounded-square tile and all details inside it exactly: cream oscilloscope outline, waveform, three knobs, two right-hand bars, and the exact spaced word "KIRHO". Preserve original shapes, original palette, proportions, subtle texture, layout and rounded corners. No redesign, no new elements, no change in typography. Clean antialiased edges without a cream halo, icon centered and almost filling a square canvas with minimal transparent padding, suitable for macOS dock and window icons. High-resolution output.

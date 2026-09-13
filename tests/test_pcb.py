@@ -2,7 +2,7 @@
 import unittest
 
 from kirho.pcb import (
-    PcbBoard, PcbFootprint, PcbPad, PcbRule, PcbTrack, PcbVia,
+    PcbBoard, PcbFootprint, PcbPad, PcbRule, PcbSilk, PcbTrack, PcbVia,
     build_pcb_board, footprint_names_for_type, mil_to_mm, mm_to_mil,
     resolve_footprint,
 )
@@ -47,6 +47,46 @@ class _Scene:
 
 
 class PcbTransferTest(unittest.TestCase):
+    def test_own_packages_preserve_numbered_nets_and_roundtrip(self):
+        for kind, pins in (('BJT_NPN', 3), ('POT', 2), ('SPST', 2),
+                            ('SPDT', 3), ('DPDT', 6), ('RELAY', 4),
+                            ('XFMR', 4), ('BRIDGE', 4)):
+            scene = _Scene()
+            item = _Item(kind, 'X1', 0, 0, pins=pins)
+            item.footprint_name = footprint_names_for_type(kind)[-1]
+            self.assertTrue(item.footprint_name.startswith('Kirho_'))
+            scene.components = [item]
+            board = build_pcb_board(scene)
+            footprint = board.footprints[0]
+            self.assertEqual(len(footprint.pads), pins)
+            self.assertTrue(footprint.silkscreen)
+            self.assertEqual(PcbBoard.from_dict(board.to_dict()).to_dict(), board.to_dict())
+
+    def test_silkscreen_snapshot_and_legacy_dip_do_not_move_copper(self):
+        board = build_pcb_board(_Scene())
+        self.assertEqual(len(board.footprints[0].silkscreen), 3)
+        self.assertEqual(board.footprints[1].silkscreen[0].kind, 'circle')
+        board.footprints[0].silkscreen.append(
+            PcbSilk('polyline', ((-1, -3), (1, -3)), 0.2))
+        self.assertEqual(PcbBoard.from_dict(board.to_dict()).to_dict(), board.to_dict())
+        dip = resolve_footprint('IC555')
+        self.assertAlmostEqual(dip.pads[1].y_mm - dip.pads[0].y_mm, 2.54)
+        self.assertAlmostEqual(dip.pads[7].x_mm - dip.pads[0].x_mm, 7.62)
+        soic = resolve_footprint('IC555', 'SOIC-8 1.27mm')
+        self.assertAlmostEqual(soic.pads[7].x_mm - soic.pads[0].x_mm, 5.4)
+        self.assertAlmostEqual(soic.pads[1].y_mm - soic.pads[0].y_mm, 1.27)
+        legacy = board.to_dict()
+        raw = legacy['footprints'][0]
+        raw.pop('silkscreen')
+        raw['footprint_name'] = dip.name
+        raw['pads'][0]['y_mm'], raw['pads'][1]['y_mm'] = -8.89, -2.54
+        restored = PcbBoard.from_dict(legacy)
+        self.assertEqual(restored.to_dict()['footprints'][0]['pads'], raw['pads'])
+        self.assertTrue(any('DIP-8' in w for w in restored.warnings))
+        self.assertEqual(PcbBoard.from_dict(restored.to_dict()).to_dict(), restored.to_dict())
+        with self.assertRaises(ValueError):
+            PcbSilk('circle', ((0, 0), (1, 1)), float('nan'))
+
     def test_builds_footprints_and_preserves_nets(self):
         board = build_pcb_board(_Scene())
 
@@ -107,6 +147,7 @@ class PcbTransferTest(unittest.TestCase):
             _Item('C', 'C1', 200, 100),
         ]
         scene.components[0].footprint_name = 'R_0805'
+        scene.components[0].node1 = 'MANUAL_VCC'
 
         board = build_pcb_board(scene)
 
@@ -117,6 +158,7 @@ class PcbTransferTest(unittest.TestCase):
         self.assertEqual(resistor.footprint_name, 'R_0805')
         self.assertEqual(resistor.pads[0].pad_type, 'smd')
         self.assertEqual(resistor.pads[0].drill_mm, 0.0)
+        self.assertEqual(resistor.pads[0].net, 'MANUAL_VCC')
 
     def test_board_round_trip_preserves_editable_positions(self):
         board = build_pcb_board(_Scene())
@@ -156,7 +198,7 @@ class PcbTransferTest(unittest.TestCase):
 
         self.assertEqual(
             [layer.name for layer in restored.layers],
-            ['F.Cu', 'B.Cu', 'F.SilkS', 'B.SilkS', 'Edge.Cuts'],
+            ['F.Cu', 'B.Cu', 'F.SilkS', 'B.SilkS', 'F.Mask', 'B.Mask', 'Edge.Cuts'],
         )
         self.assertEqual(restored.tracks[0].points,
                          [(1.0, 2.0), (3.0, 2.0), (3.0, 5.0)])
@@ -185,11 +227,63 @@ class PcbTransferTest(unittest.TestCase):
             }],
         })
 
-        self.assertEqual(len(restored.layers), 5)
+        self.assertEqual(len(restored.layers), 7)
         self.assertEqual(restored.tracks, [])
         self.assertEqual(restored.vias, [])
         self.assertEqual(restored.footprints[0].pads[0].shape, 'rect')
         self.assertEqual(restored.footprints[0].pads[0].drill_mm, 1.0)
+        with self.assertRaises(ValueError):
+            PcbBoard.from_dict({'width_mm': 'nan'})
+
+    def test_continuity_uses_copper_shapes_crossings_and_vias(self):
+        first = PcbFootprint('R1', 'R', '', '', 2, 10, 0, 2, 2,
+                             pads=[PcbPad(1, 0, 0, 'N', drill_mm=0,
+                                          pad_type='smd', layers=('F.Cu',))])
+        second = PcbFootprint('R2', 'R', '', '', 10, 2, 0, 2, 2,
+                              pads=[PcbPad(1, 0, 0, 'N', drill_mm=0,
+                                           pad_type='smd', layers=('F.Cu',))])
+        board = PcbBoard(footprints=[first, second], tracks=[
+            PcbTrack('N', points=[(2, 10), (18, 10)]),
+            PcbTrack('N', points=[(10, 2), (10, 18)])])
+        self.assertTrue(board.routing_status()['N']['complete'])
+        second.side = 'B.Cu'
+        board.tracks[1].layer = 'B.Cu'
+        self.assertFalse(board.routing_status()['N']['complete'])
+        board.vias.append(PcbVia(10, 10, 'N'))
+        self.assertTrue(board.routing_status()['N']['complete'])
+        board.vias.clear()
+        self.assertEqual(len(board.unrouted_connections()), 1)
+
+        second.side = 'F.Cu'
+        first.x_mm, first.y_mm = 5, 5
+        first.pads[0].width_mm, first.pads[0].height_mm = 4, 0.4
+        first.pads[0].shape = 'rect'
+        second.x_mm, second.y_mm = 15, 6
+        board.tracks = [PcbTrack('N', points=[(5, 6), (15, 6)])]
+        self.assertFalse(board.routing_status()['N']['complete'])
+        first.pads[0].x_mm = 2
+        first.angle, first.side = 90, 'B.Cu'
+        x, y = first.pad_position(first.pads[0])
+        self.assertAlmostEqual(x, 5)
+        self.assertAlmostEqual(y, 3)
+        self.assertEqual(first.pad_layers(first.pads[0]), ('B.Cu',))
+
+    def test_routing_clearance_and_drc_share_geometry(self):
+        board = PcbBoard(outline=(10, 20, 20, 20), tracks=[
+            PcbTrack('BLOCK', width_mm=0.2, points=[(20, 22), (20, 38)])])
+        crossing = PcbTrack('N', points=[(12, 30), (28, 30)])
+        self.assertIsNotNone(board.routing_error(crossing))
+        crossing.layer = 'B.Cu'
+        self.assertIsNone(board.routing_error(crossing))
+        self.assertIsNotNone(board.routing_error(PcbVia(10.2, 30, 'N')))
+        self.assertIsNotNone(board.routing_error(PcbVia(20, 30, 'N')))
+        self.assertIsNone(board.routing_error(PcbVia(15, 30, 'N')))
+        crossing.layer = 'F.Cu'
+        board.tracks += [crossing, PcbTrack('NEAR', width_mm=0.2,
+                                           points=[(20.3, 22), (20.3, 25)])]
+        board.vias = [PcbVia(31, 30, 'N'), PcbVia(15, 25, 'N', drill_mm=1)]
+        codes = {violation.code for violation in board.check_drc()}
+        self.assertTrue({'short', 'clearance', 'edge', 'geometry', 'dangling'} <= codes)
 
 
 if __name__ == '__main__':

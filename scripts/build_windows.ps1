@@ -19,6 +19,7 @@ if (-not $Version) {
     --onedir `
     --name Kirho `
     --icon assets\kirho.ico `
+    --add-data "assets/kirho.png;assets" `
     --add-data "i18n;i18n" `
     --add-data "themes;themes" `
     main.py

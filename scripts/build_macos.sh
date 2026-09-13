@@ -16,6 +16,7 @@ python3 -m PyInstaller \
   --name Kirho \
   --osx-bundle-identifier com.github.pabdan2003.kirho \
   --icon assets/kirho.icns \
+  --add-data "assets/kirho.png:assets" \
   --add-data "i18n:i18n" \
   main.py
 
@@ -31,7 +32,7 @@ PLIST="dist/Kirho.app/Contents/Info.plist"
 # Register .csin so Finder can use Kirho's document icon and open the file.
 cp assets/kirho.icns "dist/Kirho.app/Contents/Resources/kirho.icns"
 plist_add() {
-  /usr/libexec/PlistBuddy -c "$1" "$PLIST" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c "$1" "$PLIST"
 }
 plist_add "Add :UTExportedTypeDeclarations array"
 plist_add "Add :UTExportedTypeDeclarations:0 dict"
@@ -54,6 +55,11 @@ plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions:0 string csin"
 plist_add "Add :CFBundleDocumentTypes:0:LSItemContentTypes array"
 plist_add "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string com.github.pabdan2003.kirho.csin"
 plist_add "Add :CFBundleDocumentTypes:0:CFBundleTypeIconFile string kirho.icns"
+plutil -lint "$PLIST" >/dev/null
+/usr/libexec/PlistBuddy -c \
+  "Print :CFBundleDocumentTypes:0:LSItemContentTypes:0" "$PLIST" >/dev/null
+/usr/libexec/PlistBuddy -c \
+  "Print :UTExportedTypeDeclarations:0:UTTypeIconFile" "$PLIST" >/dev/null
 codesign --force --deep --sign - "dist/Kirho.app"
 
 rm -f "$DMG" "$DMG_RW"

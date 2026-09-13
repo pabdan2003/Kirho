@@ -17,7 +17,7 @@ from typing import Optional, List, Dict, Tuple
 
 from PyQt6.QtWidgets import QGraphicsScene, QMenu, QDialog
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QFontMetricsF, QImage
-from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF, pyqtSignal, QByteArray
+from PyQt6.QtCore import Qt, QPointF, QRectF, QLineF, pyqtSignal, QByteArray, QTimer
 
 from kirho.ui.style import COLORS, GRID_SIZE, PIN_RADIUS, _qfont, theme_revision
 from kirho.ui.items.component_item import ComponentItem
@@ -78,6 +78,7 @@ class CircuitScene(QGraphicsScene):
         'DFF': 'DFF', 'JKFF': 'JKFF',
         'TFF': 'TFF', 'SRFF': 'SRFF',
         'COUNTER': 'CNT', 'MUX2': 'MUX',
+        'KEYPAD4X4': 'KP',
         'IC555': 'U555',
         'CLK': 'CLK',
         'NET_LABEL_IN': 'NL', 'NET_LABEL_OUT': 'NL',
@@ -100,6 +101,7 @@ class CircuitScene(QGraphicsScene):
         self._mode = 'select'   # 'select' | 'wire' | 'place_{tipo}'
 
         self._comp_counter: Dict[str, int] = {}
+        self.external_components: Dict[str, dict] = {}
 
         # Estado para arrastre grupal (mover circuito + cables como una unidad)
         self._group_drag_active: bool = False
@@ -123,12 +125,39 @@ class CircuitScene(QGraphicsScene):
         self._title_block_logo_cache_key = None
         self._title_block_logo_cache = QImage()
 
+    @property
+    def external_board_definitions(self) -> Dict[str, dict]:
+        """Compatibilidad con circuitos y pruebas anteriores."""
+        return {
+            component_type: spec.get('board_definition', spec)
+            if isinstance(spec, dict) else spec
+            for component_type, spec in self.external_components.items()
+        }
+
+    @external_board_definitions.setter
+    def external_board_definitions(self, definitions: Dict[str, dict]):
+        self.external_components = {
+            component_type: {'board_definition': definition}
+            for component_type, definition in (definitions or {}).items()
+        }
+
     @staticmethod
     def _counter_key_for_type(comp_type: str) -> str:
         return 'NET_LABEL' if comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT') else comp_type
 
+    def _reference_prefix(self, comp_type: str) -> str:
+        spec = self.external_components.get(comp_type, {})
+        if isinstance(spec, dict):
+            prefix = spec.get('reference_prefix')
+            if prefix:
+                return str(prefix)
+            definition = spec.get('board_definition', spec.get('definition', {}))
+            if isinstance(definition, dict) and definition.get('reference_prefix'):
+                return str(definition['reference_prefix'])
+        return self._NAME_PREFIXES.get(comp_type, comp_type)
+
     def _bump_component_counter_from_name(self, comp_type: str, name: str):
-        prefix = self._NAME_PREFIXES.get(comp_type, comp_type)
+        prefix = self._reference_prefix(comp_type)
         m = re.match(rf'^{re.escape(prefix)}(\d+)', name or '')
         if not m:
             return
@@ -140,7 +169,7 @@ class CircuitScene(QGraphicsScene):
 
     def _next_component_name(self, comp_type: str, suffix: str = '') -> str:
         key = self._counter_key_for_type(comp_type)
-        prefix = self._NAME_PREFIXES.get(comp_type, comp_type)
+        prefix = self._reference_prefix(comp_type)
         count = self._comp_counter.get(key, 0)
         while True:
             count += 1
@@ -555,7 +584,8 @@ class CircuitScene(QGraphicsScene):
     def place_component(self, comp_type: str, pos: QPointF,
                         name: str = '', value: float = 0.0, unit: str = '',
                         node1: str = '', node2: str = '', node3: str = '',
-                        tl082_unit: str = '') -> 'ComponentItem | None':
+                        tl082_unit: str = '', external_definition: dict | None = None,
+                        external_backend: str = '') -> 'ComponentItem | None':
         # ── Instancia de subcircuito: comp_type viene como "SUBCKT:Nombre" ──
         _subckt_name = ''
         if comp_type.startswith('SUBCKT:'):
@@ -578,7 +608,7 @@ class CircuitScene(QGraphicsScene):
             if self._component_name_exists(name):
                 suffix = ''
                 if comp_type == 'TL082':
-                    prefix = self._NAME_PREFIXES.get(comp_type, comp_type)
+                    prefix = self._reference_prefix(comp_type)
                     m = re.match(rf'^{re.escape(prefix)}\d+(.+)$', name)
                     suffix = m.group(1) if m else _tl082_unit
                 name = self._next_component_name(comp_type, suffix=suffix)
@@ -610,13 +640,20 @@ class CircuitScene(QGraphicsScene):
                     'NET_LABEL_IN': 0.0, 'NET_LABEL_OUT': 0.0,
                     'FGEN': 5.0, 'MULTIMETER': 0.0}
         _stateful = ('LOGIC_STATE', 'CLK', 'NET_LABEL_IN', 'NET_LABEL_OUT',
-                     'OSC', 'MULTIMETER', 'PORT', 'SUBCKT')
+                     'OSC', 'MULTIMETER', 'PORT', 'SUBCKT', 'KEYPAD4X4')
         if value == 0.0 and comp_type not in _stateful:
             value = defaults.get(comp_type, 1.0)
         elif comp_type in _stateful:
             value = defaults.get(comp_type, 0.0)
 
         item = ComponentItem(comp_type, name, value, unit, node1, node2, node3)
+        external_spec = self.external_components.get(comp_type, {})
+        item.external_definition = (
+            external_definition if isinstance(external_definition, dict)
+            else external_spec.get('board_definition',
+                                   external_spec.get('definition')))
+        item.external_backend = (
+            external_backend or external_spec.get('backend', ''))
         from kirho.pcb import default_footprint_name
         item.footprint_name = default_footprint_name(comp_type)
         if comp_type == 'NOT':
@@ -906,6 +943,19 @@ class CircuitScene(QGraphicsScene):
             item.value = 0.0 if item.value else 1.0
         item.update()
 
+    def _pulse_keypad_button(self, item: ComponentItem, index: int):
+        item.keypad_pressed[index] = True
+        item.update()
+        self.logic_state_toggled.emit(item)
+        QTimer.singleShot(120, lambda: self._release_keypad_button(item, index))
+
+    def _release_keypad_button(self, item: ComponentItem, index: int):
+        if item.scene() is not self or not item.keypad_pressed[index]:
+            return
+        item.keypad_pressed[index] = False
+        item.update()
+        self.logic_state_toggled.emit(item)
+
     @staticmethod
     def _switch_key_target(item, pressed):
         if item.comp_type != 'SPDT3' or not pressed:
@@ -933,6 +983,11 @@ class CircuitScene(QGraphicsScene):
                     return
         for item in items:
             if isinstance(item, ComponentItem):
+                if item.comp_type == 'KEYPAD4X4':
+                    index = item.keypad_button_at_scene(event.scenePos())
+                    if index is not None:
+                        self._pulse_keypad_button(item, index)
+                    return
                 if item.comp_type == 'LOGIC_STATE':
                     # Toggle 0↔1 con doble-click
                     self.push_undo()
@@ -1034,8 +1089,9 @@ class CircuitScene(QGraphicsScene):
         """Aplica una tecla de switch y devuelve si fue consumida."""
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             return False
-        key = event.key()
-        pressed = 'SPACE' if key == Qt.Key.Key_Space else event.text().upper()
+        pressed = self._event_key_name(event)
+        if not pressed:
+            return False
         direct_switches = []
         switches = [item for item in self.components
                     if item.comp_type in ('SPST', 'SPDT', 'DPDT')
@@ -1057,8 +1113,46 @@ class CircuitScene(QGraphicsScene):
         event.accept()
         return True
 
+    @staticmethod
+    def _event_key_name(event) -> str:
+        return ('SPACE' if event.key() == Qt.Key.Key_Space
+                else event.text().strip().upper())
+
+    def handle_keypad_key(self, event, pressed: bool) -> bool:
+        """Actualiza los botones del keypad que comparten la tecla física."""
+        if event.modifiers() & (Qt.KeyboardModifier.ControlModifier |
+                                Qt.KeyboardModifier.AltModifier |
+                                Qt.KeyboardModifier.MetaModifier):
+            return False
+        key = self._event_key_name(event)
+        if not key:
+            return False
+
+        matches = []
+        for item in self.components:
+            if item.comp_type != 'KEYPAD4X4':
+                continue
+            for index, assigned in enumerate(getattr(item, 'keypad_keys', [])[:16]):
+                if str(assigned).strip().upper() == key:
+                    matches.append((item, index))
+        if not matches:
+            return False
+
+        changed = False
+        for item, index in matches:
+            if item.keypad_pressed[index] != pressed:
+                item.keypad_pressed[index] = pressed
+                item.update()
+                changed = True
+        if changed:
+            self.logic_state_toggled.emit(matches[0][0])
+        event.accept()
+        return True
+
     def keyPressEvent(self, event):
         if self.handle_switch_key(event):
+            return
+        if self.handle_keypad_key(event, True):
             return
 
         mod = event.modifiers()
@@ -1112,6 +1206,11 @@ class CircuitScene(QGraphicsScene):
         else:
             super().keyPressEvent(event)
 
+    def keyReleaseEvent(self, event):
+        if self.handle_keypad_key(event, False):
+            return
+        super().keyReleaseEvent(event)
+
     def update_wires_for_component(self, comp: 'ComponentItem'):
         """Actualiza todos los cables conectados al componente dado."""
         for wire in self.wires:
@@ -1129,6 +1228,7 @@ class CircuitScene(QGraphicsScene):
         'xfmr_ratio', 'xfmr_imax', 'bridge_vf', 'relay_activation_voltage',
         'node4', 'node5', 'node6', 'tl082_unit', 'clk_running', 'switch_key',
         'switch_on1_key', 'switch_off_key', 'switch_on2_key',
+        'keypad_keys',
         'timer_nodes',
         'dig_inputs', 'dig_tpd_ns', 'dig_clk', 'dig_analog_node',
         'dig_bits', 'dig_bits_adc', 'dig_vref',
@@ -1136,7 +1236,11 @@ class CircuitScene(QGraphicsScene):
         'fgen_waveform', 'fgen_offset', 'fgen_duty',
         'osc_time_div', 'osc_v_div_a', 'osc_v_div_b',
         'osc_pos_a', 'osc_pos_b',
+        'osc_enabled_a', 'osc_enabled_b',
+        'osc_coupling_a', 'osc_coupling_b',
+        'osc_invert_a', 'osc_invert_b',
         'osc_trig_level', 'osc_trig_source', 'osc_trig_edge', 'osc_trig_mode',
+        'osc_trig_position',
         'osc_hw_config',
         'meter_quantity', 'meter_coupling',
     )
@@ -1402,7 +1506,9 @@ class CircuitScene(QGraphicsScene):
 
         analog = [c for c in self.components if c.comp_type not in (
             ComponentItem.DIGITAL_TYPES | {'GND', 'NODE', 'NET_LABEL_IN',
-                                            'NET_LABEL_OUT', 'PORT'})]
+                                            'NET_LABEL_OUT', 'PORT'}
+            | {'KEYPAD4X4'})
+            and not getattr(c, 'external_definition', None)]
         if analog and not any(c.comp_type == 'GND' for c in self.components):
             warnings.append(self.tr("No ground node (GND) was found."))
 
@@ -1479,6 +1585,19 @@ class CircuitScene(QGraphicsScene):
         elif chosen is act_flip_y:
             self.flip_selected_y()
 
+    def external_gpio_net_map(self) -> Dict[int, str]:
+        """Relaciona los GPIO de componentes externos con sus redes."""
+        nets = self.extract_netlist()
+        result: Dict[int, str] = {}
+        for comp in self.components:
+            if not comp.is_external_component():
+                continue
+            for index, pin in enumerate(comp._external_board_pins(), 1):
+                gpio = pin.get('gpio')
+                if isinstance(gpio, int) and f"{comp.name}__p{index}" in nets:
+                    result.setdefault(gpio, nets[f"{comp.name}__p{index}"])
+        return result
+
     # ── Extraccion de netlist por Union-Find ─────
     def extract_netlist(self) -> Dict[str, str]:
         """
@@ -1498,6 +1617,14 @@ class CircuitScene(QGraphicsScene):
             if comp.comp_type == 'SUBCKT':
                 for i, pt in enumerate(comp.subckt_pin_positions_scene()):
                     pins[f"{comp.name}__p{i + 1}"] = pt
+                continue
+            if comp.is_external_component():
+                for i, pt in enumerate(comp.all_pin_positions_scene(), 1):
+                    pins[f"{comp.name}__p{i}"] = pt
+                continue
+            if comp.comp_type == 'KEYPAD4X4':
+                for i, pt in enumerate(comp.all_pin_positions_scene(), 1):
+                    pins[f"{comp.name}__p{i}"] = pt
                 continue
             if comp.comp_type in ComponentItem.TIMER_TYPES:
                 for i, pt in enumerate(comp.all_pin_positions_scene(), 1):
@@ -1563,6 +1690,18 @@ class CircuitScene(QGraphicsScene):
             ra, rb = find(a), find(b)
             if ra != rb:
                 parent[ra] = rb
+
+        # Una tecla presionada cierra el cruce entre su fila y su columna.
+        # La unión se calcula en cada lectura del netlist para que la
+        # pulsación y la liberación sean reversibles sin mutar cables.
+        for comp in self.components:
+            if comp.comp_type != 'KEYPAD4X4':
+                continue
+            for index, is_pressed in enumerate(
+                    getattr(comp, 'keypad_pressed', [])[:16]):
+                if is_pressed:
+                    union(f"{comp.name}__p{1 + index // 4}",
+                          f"{comp.name}__p{5 + index % 4}")
 
         def pts_near(pa: QPointF, pb: QPointF) -> bool:
             return abs(pa.x() - pb.x()) < SNAP and abs(pa.y() - pb.y()) < SNAP
@@ -1642,6 +1781,18 @@ class CircuitScene(QGraphicsScene):
             if comp.comp_type == 'GND':
                 gnd_roots.add(find(f"{comp.name}__p1"))
                 gnd_roots.add(find(f"{comp.name}__p2"))
+            elif comp.is_external_component():
+                # Las placas reales conectan internamente todos sus pines
+                # GND/AGND. El símbolo externo debe reflejar ese retorno
+                # aunque el usuario no dibuje un cable entre esos pines.
+                for index, pin in enumerate(comp._external_board_pins(), 1):
+                    kind = str(pin.get('kind', '')).lower()
+                    name = str(pin.get('name', '')).upper()
+                    if (kind in {'ground', 'analog_ground'}
+                            or name in {'GND', 'AGND'}):
+                        pin_id = f"{comp.name}__p{index}"
+                        if pin_id in pins:
+                            gnd_roots.add(find(pin_id))
 
         # ── 4. Asignar nombres de nodo ───────────────────────────────────
         pin_ids = list(pins.keys())
@@ -1702,7 +1853,6 @@ class CircuitScene(QGraphicsScene):
 
         if item.comp_type == 'OSC':
             from kirho.ui.dialogs.oscilloscope_dialog import OscilloscopeDialog
-            self.push_undo()
             dlg = OscilloscopeDialog(item, parent=None)
             item._panel_dialog = dlg
             # Aunque sólo cambien parámetros visuales (Time/Div, etc.),
@@ -1736,6 +1886,9 @@ class CircuitScene(QGraphicsScene):
             item.node3     = data['node3']
             if 'switch_key' in data:
                 item.switch_key = data['switch_key']
+            if item.comp_type == 'KEYPAD4X4' and 'keypad_keys' in data:
+                item.keypad_keys = (list(data['keypad_keys']) +
+                                     list(item.keypad_keys))[:16]
             if item.comp_type == 'SPDT3' and 'switch_position' in data:
                 item.value = float(data['switch_position'])
                 item.switch_on1_key = data.get('switch_on1_key', '')

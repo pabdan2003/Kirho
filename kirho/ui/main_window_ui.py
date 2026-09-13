@@ -4,13 +4,14 @@ import sys
 from typing import Dict, List
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QTableWidget, QTextEdit, QComboBox,
-    QPushButton, QSplitter, QTabWidget, QToolBar,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget, QTextEdit, QComboBox,
+    QPushButton, QSplitter, QStackedWidget, QTabWidget, QToolBar, QCheckBox,
 )
 from PyQt6.QtGui import QAction, QFont, QKeySequence
 from PyQt6.QtCore import Qt
 
 from kirho.ui.scene import PAPER_FORMATS
+from kirho.pcb import LAYER_COLORS
 from kirho.ui.style import (
     COLORS, THEME_MANAGER, apply_theme_to_colors, _qfont,
 )
@@ -87,7 +88,8 @@ class MainWindowUI:
 
     def _build_right_panel(self):
         self.right_panel = QWidget()
-        self.right_panel.setFixedWidth(260)
+        self.right_panel.setMinimumWidth(260)
+        self.right_panel.setMaximumWidth(360)
         layout = QVBoxLayout(self.right_panel)
         layout.setContentsMargins(8, 8, 8, 8)
 
@@ -116,6 +118,16 @@ class MainWindowUI:
         self.prop_table.setMaximumHeight(200)
         layout.addWidget(self.prop_table)
 
+        # Los backends externos pueden publicar su propio panel. Kirho solo
+        # ofrece el contenedor y no necesita conocer el tipo del componente.
+        self.external_component_panel = QWidget()
+        self.external_component_panel_layout = QVBoxLayout(
+            self.external_component_panel)
+        self.external_component_panel_layout.setContentsMargins(0, 4, 0, 4)
+        self.external_component_panel.setVisible(False)
+        layout.addWidget(self.external_component_panel)
+        self._external_component_controller = None
+
         # ── Slider de potenciómetro (visible sólo cuando hay un POT seleccionado) ──
         from PyQt6.QtWidgets import QSlider
         self.pot_panel = QWidget()
@@ -143,6 +155,13 @@ class MainWindowUI:
         self._selected_pot = None   # ComponentItem actualmente seleccionado (POT)
 
         # Resultados de simulación
+        self.inspector_pages = QStackedWidget()
+        layout.addWidget(self.inspector_pages, 1)
+        self.simulation_results_page = QWidget()
+        self.inspector_pages.addWidget(self.simulation_results_page)
+        layout = QVBoxLayout(self.simulation_results_page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._pcb_sidebar_editor = None
         res_label = QLabel(self.tr("RESULTS"))
         res_label.setFont(_qfont('Menlo', 9, QFont.Weight.Bold))
         layout.addWidget(res_label)
@@ -390,7 +409,8 @@ class MainWindowUI:
                 ('SPDT3', 'ON-OFF-ON switch', '━o/ o/ o━'),
                 ('DPDT', 'DPDT switch',   '━o/ o━\n━o/ o━'),
                 ('RELAY','Relay',         '⌁'),
-                ('LAMP', 'Bulb', '💡'),
+                ('LAMP', 'Bulb', '(*)'),
+                ('KEYPAD4X4', '4x4 Keypad', '⌨'),
             ]),
             (self.tr("Reference"), [
                 ('GND',          'Ground',          '⏚'),
@@ -421,6 +441,17 @@ class MainWindowUI:
                 ('CLK',       'Clock (CLK)',    '⏲'),
             ]),
         ]
+
+        external_items = [
+            (component['type'], component['label'],
+             component.get('symbol', '▣'),
+             component.get('board_definition'),
+             component.get('backend', ''))
+            for component in getattr(self, '_external_schematic_components', [])
+            if component.get('type') and component.get('label')
+        ]
+        if external_items:
+            categories.append((self.tr('External boards'), external_items))
 
         for cat_name, items in categories:
             btn = QPushButton(self.tr(cat_name))
@@ -494,7 +525,7 @@ class MainWindowUI:
         tb.addSeparator()
         tb.addWidget(QLabel(self.tr('Layer:')))
         self._pcb_layer_combo = QComboBox()
-        self._pcb_layer_combo.addItems(['F.Cu', 'B.Cu'])
+        self._pcb_layer_combo.addItems(list(LAYER_COLORS))
         self._pcb_layer_combo.currentTextChanged.connect(self._set_pcb_layer)
         tb.addWidget(self._pcb_layer_combo)
         tb.addWidget(QLabel(self.tr('Width:')))
@@ -512,6 +543,7 @@ class MainWindowUI:
         self._pcb_unit_combo.setToolTip(self.tr('PCB grid units'))
         self._pcb_unit_combo.currentTextChanged.connect(self._set_pcb_unit)
         tb.addWidget(self._pcb_unit_combo)
+        tb.addSeparator()
         self._pcb_toolbar = tb
 
     def _update_tab_mode(self):
@@ -519,6 +551,7 @@ class MainWindowUI:
         if not hasattr(self, '_component_toolbar'):
             return
         pcb_active = self._is_pcb_tab()
+        self.prop_table.setMaximumHeight(300 if pcb_active else 200)
         self._component_toolbar.setVisible(not pcb_active)
         self._pcb_toolbar.setVisible(pcb_active)
 
@@ -535,6 +568,24 @@ class MainWindowUI:
                 if key == 'open_pcb':
                     action.setVisible(not pcb_active)
         active = self._active_tab()
+        editor = active['widget'] if pcb_active and active else None
+        if editor is not self._pcb_sidebar_editor:
+            previous = self._pcb_sidebar_editor
+            if previous is not None:
+                for action in previous.edit_toolbar.actions():
+                    self._pcb_toolbar.removeAction(action)
+                previous.edit_toolbar.show()
+                self.inspector_pages.removeWidget(previous.sidebar)
+                previous.canvas_layout.addWidget(previous.sidebar)
+                previous.sidebar.show()
+            self._pcb_sidebar_editor = editor
+            if editor is not None:
+                self._pcb_toolbar.addActions(editor.edit_toolbar.actions())
+                editor.edit_toolbar.hide()
+                self.inspector_pages.addWidget(editor.sidebar)
+                self.inspector_pages.setCurrentWidget(editor.sidebar)
+            else:
+                self.inspector_pages.setCurrentWidget(self.simulation_results_page)
         self._shared_actions['regenerate_pcb'].setEnabled(
             pcb_active and active.get('source_scene') is not None
             if active else False)
@@ -613,7 +664,7 @@ class MainWindowUI:
                 text-align: left;
             }}
             QPushButton:hover  {{ background: {COLORS['toolbar']}; }}
-            QPushButton:checked {{ background: {COLORS['component']}; color: white; }}
+            QPushButton:checked {{ background: {COLORS['comp_sel']}; color: white; }}
             QPushButton#run    {{ background: {COLORS['component']}; color: white; font-weight: bold; }}
             QTableWidget {{
                 background: {COLORS['comp_body']};

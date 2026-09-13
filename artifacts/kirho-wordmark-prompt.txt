@@ -1,0 +1,5 @@
+Tool: built-in ImageGen
+Selected output: assets/kirho-wordmark.png (RGBA; exterior alpha verified)
+Source: codex-clipboard-2962d2f0-c42b-4a63-83b3-655044556967.png
+
+Use case: background-extraction. Input image 1 is the edit target. Remove ONLY the dark green background OUTSIDE the outer edge of the cream rounded rectangular frame. Everything exterior to that frame, including outside the curved corners, must be genuinely transparent (alpha channel), with no painted checkerboard or replacement background. Keep the complete cream border and ALL of the interior intact and opaque: dark green background inside the frame, the original lettering "KIRHO", the subtitle "MEASURE · GENERATE · EXPLORE", and the small horizontal cream dash. Preserve the exact original composition, aspect ratio, colors, typography, spacing, textures and all design details. Do not redesign or add anything. Clean antialiased cutout edge along the outside of the cream frame. Output a transparent PNG with the same wide horizontal composition and minimal transparent exterior padding.

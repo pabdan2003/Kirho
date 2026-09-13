@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QPainter, QPageLayout, QPageSize
 from PyQt6.QtCore import (
-    Qt, QPointF, QRectF, QSizeF, pyqtSignal,
+    Qt, QPointF, QRectF, QSizeF, pyqtSignal, QSaveFile, QIODevice,
 )
 from PyQt6.QtPrintSupport import (
     QPrintDialog, QPrintPreviewWidget, QPrinter, QPrinterInfo,
@@ -91,6 +91,14 @@ class DocumentController:
                 'flip_x': item._flip_x,
                 'flip_y': item._flip_y,
             }
+            if getattr(item, 'external_backend', ''):
+                entry['external_backend'] = item.external_backend
+            if getattr(item, 'external_definition', None):
+                # Snapshot mínimo para que el esquema siga siendo visible si
+                # la librería no está instalada temporalmente.
+                entry['external_definition'] = dict(item.external_definition)
+            if getattr(item, 'external_firmware_path', ''):
+                entry['external_firmware_path'] = item.external_firmware_path
             if item.comp_type in ('VAC', 'FGEN'):
                 entry['frequency'] = item.frequency
                 entry['phase_deg'] = item.phase_deg
@@ -146,7 +154,11 @@ class DocumentController:
                 for attr in (
                     'osc_time_div', 'osc_v_div_a', 'osc_v_div_b',
                     'osc_pos_a', 'osc_pos_b', 'osc_trig_level',
+                    'osc_enabled_a', 'osc_enabled_b',
+                    'osc_coupling_a', 'osc_coupling_b',
+                    'osc_invert_a', 'osc_invert_b',
                     'osc_trig_source', 'osc_trig_edge', 'osc_trig_mode',
+                    'osc_trig_position',
                     'osc_hw_config',
                 ):
                     if hasattr(item, attr):
@@ -175,6 +187,8 @@ class DocumentController:
                 entry['switch_on1_key'] = item.switch_on1_key
                 entry['switch_off_key'] = item.switch_off_key
                 entry['switch_on2_key'] = item.switch_on2_key
+            if item.comp_type == 'KEYPAD4X4':
+                entry['keypad_keys'] = list(getattr(item, 'keypad_keys', []))[:16]
             sheet_data['components'].append(entry)
 
         for wire in scene.wires:
@@ -203,8 +217,11 @@ class DocumentController:
                 unit=c.get('unit', ''),
                 node1=c.get('node1', ''),
                 node2=c.get('node2', ''),
-                node3=c.get('node3', '')
+                node3=c.get('node3', ''),
+                external_definition=c.get('external_definition'),
+                external_backend=c.get('external_backend', ''),
             )
+            item.external_firmware_path = c.get('external_firmware_path', '')
             item.footprint_name = c.get(
                 'footprint_name', getattr(item, 'footprint_name', ''))
             angle = c.get('angle', 0)
@@ -287,7 +304,11 @@ class DocumentController:
                 for attr in (
                     'osc_time_div', 'osc_v_div_a', 'osc_v_div_b',
                     'osc_pos_a', 'osc_pos_b', 'osc_trig_level',
+                    'osc_enabled_a', 'osc_enabled_b',
+                    'osc_coupling_a', 'osc_coupling_b',
+                    'osc_invert_a', 'osc_invert_b',
                     'osc_trig_source', 'osc_trig_edge', 'osc_trig_mode',
+                    'osc_trig_position',
                     'osc_hw_config',
                 ):
                     if attr in c:
@@ -315,6 +336,11 @@ class DocumentController:
                 item.switch_on1_key = c.get('switch_on1_key', '')
                 item.switch_off_key = c.get('switch_off_key', '')
                 item.switch_on2_key = c.get('switch_on2_key', '')
+            if c['type'] == 'KEYPAD4X4' and 'keypad_keys' in c:
+                saved_keys = c.get('keypad_keys')
+                if isinstance(saved_keys, list):
+                    item.keypad_keys = (list(saved_keys) +
+                                        list(item.keypad_keys))[:16]
 
         for w in sheet_data.get('wires', []):
             def migrate_555_pin(point):
@@ -329,6 +355,19 @@ class DocumentController:
             scene.wires.append(wire)
 
     # ── Guardar (.csin) ──────────────────────────
+    @staticmethod
+    def _write_json(path, data):
+        payload = json.dumps(data, indent=2, ensure_ascii=False,
+                             allow_nan=False).encode('utf-8')
+        file = QSaveFile(path)
+        if not file.open(QIODevice.OpenModeFlag.WriteOnly):
+            raise OSError(file.errorString())
+        if file.write(payload) != len(payload):
+            file.cancelWriting()
+            raise OSError(file.errorString())
+        if not file.commit():
+            raise OSError(file.errorString())
+
     def _save_circuit(self):
         path = self._current_file
         if not path:
@@ -350,7 +389,16 @@ class DocumentController:
         data = {'version': '2.1', 'format': 'kirho-schematic', 'sheets': sheets}
         pcb_tab = next((sheet for sheet in self._sheets
                         if sheet.get('kind') == 'pcb'), None)
+        if pcb_tab is not None:
+            data['pcb'] = pcb_tab['board'].to_dict()
+        elif self._window._legacy_pcb_data is not None:
+            data['pcb'] = self._window._legacy_pcb_data
         pcb_path = self._pcb_file
+        if 'pcb' not in data and pcb_path and os.path.isfile(pcb_path):
+            saved_board = self._load_pcb_board(pcb_path)
+            if saved_board is None:
+                return
+            data['pcb'] = saved_board.to_dict()
         if pcb_path is None and pcb_tab is not None:
             pcb_path = os.path.splitext(path)[0] + '.kpcb'
             self._pcb_file = os.path.abspath(pcb_path)
@@ -365,8 +413,7 @@ class DocumentController:
                 self._write_pcb_file(pcb_path, legacy_board)
                 self._window._legacy_pcb_data = None
 
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        self._write_json(path, data)
 
         self._current_file = path
         self.setWindowTitle(f"Kirho — {os.path.basename(path)}")
@@ -382,13 +429,13 @@ class DocumentController:
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-        except (OSError, ValueError) as exc:
+            board = PcbBoard.from_dict(data.get('board', data)
+                                       if isinstance(data, dict) else None)
+        except (OSError, ValueError, TypeError, OverflowError) as exc:
             QMessageBox.critical(
                 self._window, self.tr("Error"),
                 self.tr("Could not open PCB file:\n{error}").format(error=exc))
             return None
-        board = PcbBoard.from_dict(data.get('board', data)
-                                   if isinstance(data, dict) else None)
         if board is None:
             QMessageBox.critical(
                 self._window, self.tr("Error"),
@@ -403,8 +450,7 @@ class DocumentController:
             if self._current_file else None,
             'board': board.to_dict(),
         }
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        self._write_json(path, data)
 
     def _save_pcb(self, path=None):
         pcb_tab = next((sheet for sheet in self._sheets
@@ -421,8 +467,11 @@ class DocumentController:
         if not path.lower().endswith('.kpcb'):
             path += '.kpcb'
 
-        self._write_pcb_file(path, pcb_tab['board'])
         self._pcb_file = os.path.abspath(path)
+        if self._current_file:
+            self._save_circuit()
+        else:
+            self._write_pcb_file(path, pcb_tab['board'])
         self.statusBar().showMessage(self.tr("PCB saved: {path}").format(path=path))
 
     def _save_pcb_as(self):
@@ -462,6 +511,8 @@ class DocumentController:
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+            if isinstance(data, dict) and data.get('pcb') is not None:
+                PcbBoard.from_dict(data['pcb'])
         except Exception as e:
             QMessageBox.critical(self._window, self.tr("Error"), self.tr("Could not open file:\n{error}").format(error=e))
             return

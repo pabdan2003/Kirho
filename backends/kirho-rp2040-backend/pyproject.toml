@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kirho-rp2040-backend"
+version = "0.1.0"
+description = "RP2040 development board backend for Kirho"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+[project.entry-points."kirho.backends"]
+rp2040 = "kirho_rp2040_backend:create_backend"
+
+[project.scripts]
+kirho-rp2040-runtime = "kirho_rp2040_backend.runtime:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+kirho_rp2040_backend = ["data/*.json"]

@@ -114,3 +114,34 @@ def test_ac_complex_impedance_divider(solver):
     pz = r["powers"]["Z1"]
     assert pz["P"] == pytest.approx(0.002, abs=1e-4)
     assert pz["Q"] > 0  # carga inductiva
+
+
+def test_transient_adaptive_respects_requested_maximum_step(solver):
+    frequency = 1000.0
+    dt = 1.0 / (frequency * 24)
+    comps = [
+        VoltageSourceAC("Vin", "in", "0", 10.0, frequency, mode="peak"),
+        Resistor("R1", "in", "0", 1000.0),
+    ]
+
+    result = solver.solve_transient(
+        comps, t_stop=10 / frequency, dt=dt, dt_max=dt,
+        adaptive=True, tol_abs=1.0, tol_rel=1.0,
+    )
+
+    assert result["success"], result.get("error")
+    assert result["dt_stats"]["max"] <= dt * (1.0 + 1e-12)
+
+
+def test_transient_can_return_partial_state_at_runtime_budget(solver):
+    comps = [
+        VoltageSourceAC("Vin", "in", "0", 1.0, 1000.0, mode="peak"),
+        Resistor("R1", "in", "0", 1000.0),
+    ]
+    result = solver.solve_transient(
+        comps, t_stop=0.1, dt=1e-5, max_runtime_s=0.0,
+    )
+
+    assert result["success"]
+    assert result["steps"] == 0
+    assert result["final_state"]["t"] == 0.0

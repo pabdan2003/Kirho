@@ -1,0 +1,1226 @@
+{
+  "version": "2.1",
+  "format": "kirho-schematic",
+  "sheets": [
+    {
+      "components": [
+        {
+          "type": "BJT_NPN",
+          "name": "BJT_NPN1",
+          "footprint_name": "Kirho_3pin_Dbody_P2.54",
+          "value": 100.0,
+          "unit": "hFE",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 0.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false
+        },
+        {
+          "type": "POT",
+          "name": "POT1",
+          "footprint_name": "Kirho_Pot_2terminal_P5.08",
+          "value": 10000.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 280.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "pot_wiper": 0.5
+        },
+        {
+          "type": "SPST",
+          "name": "SPST1",
+          "footprint_name": "Kirho_Switch_2pin_P5.08",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 560.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "switch_key": ""
+        },
+        {
+          "type": "SPDT",
+          "name": "SPDT1",
+          "footprint_name": "Kirho_Slide_3pin_P2.54",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 840.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "switch_key": ""
+        },
+        {
+          "type": "DPDT",
+          "name": "DPDT1",
+          "footprint_name": "Kirho_Slide_6pin_P2.54_R5.08",
+          "value": 0.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 0.0,
+          "y": 300.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "node4": "",
+          "node5": "",
+          "node6": "",
+          "switch_key": ""
+        },
+        {
+          "type": "RELAY",
+          "name": "RELAY1",
+          "footprint_name": "Kirho_Relay_4pin_P10.16_R7.62",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 280.0,
+          "y": 300.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "relay_activation_voltage": 3.0,
+          "node4": ""
+        },
+        {
+          "type": "XFMR",
+          "name": "XFMR1",
+          "footprint_name": "Kirho_Transformer_4pin_P15.24_R10.16",
+          "value": 1.0,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 560.0,
+          "y": 300.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "xfmr_ratio": 2.0,
+          "xfmr_imax": 1.0,
+          "node4": ""
+        },
+        {
+          "type": "BRIDGE",
+          "name": "BRIDGE1",
+          "footprint_name": "Kirho_Bridge_Inline4_P2.54",
+          "value": 0.7,
+          "unit": "",
+          "node1": "",
+          "node2": "",
+          "node3": "",
+          "x": 840.0,
+          "y": 300.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "bridge_vf": 0.7,
+          "node4": ""
+        }
+      ],
+      "wires": [],
+      "paper_format": "A4",
+      "paper_line_width": 2.5,
+      "paper_visible": false,
+      "title_block_visible": false,
+      "title_block": {
+        "title": "",
+        "project": "",
+        "author": "",
+        "date": "",
+        "revision": "",
+        "sheet": "",
+        "logo_data": "",
+        "logo_mode": "color"
+      },
+      "name": "Sheet 1"
+    }
+  ],
+  "pcb": {
+    "units": "mm",
+    "warnings": [
+      "Kirho nominal patterns: verify dimensions and terminal mapping against the actual parts before manufacture."
+    ],
+    "width_mm": 108.0,
+    "height_mm": 60.0,
+    "outline": [
+      0.0,
+      0.0,
+      108.0,
+      60.0
+    ],
+    "layers": [
+      {
+        "name": "F.Cu",
+        "layer_type": "copper",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "B.Cu",
+        "layer_type": "copper",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "F.SilkS",
+        "layer_type": "silkscreen",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "B.SilkS",
+        "layer_type": "silkscreen",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "F.Mask",
+        "layer_type": "mask",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "B.Mask",
+        "layer_type": "mask",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "Edge.Cuts",
+        "layer_type": "edge",
+        "enabled": true,
+        "color": ""
+      }
+    ],
+    "rules": {
+      "clearance_mm": 0.2,
+      "min_track_width_mm": 0.2,
+      "min_drill_mm": 0.3,
+      "edge_clearance_mm": 0.25
+    },
+    "footprints": [
+      {
+        "reference": "BJT_NPN1",
+        "component_type": "BJT_NPN",
+        "value": "BJT_NPN",
+        "footprint_name": "Kirho_3pin_Dbody_P2.54",
+        "x_mm": 10.0,
+        "y_mm": 10.0,
+        "angle": 0.0,
+        "width_mm": 8,
+        "height_mm": 6,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                3.5,
+                -0.0
+              ],
+              [
+                3.4700570148083365,
+                -0.4568416727701805
+              ],
+              [
+                3.380740392011739,
+                -0.9058666578588226
+              ],
+              [
+                3.2335783637895035,
+                -1.3393920132778143
+              ],
+              [
+                3.0310889132455356,
+                -1.7499999999999998
+              ],
+              [
+                2.776736691019323,
+                -2.1306650015305224
+              ],
+              [
+                2.4748737341529163,
+                -2.474873734152916
+              ],
+              [
+                2.1306650015305224,
+                -2.776736691019323
+              ],
+              [
+                1.7500000000000004,
+                -3.031088913245535
+              ],
+              [
+                1.3393920132778145,
+                -3.2335783637895035
+              ],
+              [
+                0.9058666578588226,
+                -3.380740392011739
+              ],
+              [
+                0.456841672770181,
+                -3.4700570148083365
+              ],
+              [
+                2.143131898507868e-16,
+                -3.5
+              ],
+              [
+                -0.4568416727701806,
+                -3.4700570148083365
+              ],
+              [
+                -0.9058666578588221,
+                -3.380740392011739
+              ],
+              [
+                -1.3393920132778132,
+                -3.233578363789504
+              ],
+              [
+                -1.7499999999999993,
+                -3.0310889132455356
+              ],
+              [
+                -2.1306650015305224,
+                -2.776736691019323
+              ],
+              [
+                -2.474873734152916,
+                -2.4748737341529163
+              ],
+              [
+                -2.7767366910193227,
+                -2.130665001530523
+              ],
+              [
+                -3.0310889132455356,
+                -1.7499999999999998
+              ],
+              [
+                -3.2335783637895035,
+                -1.3393920132778145
+              ],
+              [
+                -3.380740392011739,
+                -0.9058666578588236
+              ],
+              [
+                -3.4700570148083365,
+                -0.45684167277018195
+              ],
+              [
+                -3.5,
+                -4.286263797015736e-16
+              ],
+              [
+                3.5,
+                0
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -2.54,
+            "y_mm": 0,
+            "net": "net_BJT_NPN1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 0,
+            "y_mm": 0,
+            "net": "net_BJT_NPN1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 3,
+            "x_mm": 2.54,
+            "y_mm": 0,
+            "net": "net_BJT_NPN1__p3",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "POT1",
+        "component_type": "POT",
+        "value": "10k",
+        "footprint_name": "Kirho_Pot_2terminal_P5.08",
+        "x_mm": 38.0,
+        "y_mm": 10.0,
+        "angle": 0.0,
+        "width_mm": 8,
+        "height_mm": 8,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -4.0,
+                -4.0
+              ],
+              [
+                4.0,
+                -4.0
+              ],
+              [
+                4.0,
+                4.0
+              ],
+              [
+                -4.0,
+                4.0
+              ],
+              [
+                -4.0,
+                -4.0
+              ]
+            ]
+          },
+          {
+            "kind": "circle",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -1.5,
+                -1.5
+              ],
+              [
+                1.5,
+                1.5
+              ]
+            ]
+          },
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -1,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -2.54,
+            "y_mm": 0,
+            "net": "net_POT1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 2.54,
+            "y_mm": 0,
+            "net": "net_POT1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "SPST1",
+        "component_type": "SPST",
+        "value": "SPST",
+        "footprint_name": "Kirho_Switch_2pin_P5.08",
+        "x_mm": 66.0,
+        "y_mm": 10.0,
+        "angle": 0.0,
+        "width_mm": 8,
+        "height_mm": 6,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -4.0,
+                -3.0
+              ],
+              [
+                4.0,
+                -3.0
+              ],
+              [
+                4.0,
+                3.0
+              ],
+              [
+                -4.0,
+                3.0
+              ],
+              [
+                -4.0,
+                -3.0
+              ]
+            ]
+          },
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -1.0,
+                -1.5
+              ],
+              [
+                1.0,
+                -1.5
+              ],
+              [
+                1.0,
+                1.5
+              ],
+              [
+                -1.0,
+                1.5
+              ],
+              [
+                -1.0,
+                -1.5
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -2.54,
+            "y_mm": 0,
+            "net": "net_SPST1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 2.54,
+            "y_mm": 0,
+            "net": "net_SPST1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "SPDT1",
+        "component_type": "SPDT",
+        "value": "SPDT",
+        "footprint_name": "Kirho_Slide_3pin_P2.54",
+        "x_mm": 94.0,
+        "y_mm": 10.0,
+        "angle": 0.0,
+        "width_mm": 10,
+        "height_mm": 6,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -5.0,
+                -3.0
+              ],
+              [
+                5.0,
+                -3.0
+              ],
+              [
+                5.0,
+                3.0
+              ],
+              [
+                -5.0,
+                3.0
+              ],
+              [
+                -5.0,
+                -3.0
+              ]
+            ]
+          },
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -2,
+                -2
+              ],
+              [
+                2,
+                -2
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -2.54,
+            "y_mm": 0,
+            "net": "net_SPDT1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 0,
+            "y_mm": 0,
+            "net": "net_SPDT1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 3,
+            "x_mm": 2.54,
+            "y_mm": 0,
+            "net": "net_SPDT1__p3",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "DPDT1",
+        "component_type": "DPDT",
+        "value": "DPDT",
+        "footprint_name": "Kirho_Slide_6pin_P2.54_R5.08",
+        "x_mm": 10.0,
+        "y_mm": 40.0,
+        "angle": 0.0,
+        "width_mm": 9,
+        "height_mm": 10,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -4.5,
+                -5.0
+              ],
+              [
+                4.5,
+                -5.0
+              ],
+              [
+                4.5,
+                5.0
+              ],
+              [
+                -4.5,
+                5.0
+              ],
+              [
+                -4.5,
+                -5.0
+              ]
+            ]
+          },
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -0.75,
+                -1.5
+              ],
+              [
+                0.75,
+                -1.5
+              ],
+              [
+                0.75,
+                1.5
+              ],
+              [
+                -0.75,
+                1.5
+              ],
+              [
+                -0.75,
+                -1.5
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -2.54,
+            "y_mm": -2.54,
+            "net": "net_DPDT1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": -2.54,
+            "y_mm": 0,
+            "net": "net_DPDT1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 3,
+            "x_mm": -2.54,
+            "y_mm": 2.54,
+            "net": "net_DPDT1__p3",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 4,
+            "x_mm": 2.54,
+            "y_mm": -2.54,
+            "net": "net_DPDT1__p4",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 5,
+            "x_mm": 2.54,
+            "y_mm": 0,
+            "net": "net_DPDT1__p5",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 6,
+            "x_mm": 2.54,
+            "y_mm": 2.54,
+            "net": "net_DPDT1__p6",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "RELAY1",
+        "component_type": "RELAY",
+        "value": "RELAY",
+        "footprint_name": "Kirho_Relay_4pin_P10.16_R7.62",
+        "x_mm": 38.0,
+        "y_mm": 40.0,
+        "angle": 0.0,
+        "width_mm": 14,
+        "height_mm": 11,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -7.0,
+                -5.5
+              ],
+              [
+                7.0,
+                -5.5
+              ],
+              [
+                7.0,
+                5.5
+              ],
+              [
+                -7.0,
+                5.5
+              ],
+              [
+                -7.0,
+                -5.5
+              ]
+            ]
+          },
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -6,
+                -4
+              ],
+              [
+                -6,
+                -2
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -5.08,
+            "y_mm": -3.81,
+            "net": "net_RELAY1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": -5.08,
+            "y_mm": 3.81,
+            "net": "net_RELAY1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 3,
+            "x_mm": 5.08,
+            "y_mm": -3.81,
+            "net": "net_RELAY1__p3",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 4,
+            "x_mm": 5.08,
+            "y_mm": 3.81,
+            "net": "net_RELAY1__p4",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "XFMR1",
+        "component_type": "XFMR",
+        "value": "XFMR",
+        "footprint_name": "Kirho_Transformer_4pin_P15.24_R10.16",
+        "x_mm": 66.0,
+        "y_mm": 40.0,
+        "angle": 0.0,
+        "width_mm": 20,
+        "height_mm": 16,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -10.0,
+                -8.0
+              ],
+              [
+                10.0,
+                -8.0
+              ],
+              [
+                10.0,
+                8.0
+              ],
+              [
+                -10.0,
+                8.0
+              ],
+              [
+                -10.0,
+                -8.0
+              ]
+            ]
+          },
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -4.0,
+                -6.5
+              ],
+              [
+                4.0,
+                -6.5
+              ],
+              [
+                4.0,
+                6.5
+              ],
+              [
+                -4.0,
+                6.5
+              ],
+              [
+                -4.0,
+                -6.5
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -7.62,
+            "y_mm": -5.08,
+            "net": "net_XFMR1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": -7.62,
+            "y_mm": 5.08,
+            "net": "net_XFMR1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 3,
+            "x_mm": 7.62,
+            "y_mm": -5.08,
+            "net": "net_XFMR1__p3",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 4,
+            "x_mm": 7.62,
+            "y_mm": 5.08,
+            "net": "net_XFMR1__p4",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "BRIDGE1",
+        "component_type": "BRIDGE",
+        "value": "BRIDGE",
+        "footprint_name": "Kirho_Bridge_Inline4_P2.54",
+        "x_mm": 94.0,
+        "y_mm": 40.0,
+        "angle": 0.0,
+        "width_mm": 11,
+        "height_mm": 5,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "silkscreen": [
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -5.5,
+                -2.5
+              ],
+              [
+                5.5,
+                -2.5
+              ],
+              [
+                5.5,
+                2.5
+              ],
+              [
+                -5.5,
+                2.5
+              ],
+              [
+                -5.5,
+                -2.5
+              ]
+            ]
+          },
+          {
+            "kind": "polyline",
+            "width_mm": 0.15,
+            "points": [
+              [
+                -4.5,
+                -1.5
+              ],
+              [
+                -3.5,
+                -1.5
+              ]
+            ]
+          }
+        ],
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -3.81,
+            "y_mm": 0,
+            "net": "net_BRIDGE1__p1",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "rect",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": -1.27,
+            "y_mm": 0,
+            "net": "net_BRIDGE1__p2",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 3,
+            "x_mm": 1.27,
+            "y_mm": 0,
+            "net": "net_BRIDGE1__p3",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 4,
+            "x_mm": 3.81,
+            "y_mm": 0,
+            "net": "net_BRIDGE1__p4",
+            "width_mm": 1.8,
+            "height_mm": 1.8,
+            "shape": "circle",
+            "drill_mm": 0.8,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      }
+    ],
+    "tracks": [],
+    "vias": [],
+    "texts": []
+  },
+  "pcb_file": "own-footprints.kpcb"
+}

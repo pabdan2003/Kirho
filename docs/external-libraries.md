@@ -21,14 +21,31 @@ point en el grupo `kirho.backends`:
 pic16f887 = "mi_backend.pic16f887:create_backend"
 ```
 
-Kirho puede descubrir ese backend y cargarlo bajo demanda. Esta primera capa
-solo prepara instalación y descubrimiento; todavía no define la API de
-ejecución del PIC ni implementa su emulación.
+Kirho descubre ese backend y lo carga bajo demanda. El núcleo solo conoce
+contratos genéricos: `schematic_components()`, `create_runtime()` y, de forma
+opcional, `create_component_controller(component, context)`. El backend puede
+publicar la definición visual, propiedades, controles y simulación sin añadir
+ramas específicas al programa principal.
+
+El primer backend de desarrollo de Kirho se encuentra en
+`backends/kirho-rp2040-backend`. Se puede instalar localmente con:
+
+```bash
+./.venv/bin/python -m pip install --target ~/.kirho/libraries \
+  ./backends/kirho-rp2040-backend
+```
+
+Al recargar Settings debe aparecer como `rp2040`. Al reiniciar Kirho, el
+backend publica el símbolo de la placa en una categoría separada del catálogo;
+solo entonces se puede colocar en el esquemático. Incluye una definición de 40
+pines, su runtime, el controlador de interfaz y la carga de firmware. El núcleo
+solo aloja ese controlador y conecta sus eventos con la simulación; no contiene
+reglas específicas de esta placa.
 
 Para una instalación reproducible también se puede usar la terminal:
 
 ```bash
-python -m pip install --target ~/.kirho/libraries nombre-del-backend
+./.venv/bin/python -m pip install --target ~/.kirho/libraries nombre-del-backend
 ```
 
 Las librerías externas ejecutan código con los permisos del usuario. Instala

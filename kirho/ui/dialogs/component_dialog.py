@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
     QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QStackedWidget,
-    QWidget,
+    QWidget, QGridLayout,
 )
 from PyQt6.QtCore import Qt
 
@@ -19,6 +19,7 @@ from kirho.ui.component_metadata import (
     FIVE_PIN_NODE_LABELS,
     SIX_PIN_NODE_LABELS,
     VALUE_LABELS,
+    KEYPAD_BUTTON_LABELS,
 )
 
 
@@ -145,9 +146,11 @@ class ComponentDialog(QDialog):
         self._dig_inputs_spin = self._dig_bits_spin = self._dig_vref_spin = None
         self._dig_tpd_spin = self._dig_clk_edit = self._dig_anode_edit = None
         self._switch_position_combo = None
+        self._switch_key_edit = None
         self._switch_on1_key_edit = None
         self._switch_off_key_edit = None
         self._switch_on2_key_edit = None
+        self._keypad_key_edits = []
 
         if is_netlabel:
             kind = self.tr('Input') if self.item.comp_type == 'NET_LABEL_IN' else self.tr('Output')
@@ -169,13 +172,34 @@ class ComponentDialog(QDialog):
 
         layout.addRow(self.tr("Name:"), self.name_edit)
 
+        if self.item.comp_type == 'KEYPAD4X4':
+            keys = list(getattr(self.item, 'keypad_keys', []) or [])
+            keys.extend([''] * (len(KEYPAD_BUTTON_LABELS) - len(keys)))
+            grid = QGridLayout()
+            for index, label in enumerate(KEYPAD_BUTTON_LABELS):
+                row, column = divmod(index, 4)
+                edit = KeyCaptureEdit(keys[index])
+                edit.setPlaceholderText(self.tr('Press key'))
+                grid.addWidget(QLabel(label), row, column * 2)
+                grid.addWidget(edit, row, column * 2 + 1)
+                self._keypad_key_edits.append(edit)
+            layout.addRow(self.tr('Button keys:'), grid)
+            buttons = QDialogButtonBox(
+                QDialogButtonBox.StandardButton.Ok |
+                QDialogButtonBox.StandardButton.Cancel)
+            buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self.tr('OK'))
+            buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr('Cancel'))
+            buttons.accepted.connect(self.accept)
+            buttons.rejected.connect(self.reject)
+            layout.addRow(buttons)
+            return
+
         self.value_spin = SIValueEdit(self.item.value)
         value_labels = {
             'R': self.tr('Resistance (Ω)'),
             'LED': self.tr('Value (unused — Vf by color)'),
             'LAMP': self.tr('Turn-on voltage (V)'),
         }
-        self._switch_key_edit = None
         if self.item.comp_type in ('SPST', 'SPDT', 'DPDT'):
             self._switch_key_edit = KeyCaptureEdit(getattr(self.item, 'switch_key', ''))
             self._switch_key_edit.setPlaceholderText(self.tr('e.g. A or Space'))
@@ -545,6 +569,9 @@ class ComponentDialog(QDialog):
             data['switch_on1_key'] = self._switch_on1_key_edit.text().strip()
             data['switch_off_key'] = self._switch_off_key_edit.text().strip()
             data['switch_on2_key'] = self._switch_on2_key_edit.text().strip()
+        if self._keypad_key_edits:
+            data['keypad_keys'] = [edit.text().strip().upper()
+                                   for edit in self._keypad_key_edits]
         if self.item.comp_type == 'Z' and self._z_mode_combo is not None:
             data['z_mode'] = 'rect' if self._z_mode_combo.currentIndex() == 0 else 'phasor'
             data['z_real'] = self._z_real.value()

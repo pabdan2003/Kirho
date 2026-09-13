@@ -35,6 +35,7 @@ install -d \
     "$PACKAGE_ROOT/usr/share/doc/kirho"
 
 cp "$ROOT/main.py" "$PACKAGE_ROOT/opt/kirho/"
+install -Dm644 "$ROOT/assets/kirho.png" "$PACKAGE_ROOT/opt/kirho/assets/kirho.png"
 cp -R "$ROOT/kirho" "$PACKAGE_ROOT/opt/kirho/"
 cp -R "$ROOT/i18n" "$PACKAGE_ROOT/opt/kirho/"
 cp -R "$ROOT/themes" "$PACKAGE_ROOT/opt/kirho/"
@@ -62,6 +63,7 @@ cat > "$PACKAGE_ROOT/usr/share/applications/kirho.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Kirho
+Icon=/opt/kirho/assets/kirho.png
 Comment=Electronic circuit simulator
 Exec=kirho
 Terminal=false

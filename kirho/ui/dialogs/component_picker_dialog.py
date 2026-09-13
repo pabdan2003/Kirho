@@ -33,6 +33,7 @@ PREVIEW_DEFAULT_VALUES = {
     'TL082': 1e5,
     'LAMP': 3.0,
     'DPDT': 0.0,
+    'KEYPAD4X4': 0.0,
 }
 
 
@@ -45,7 +46,7 @@ class ComponentPickerDialog(QDialog):
     def __init__(self, category_name: str, components: list[tuple],
                  component_item_cls, colors, parent=None):
         """
-        components: lista de tuplas (comp_type, label, symbol_ascii)
+        components: lista de tuplas (comp_type, label, symbol_ascii[, metadata])
         component_item_cls: clase visual usada para renderizar la preview.
         """
         super().__init__(parent)
@@ -98,8 +99,10 @@ class ComponentPickerDialog(QDialog):
             'Multimeter': self.tr('Multimeter'), 'NE555 Timer': self.tr('NE555 Timer'),
             'Bulb': self.tr('Bulb'),
             'ON-OFF-ON switch': self.tr('ON-OFF-ON switch'),
+            '4x4 Keypad': self.tr('4x4 Keypad'),
         }
-        for ctype, label, sym in self._components:
+        for component in self._components:
+            ctype, label, sym = component[:3]
             item = QListWidgetItem(f"{sym}   {names.get(label, label)}")
             item.setData(Qt.ItemDataRole.UserRole, ctype)
             self.list_widget.addItem(item)
@@ -149,6 +152,11 @@ class ComponentPickerDialog(QDialog):
 
         val = PREVIEW_DEFAULT_VALUES.get(ctype, 1.0)
         item = self.component_item_cls(ctype, f"{ctype}1", val, '', '', '')
+        component = self._components[row]
+        if len(component) > 3:
+            item.external_definition = component[3]
+        if len(component) > 4:
+            item.external_backend = component[4]
         if ctype == 'Z':
             item.z_real = 100.0
             item.z_imag = 50.0
@@ -160,14 +168,16 @@ class ComponentPickerDialog(QDialog):
         self.preview_scene.addItem(item)
         br = item.boundingRect()
         self.preview_scene.setSceneRect(br.adjusted(-30, -30, 30, 30))
-        self.preview_view.centerOn(item)
+        self.preview_view.fitInView(
+            self.preview_scene.sceneRect(),
+            Qt.AspectRatioMode.KeepAspectRatio)
 
     def _apply_style(self):
         panel = self._color('panel', '#16213e')
         text = self._color('text', '#e0e0e0')
         body = self._color('comp_body', '#16213e')
         border = self._color('panel_brd', '#0f3460')
-        accent = self._color('component', '#e94560')
+        accent = self._color('comp_sel', '#1976D2')
         hover = self._color('comp_sel', '#f5a623')
         self.setStyleSheet(f"""
             QDialog {{

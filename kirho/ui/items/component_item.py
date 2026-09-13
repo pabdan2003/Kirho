@@ -10,6 +10,7 @@ from PyQt6.QtGui import QPainter, QTransform
 from PyQt6.QtCore import QPointF, QRectF
 
 from kirho.ui.style import GRID_SIZE, COMP_W, COMP_H, PIN_RADIUS, format_si_value
+from kirho.ui.component_metadata import KEYPAD_BUTTON_LABELS
 from kirho.ui.items.component_painter import ComponentPainter, _MonochromePainter
 
 # ══════════════════════════════════════════════════════════════
@@ -25,6 +26,7 @@ class ComponentItem(QGraphicsItem):
                   'D', 'LED', 'LAMP', 'BJT_NPN', 'BJT_PNP', 'NMOS', 'PMOS', 'OPAMP',
                   'TL082',
                   'XFMR', 'BRIDGE', 'SPST', 'SPDT', 'SPDT3', 'DPDT', 'RELAY',
+                  'KEYPAD4X4',
                   # ── Instrumentos ──
                   'FGEN', 'OSC', 'MULTIMETER',
                   # ── Digital ──
@@ -54,7 +56,6 @@ class ComponentItem(QGraphicsItem):
     # Tipos de flip-flop con SET/RESET (4 inputs lógicos + Q,Qn)
     FLIPFLOP_TYPES = {'DFF', 'JKFF', 'TFF', 'SRFF'}
     TIMER_TYPES = {'IC555'}
-
     # Tipos que pertenecen al dominio digital (no se pasan al MNA)
     DIGITAL_TYPES = {
         'AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR',
@@ -70,6 +71,11 @@ class ComponentItem(QGraphicsItem):
         self.comp_type = comp_type
         self.name = name
         self.footprint_name = ''
+        self.external_definition: Optional[dict] = None
+        self.external_backend: str = ''
+        self.external_firmware_path: str = ''
+        self.external_firmware_image = None
+        self.external_firmware_runner = None
         self.value = value
         self.unit = unit
         self.node1 = node1
@@ -138,6 +144,11 @@ class ComponentItem(QGraphicsItem):
         self.switch_off_key: str = ''
         self.switch_on2_key: str = ''
 
+        # Teclas del keypad matricial, en orden fila-major. El estado de
+        # pulsación es transitorio: no se guarda en el archivo del circuito.
+        self.keypad_keys: list = list(KEYPAD_BUTTON_LABELS)
+        self.keypad_pressed: list = [False] * len(KEYPAD_BUTTON_LABELS)
+
         # Etiqueta de net label inalámbrico
         self.sheet_label: str = ''
 
@@ -157,10 +168,17 @@ class ComponentItem(QGraphicsItem):
         self.osc_v_div_b:     float = 1.0    # V por división, canal B
         self.osc_pos_a:       float = 0.0    # desplazamiento vertical canal A (divs)
         self.osc_pos_b:       float = 0.0    # desplazamiento vertical canal B (divs)
+        self.osc_enabled_a:    bool  = True
+        self.osc_enabled_b:    bool  = True
+        self.osc_coupling_a:   str   = 'DC'
+        self.osc_coupling_b:   str   = 'DC'
+        self.osc_invert_a:     bool  = False
+        self.osc_invert_b:     bool  = False
         self.osc_trig_level:  float = 0.0    # nivel de trigger (V)
         self.osc_trig_source: str   = 'A'    # 'A' o 'B'
         self.osc_trig_edge:   str   = 'rising'   # 'rising' | 'falling'
         self.osc_trig_mode:   str   = 'auto'     # 'auto' | 'normal' | 'single'
+        self.osc_trig_position: float = 2.0       # posición horizontal (divs)
         # Última config de hardware (puerto, baud, ganancia, etc.) — vacía
         # mientras no se haya conectado nunca. Se guarda en el .csin para
         # que al reabrir el archivo el panel recuerde el puerto y la
@@ -253,6 +271,48 @@ class ComponentItem(QGraphicsItem):
         return self.mapToScene(p1_local), self.mapToScene(p2_local)
 
     # ── Geometría ──────────────────────────────
+    def _external_board_pins(self) -> list[dict]:
+        definition = getattr(self, 'external_definition', None) or {}
+        pins = definition.get('pins', [])
+        if not isinstance(pins, list) or not pins:
+            pins = [{'number': number, 'name': f'P{number}'}
+                    for number in range(1, 41)]
+        return sorted(
+            (pin for pin in pins if isinstance(pin, dict)),
+            key=lambda pin: int(pin.get('number', 0)))
+
+    def is_external_component(self) -> bool:
+        return isinstance(getattr(self, 'external_definition', None), dict)
+
+    def _external_board_geometry(self):
+        pin_count = max(2, len(self._external_board_pins()))
+        pins_per_side = (pin_count + 1) // 2
+        pin_step = float(GRID_SIZE)
+        body_width = 180.0
+        body_height = max(80.0, (pins_per_side - 1) * pin_step + 28.0)
+        pin_extension = GRID_SIZE / 2
+        return body_width, body_height, pin_step, pin_extension
+
+    def _external_board_y_offset(self) -> float:
+        """Centra el patrón y conserva sus pines sobre la cuadrícula."""
+        pins_per_side = (len(self._external_board_pins()) + 1) // 2
+        return -GRID_SIZE / 2 if pins_per_side % 2 == 0 else 0.0
+
+    def _external_board_pin_positions(self) -> list[QPointF]:
+        pins = self._external_board_pins()
+        body_width, _, pin_step, extension = self._external_board_geometry()
+        side_count = (len(pins) + 1) // 2
+        y0 = (-(side_count - 1) * pin_step / 2
+              + self._external_board_y_offset())
+        positions = {}
+        for index, pin in enumerate(pins[:side_count]):
+            positions[pin['number']] = QPointF(
+                -body_width / 2 - extension, y0 + index * pin_step)
+        for index, pin in enumerate(reversed(pins[side_count:])):
+            positions[pin['number']] = QPointF(
+                body_width / 2 + extension, y0 + index * pin_step)
+        return [positions[pin['number']] for pin in pins]
+
     def _counter_height(self) -> float:
         """Altura necesaria para separar claramente las salidas Q0…Qn."""
         return max(COMP_H // 2 + 6, 12 + 9 * max(1, self.dig_bits))
@@ -263,6 +323,23 @@ class ComponentItem(QGraphicsItem):
         step = 18
         return [QPointF(COMP_W // 2 + 10, (i - (n - 1) / 2) * step)
                 for i in range(n)]
+
+    def _keypad_pin_positions(self) -> list[QPointF]:
+        """Pines del keypad: R1..R4 a la izquierda, C1..C4 a la derecha."""
+        ys = (-60.0, -20.0, 20.0, 60.0)
+        return [QPointF(-110, y) for y in ys] + [QPointF(110, y) for y in ys]
+
+    @staticmethod
+    def _keypad_button_rect(index: int) -> QRectF:
+        row, column = divmod(index, 4)
+        return QRectF(-78 + column * 42, -64 + row * 35, 30, 25)
+
+    def keypad_button_at_scene(self, pos: QPointF) -> Optional[int]:
+        local_pos = self.mapFromScene(pos)
+        for index in range(16):
+            if self._keypad_button_rect(index).contains(local_pos):
+                return index
+        return None
 
     def _gate_geometry(self):
         """Retorna (hw, hh, step, n) para una puerta digital."""
@@ -278,6 +355,16 @@ class ComponentItem(QGraphicsItem):
         return [-(n - 1) * step // 2 + i * step for i in range(n)]
 
     def boundingRect(self) -> QRectF:
+        if self.comp_type == 'KEYPAD4X4':
+            return QRectF(-135, -112, 270, 224)
+        if self.is_external_component():
+            body_width, body_height, _, extension = self._external_board_geometry()
+            margin = 24.0
+            return QRectF(
+                -body_width / 2 - extension - margin,
+                -body_height / 2 + self._external_board_y_offset() - margin,
+                body_width + 2 * (extension + margin),
+                body_height + 2 * margin)
         if self.comp_type == 'GND':
             return QRectF(-20, -5, 40, 30)
         if self.comp_type == 'NODE':
@@ -336,6 +423,12 @@ class ComponentItem(QGraphicsItem):
         """Retorna posición de los pines principales en coordenadas locales."""
         hw = COMP_W // 2
         hh = COMP_H // 2
+        if self.comp_type == 'KEYPAD4X4':
+            pins = self._keypad_pin_positions()
+            return pins[0], pins[1]
+        if self.is_external_component():
+            pins = self._external_board_pin_positions()
+            return pins[0], pins[1]
         if self.comp_type == 'GND':
             return QPointF(0, 0), QPointF(0, 0)
         if self.comp_type in ('BJT_NPN', 'BJT_PNP'):
@@ -593,6 +686,11 @@ class ComponentItem(QGraphicsItem):
 
     def all_pin_positions_scene(self) -> list:
         """Retorna todos los pines activos del componente en coordenadas de escena."""
+        if self.comp_type == 'KEYPAD4X4':
+            return [self.mapToScene(point) for point in self._keypad_pin_positions()]
+        if self.is_external_component():
+            return [self.mapToScene(point)
+                    for point in self._external_board_pin_positions()]
         if self.comp_type == 'SUBCKT':
             pts = self.subckt_pin_positions_scene()
             return pts if pts else [self.mapToScene(QPointF(0, 0))]

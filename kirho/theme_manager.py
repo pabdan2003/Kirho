@@ -69,7 +69,7 @@ THEME_DARK: Dict[str, str] = {
     'grid_line':  '#292929',
     'component':  '#d6d6d6',
     'comp_body':  '#222222',
-    'comp_sel':   '#f0f0f0',
+    'comp_sel':   '#1976D2',
     'wire':       '#bdbdbd',
     'wire_sel':   '#f0f0f0',
     'node_dot':   '#d6d6d6',
@@ -128,20 +128,47 @@ THEME_LIGHT: Dict[str, str] = {
     'current':    '#1a4f8a',
 }
 
+#: Tema Kirho — verde bosque y crema cálido del emblema oficial.
+THEME_KIRHO: Dict[str, str] = {
+    'bg':         '#173823',
+    'grid':       '#0C1710',
+    'grid_line':  '#66735C',
+    'component':  '#E6E2B5',
+    'comp_body':  '#0C1710',
+    'comp_sel':   '#E6E2B5',
+    'wire':       '#E6E2B5',
+    'wire_sel':   '#E6E2B5',
+    'node_dot':   '#E6E2B5',
+    'text':       '#E6E2B5',
+    'text_dim':   '#E6E2B5',
+    'pin':        '#E6E2B5',
+    'gnd':        '#E6E2B5',
+    'toolbar':    '#0C1710',
+    'panel':      '#173823',
+    'panel_brd':  '#66735C',
+    'voltage':    '#E6E2B5',
+    'current':    '#E6E2B5',
+}
+
 
 BUILTIN_THEMES: Dict[str, Dict] = {
+    'kirho': {
+        'name':        'Kirho',
+        'description': 'Forest green and warm cream inspired by the Kirho emblem.',
+        'colors':      THEME_KIRHO,
+    },
     'python': {
         'name':        'Python',
         'description': 'Python’s signature blue and yellow.',
         'colors':      THEME_PYTHON,
     },
     'dark': {
-        'name':        'Oscuro (predeterminado)',
+        'name':        'Dark (Default)',
         'description': 'Official charcoal palette with high contrast.',
         'colors':      THEME_DARK,
     },
     'light': {
-        'name':        'Claro',
+        'name':        'Light',
         'description': 'White background with dark lines.',
         'colors':      THEME_LIGHT,
     },

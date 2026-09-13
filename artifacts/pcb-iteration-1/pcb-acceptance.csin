@@ -1,0 +1,413 @@
+{
+  "version": "2.1",
+  "format": "kirho-schematic",
+  "sheets": [
+    {
+      "components": [
+        {
+          "type": "R",
+          "name": "R1",
+          "footprint_name": "R_0805",
+          "value": 1000,
+          "unit": "Ω",
+          "node1": "VIN",
+          "node2": "LED",
+          "node3": "",
+          "x": 0.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false
+        },
+        {
+          "type": "LED",
+          "name": "LED1",
+          "footprint_name": "LED_0805",
+          "value": 1e-14,
+          "unit": "A",
+          "node1": "LED",
+          "node2": "0",
+          "node3": "",
+          "x": 200.0,
+          "y": 0.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false,
+          "led_color": "red"
+        },
+        {
+          "type": "C",
+          "name": "C1",
+          "footprint_name": "C_0805",
+          "value": 1e-06,
+          "unit": "F",
+          "node1": "VIN",
+          "node2": "0",
+          "node3": "",
+          "x": 0.0,
+          "y": 200.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false
+        },
+        {
+          "type": "R",
+          "name": "R2",
+          "footprint_name": "R_0805",
+          "value": 10000,
+          "unit": "Ω",
+          "node1": "VIN",
+          "node2": "0",
+          "node3": "",
+          "x": 200.0,
+          "y": 200.0,
+          "angle": 0,
+          "flip_x": false,
+          "flip_y": false
+        }
+      ],
+      "wires": [],
+      "paper_format": "A4",
+      "paper_line_width": 2.5,
+      "paper_visible": false,
+      "title_block_visible": false,
+      "title_block": {
+        "title": "",
+        "project": "",
+        "author": "",
+        "date": "",
+        "revision": "",
+        "sheet": "",
+        "logo_data": "",
+        "logo_mode": "color"
+      },
+      "name": "Sheet 1"
+    }
+  ],
+  "pcb": {
+    "units": "mm",
+    "warnings": [],
+    "width_mm": 56.0,
+    "height_mm": 38.0,
+    "outline": [
+      0.0,
+      0.0,
+      56.0,
+      38.0
+    ],
+    "layers": [
+      {
+        "name": "F.Cu",
+        "layer_type": "copper",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "B.Cu",
+        "layer_type": "copper",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "F.SilkS",
+        "layer_type": "silkscreen",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "B.SilkS",
+        "layer_type": "silkscreen",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "F.Mask",
+        "layer_type": "mask",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "B.Mask",
+        "layer_type": "mask",
+        "enabled": true,
+        "color": ""
+      },
+      {
+        "name": "Edge.Cuts",
+        "layer_type": "edge",
+        "enabled": true,
+        "color": ""
+      }
+    ],
+    "rules": {
+      "clearance_mm": 0.2,
+      "min_track_width_mm": 0.2,
+      "min_drill_mm": 0.3,
+      "edge_clearance_mm": 0.25
+    },
+    "footprints": [
+      {
+        "reference": "R1",
+        "component_type": "R",
+        "value": "1000 Ω",
+        "footprint_name": "R_Axial_P10.16mm",
+        "x_mm": 15.0,
+        "y_mm": 10.0,
+        "angle": 0.0,
+        "width_mm": 12.0,
+        "height_mm": 4.0,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -5.08,
+            "y_mm": 0.0,
+            "net": "VIN",
+            "width_mm": 2.0,
+            "height_mm": 2.0,
+            "shape": "rect",
+            "drill_mm": 1.0,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 5.08,
+            "y_mm": 0.0,
+            "net": "LED",
+            "width_mm": 2.0,
+            "height_mm": 2.0,
+            "shape": "circle",
+            "drill_mm": 1.0,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "LED1",
+        "component_type": "LED",
+        "value": "1e-14 A",
+        "footprint_name": "LED_THT_D5.0mm",
+        "x_mm": 40.0,
+        "y_mm": 10.0,
+        "angle": 0.0,
+        "width_mm": 6.0,
+        "height_mm": 6.0,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -1.27,
+            "y_mm": 0.0,
+            "net": "LED",
+            "width_mm": 2.0,
+            "height_mm": 2.0,
+            "shape": "rect",
+            "drill_mm": 0.9,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 1.27,
+            "y_mm": 0.0,
+            "net": "0",
+            "width_mm": 2.0,
+            "height_mm": 2.0,
+            "shape": "circle",
+            "drill_mm": 0.9,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "C1",
+        "component_type": "C",
+        "value": "1e-06 F",
+        "footprint_name": "C_Radial_P5.08mm",
+        "x_mm": 15.0,
+        "y_mm": 27.0,
+        "angle": 0.0,
+        "width_mm": 7.0,
+        "height_mm": 7.0,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -2.54,
+            "y_mm": 0.0,
+            "net": "VIN",
+            "width_mm": 2.2,
+            "height_mm": 2.2,
+            "shape": "rect",
+            "drill_mm": 1.0,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 2.54,
+            "y_mm": 0.0,
+            "net": "0",
+            "width_mm": 2.2,
+            "height_mm": 2.2,
+            "shape": "circle",
+            "drill_mm": 1.0,
+            "pad_type": "tht",
+            "layers": [
+              "F.Cu",
+              "B.Cu"
+            ]
+          }
+        ]
+      },
+      {
+        "reference": "R2",
+        "component_type": "R",
+        "value": "10000 Ω",
+        "footprint_name": "R_0805",
+        "x_mm": 40.0,
+        "y_mm": 27.0,
+        "angle": 0.0,
+        "width_mm": 2.0,
+        "height_mm": 1.25,
+        "side": "F.Cu",
+        "courtyard_margin_mm": 0.25,
+        "pads": [
+          {
+            "number": 1,
+            "x_mm": -1.0,
+            "y_mm": 0.0,
+            "net": "VIN",
+            "width_mm": 1.1,
+            "height_mm": 0.9,
+            "shape": "roundrect",
+            "drill_mm": 0.0,
+            "pad_type": "smd",
+            "layers": [
+              "F.Cu"
+            ]
+          },
+          {
+            "number": 2,
+            "x_mm": 1.0,
+            "y_mm": 0.0,
+            "net": "0",
+            "width_mm": 1.1,
+            "height_mm": 0.9,
+            "shape": "roundrect",
+            "drill_mm": 0.0,
+            "pad_type": "smd",
+            "layers": [
+              "F.Cu"
+            ]
+          }
+        ]
+      }
+    ],
+    "tracks": [
+      {
+        "net": "LED",
+        "layer": "F.Cu",
+        "width_mm": 0.5,
+        "points": [
+          [
+            20.08,
+            10.0
+          ],
+          [
+            38.73,
+            10.0
+          ]
+        ]
+      },
+      {
+        "net": "VIN",
+        "layer": "F.Cu",
+        "width_mm": 0.5,
+        "points": [
+          [
+            9.92,
+            10.0
+          ],
+          [
+            6.0,
+            13.92
+          ],
+          [
+            6.0,
+            15.0
+          ],
+          [
+            6.0,
+            20.0
+          ]
+        ]
+      },
+      {
+        "net": "VIN",
+        "layer": "B.Cu",
+        "width_mm": 0.5,
+        "points": [
+          [
+            6.0,
+            20.0
+          ],
+          [
+            12.46,
+            26.46
+          ],
+          [
+            12.46,
+            27.0
+          ]
+        ]
+      }
+    ],
+    "vias": [
+      {
+        "x_mm": 6.0,
+        "y_mm": 20.0,
+        "net": "VIN",
+        "drill_mm": 0.3,
+        "diameter_mm": 0.7,
+        "layers": [
+          "F.Cu",
+          "B.Cu"
+        ]
+      }
+    ],
+    "texts": [
+      {
+        "text": "LED / FILTER",
+        "x_mm": 22.0,
+        "y_mm": 35.0,
+        "layer": "F.SilkS",
+        "size_mm": 1.2,
+        "width_mm": 0.3,
+        "angle": 0.0
+      }
+    ]
+  },
+  "pcb_file": "pcb-acceptance.kpcb"
+}

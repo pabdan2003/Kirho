@@ -5,6 +5,13 @@ from typing import Dict, Optional, Tuple
 
 DEFAULT_NODE_LABELS = ('Node +', 'Node −', None)
 
+KEYPAD_BUTTON_LABELS = (
+    '1', '2', '3', 'A',
+    '4', '5', '6', 'B',
+    '7', '8', '9', 'C',
+    '*', '0', '#', 'D',
+)
+
 COMPONENT_NODE_LABELS: Dict[str, Tuple[str, str, Optional[str]]] = {
     'R':       ('Node 1',       'Node 2',            None),
     'POT':     ('Node 1',       'Node 2 (wiper)',    None),
@@ -13,6 +20,7 @@ COMPONENT_NODE_LABELS: Dict[str, Tuple[str, str, Optional[str]]] = {
     'SPDT3':   ('Common (COM)', 'ON 1',                'ON 2'),
     'C':       ('Node 1',       'Node 2',            None),
     'L':       ('Node 1',       'Node 2',            None),
+    'Z':       ('Node 1',       'Node 2',            None),
     'V':       ('Node + (anode)',  'Node − (cathode)', None),
     'I':       ('Node + (output)', 'Node − (input)', None),
     'D':       ('Anode (A)',    'Cathode (K)',        None),
@@ -26,6 +34,10 @@ COMPONENT_NODE_LABELS: Dict[str, Tuple[str, str, Optional[str]]] = {
     # Instrumentos
     'FGEN':    ('Output + (V+)', 'Output − (V−)',    None),
     'MULTIMETER': ('Probe + (red)', 'Probe − (black)', None),
+    'COMPARATOR': ('Output (Y)', 'Input 1 (A)', 'Input 2 (B)'),
+    'ADC_BRIDGE': ('Node 1', 'Node 2', None),
+    'DAC_BRIDGE': ('Node 1', 'Node 2', None),
+    'PWM':        ('Node 1', 'Node 2', None),
 }
 
 FIVE_PIN_NODE_LABELS: Dict[str, Tuple[str, str, str, str, str]] = {

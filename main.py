@@ -6,14 +6,15 @@ GUI principal con canvas drag-and-drop, PyQt6
 import sys
 import os
 import numpy as np
+from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QTableWidgetItem, QDialog,
-    QMessageBox, QInputDialog,
+    QMessageBox, QInputDialog, QFileDialog,
 )
 from PyQt6.QtGui import (
-    QPainter, QBrush, QColor, QKeySequence
+    QPainter, QBrush, QColor, QKeySequence, QIcon
 )
 from PyQt6.QtCore import (
     QEvent, Qt, QPointF, QTimer,
@@ -28,10 +29,13 @@ from kirho.circuit_analyzer import (
 from kirho.ui.component_metadata import (
     COMPONENT_NODE_LABELS,
     DEFAULT_NODE_LABELS,
+    DIGITAL_BRIDGE_TYPES,
     DIGITAL_FLIPFLOP_TYPES,
     DIGITAL_GATE_TYPES,
+    FIVE_PIN_NODE_LABELS,
     FOUR_PIN_NODE_LABELS,
     SIX_PIN_NODE_LABELS,
+    KEYPAD_BUTTON_LABELS,
 )
 from kirho.ui.dialogs.component_dialog import ComponentDialog
 from kirho.ui.dialogs.component_picker_dialog import ComponentPickerDialog
@@ -74,7 +78,10 @@ from kirho.ui.scene import (
 from kirho.ui.simulation_controller import SimulationController
 from kirho.ui.document_controller import DocumentController, ResponsivePrintPreview
 from kirho.ui.main_window_ui import MainWindowUI
-from kirho.pcb import PcbBoard, footprint_names_for_type
+from kirho.pcb import (
+    PcbBoard, PcbFootprint, PcbPad, PcbText, PcbTrack, PcbVia,
+    footprint_names_for_type,
+)
 from kirho.ui.pcb_editor import PcbEditorWidget
 from kirho.external_libraries import ExternalLibraryManager
 
@@ -131,6 +138,21 @@ class MainWindow(MainWindowUI, QMainWindow):
         self.documents = DocumentController(self)
         self.external_libraries = ExternalLibraryManager()
         self.external_libraries.activate()
+        self._external_schematic_components = (
+            self.external_libraries.list_schematic_components())
+        self._external_components = {
+            component["type"]: component
+            for component in self._external_schematic_components
+        }
+        self._external_runtimes = {}
+        for component in self._external_schematic_components:
+            backend_name = component.get("backend")
+            if not backend_name or backend_name in self._external_runtimes:
+                continue
+            runtime = self.external_libraries.create_runtime(backend_name)
+            if runtime is not None:
+                self._external_runtimes[backend_name] = runtime
+                self.simulation.bind_external_runtime(runtime)
 
         # ── Reloj global para componentes CLK ──────────────────────────────
         # Cada CLK con clk_running=True conmuta su valor cada medio período
@@ -143,6 +165,7 @@ class MainWindow(MainWindowUI, QMainWindow):
         self._build_ui()
         self._apply_style()
         self._load_demo_circuit()
+        self._configure_external_runtimes()
         self._install_global_shortcuts()
     # ── Atajos globales (funcionan sin importar qué widget tenga foco) ──
     def _install_global_shortcuts(self):
@@ -259,16 +282,18 @@ class MainWindow(MainWindowUI, QMainWindow):
         et = event.type()
         if et == QEvent.Type.FileOpen:
             path = event.file()
-            if path:
+            # Cocoa also emits FileOpen for source scripts / command arguments.
+            if path and Path(path).suffix.lower() in ('.csin', '.kpcb'):
                 self._open_circuit(path)
                 return True
         elif et == QEvent.Type.KeyPress:
             mods = event.modifiers()
             sc = self.scene
             if (self._sim_running and sc is not None
-                    and not mods & Qt.KeyboardModifier.ControlModifier
-                    and sc.handle_switch_key(event)):
-                return True
+                    and not mods & Qt.KeyboardModifier.ControlModifier):
+                if (sc.handle_switch_key(event) or
+                        sc.handle_keypad_key(event, True)):
+                    return True
             if mods & Qt.KeyboardModifier.ControlModifier:
                 k = event.key()
                 if k in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
@@ -288,6 +313,13 @@ class MainWindow(MainWindowUI, QMainWindow):
                         self.statusBar().showMessage(
                             "Rotado 90° a la derecha (Ctrl++)")
                     return True
+        elif et == QEvent.Type.KeyRelease:
+            mods = event.modifiers()
+            sc = self.scene
+            if (self._sim_running and sc is not None
+                    and not mods & Qt.KeyboardModifier.ControlModifier
+                    and sc.handle_keypad_key(event, False)):
+                return True
         elif et == QEvent.Type.Enter:
             if getattr(self, '_tools_button', None) is obj:
                 obj.showMenu()
@@ -461,6 +493,8 @@ class MainWindow(MainWindowUI, QMainWindow):
 
     def _create_scene_view(self) -> Tuple[CircuitScene, QGraphicsView]:
         scene = CircuitScene()
+        scene.external_components = dict(
+            getattr(self, '_external_components', {}))
         scene.component_selected.connect(self._on_component_selected)
         scene.status_message.connect(self.statusBar().showMessage)
         scene.mode_changed.connect(
@@ -475,6 +509,19 @@ class MainWindow(MainWindowUI, QMainWindow):
         view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         view.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         return scene, view
+
+    def _configure_external_runtimes(self):
+        """Entrega a cada runtime externo el mapa genérico GPIO→net."""
+        gpio_nets = {}
+        for sheet in self._schematic_sheets():
+            gpio_nets.update(sheet['scene'].external_gpio_net_map())
+        for runtime in getattr(self, '_external_runtimes', {}).values():
+            configure = getattr(runtime, 'configure', None)
+            if callable(configure):
+                try:
+                    configure(gpio_nets)
+                except Exception:
+                    continue
 
     def _on_scene_mode_changed(self, source, mode: str):
         if self.scene is not source:
@@ -534,8 +581,8 @@ class MainWindow(MainWindowUI, QMainWindow):
         }
         pcb_widget.board_changed.connect(
             lambda updated, entry=sheet: entry.__setitem__('board', updated))
-        pcb_widget.footprint_selected.connect(
-            self._on_pcb_footprint_selected)
+        pcb_widget.board_changed.connect(lambda updated: self._update_tab_mode())
+        pcb_widget.object_selected.connect(self._on_pcb_object_selected)
         pcb_widget.route_mode_changed.connect(
             lambda enabled: self._shared_actions['pcb_route'].setChecked(enabled))
         pcb_widget.layer_changed.connect(self._on_pcb_layer_changed)
@@ -560,6 +607,11 @@ class MainWindow(MainWindowUI, QMainWindow):
         if pcb is not None:
             pcb.set_active_layer(layer)
 
+    def _set_pcb_layer_visibility(self, layer: str, visible: bool):
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            pcb.set_layer_visible(layer, visible)
+
     def _on_pcb_layer_changed(self, layer: str):
         combo = getattr(self, '_pcb_layer_combo', None)
         if combo is None:
@@ -572,6 +624,11 @@ class MainWindow(MainWindowUI, QMainWindow):
         pcb = self._active_pcb_editor()
         if pcb is not None and width_mm is not None:
             pcb.set_track_width(float(width_mm))
+
+    def _set_pcb_ratsnest(self, visible: bool):
+        pcb = self._active_pcb_editor()
+        if pcb is not None:
+            pcb.set_ratsnest_visible(visible)
 
     def _toggle_pcb_route(self, enabled: bool):
         pcb = self._active_pcb_editor()
@@ -608,6 +665,7 @@ class MainWindow(MainWindowUI, QMainWindow):
 
     def _on_sheet_changed(self, index: int):
         if 0 <= index < len(self._sheets):
+            self._configure_external_runtimes()
             self._update_tab_mode()
             if self._sheets[index].get('kind') == 'pcb':
                 self._on_component_selected(None)
@@ -1252,9 +1310,54 @@ class MainWindow(MainWindowUI, QMainWindow):
         else:            r_str = f"{Ref:.2f} Ω"
         self.pot_value_label.setText(f"{w*100:.1f}% — R = {r_str}")
 
+    def _clear_external_component_panel(self):
+        layout = getattr(self, 'external_component_panel_layout', None)
+        if layout is None:
+            return
+        while layout.count():
+            child = layout.takeAt(0)
+            widget = child.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self._external_component_controller = None
+        self.external_component_panel.setVisible(False)
+
+    def _create_external_component_controller(self, item):
+        backend_name = getattr(item, 'external_backend', '')
+        if not backend_name:
+            return None
+        runner = getattr(item, 'external_firmware_runner', None)
+        if runner is None:
+            runner = self.external_libraries.create_micropython_runner(
+                backend_name, self._external_runtimes.get(backend_name))
+            item.external_firmware_runner = runner
+        controller = self.external_libraries.create_component_controller(
+            item, {
+                'parent': self,
+                'runtime': self._external_runtimes.get(backend_name),
+                'micropython_runner': runner,
+                'tr': self.tr,
+                'open_file': lambda title, filters: QFileDialog.getOpenFileName(
+                    self, title, '', filters)[0],
+                'load_firmware': lambda path: self.external_libraries.load_firmware(
+                    backend_name, path),
+                'warning': lambda title, message: QMessageBox.warning(
+                    self, title, message),
+                'status_message': self.statusBar().showMessage,
+                'emit_runtime_event': self.simulation._on_external_runtime_event,
+            })
+        if controller is not None and getattr(controller, 'widget', None) is not None:
+            self.external_component_panel_layout.addWidget(controller.widget)
+            self.external_component_panel.setVisible(True)
+            self._external_component_controller = controller
+        return controller
+
     def _on_component_selected(self, item):
         self.prop_table.setRowCount(0)
         self._selected_component = item
+        self._clear_external_component_panel()
+        controller = (self._create_external_component_controller(item)
+                      if item is not None else None)
         options = footprint_names_for_type(item.comp_type) if item else ()
         self.footprint_combo.blockSignals(True)
         self.footprint_combo.clear()
@@ -1290,16 +1393,48 @@ class MainWindow(MainWindowUI, QMainWindow):
             v = manual.strip() if manual.strip() else pin_node.get(auto_key, '—')
             return v if manual.strip() else f"{v} ({self.tr('auto')})"
 
+        no_value_types = {
+            'GND', 'NODE', 'NET_LABEL_IN', 'NET_LABEL_OUT',
+            'PORT', 'SUBCKT', 'KEYPAD4X4',
+        }
         rows = [
-            (self.tr("Type"),     item.comp_type),
-            (self.tr("Name"),     item.name),
-            (self.tr("Value"),    f"{item.value} {item.unit}"),
-            (self.tr("Rotation"), f"{item._angle}°"),
+            (self.tr("Type"), item.comp_type),
+            (self.tr("Name"), item.name),
         ]
+        if item.comp_type not in no_value_types and not item.is_external_component():
+            rows.append((self.tr("Value"), f"{item.value} {item.unit}"))
+        rows.append((self.tr("Rotation"), f"{item._angle}°"))
         if options:
             rows.insert(1, (self.tr("Footprint"), item.footprint_name))
 
-        if item.comp_type in DIGITAL_GATE_TYPES:
+        if item.comp_type == 'KEYPAD4X4':
+            keys = list(getattr(item, 'keypad_keys', []) or [])
+            keys.extend([''] * (len(KEYPAD_BUTTON_LABELS) - len(keys)))
+            for label, key in zip(KEYPAD_BUTTON_LABELS, keys):
+                rows.append((self.tr('Button {label} key').format(label=label),
+                             key or '—'))
+            pressed = [label for label, active in zip(
+                KEYPAD_BUTTON_LABELS,
+                getattr(item, 'keypad_pressed', [])) if active]
+            rows.append((self.tr('Pressed'), ', '.join(pressed) or '—'))
+            for pin, label in enumerate(('R1', 'R2', 'R3', 'R4',
+                                         'C1', 'C2', 'C3', 'C4'), 1):
+                rows.append((label, _node_display(
+                    '', f"{item.name}__p{pin}")))
+        elif item.is_external_component():
+            if controller is not None:
+                rows.extend(controller.property_rows(pin_node) or [])
+            else:
+                definition = getattr(item, 'external_definition', None) or {}
+                rows.extend((
+                    (self.tr('Board'), definition.get(
+                        'name', self.tr('External board'))),
+                    (self.tr('Pins'), str(len(definition.get(
+                        'pins', [])) or len(item.all_pin_positions_scene()))),
+                    (self.tr('Status'), self.tr(
+                        'Schematic symbol only. PCB footprint is not available yet.')),
+                ))
+        elif item.comp_type in DIGITAL_GATE_TYPES:
             n_in = item.dig_inputs if item.comp_type != 'NOT' else 1
             rows.append((self.tr("Output (Y)"), _node_display(item.node1, f"{item.name}__p1")))
             rows.append((self.tr("Input 1 (A)"), _node_display(item.node2, f"{item.name}__p2")))
@@ -1313,10 +1448,35 @@ class MainWindow(MainWindowUI, QMainWindow):
             rows.append((self.tr("Input count"), str(n_in)))
             rows.append((self.tr("Propagation delay"), f"{item.dig_tpd_ns} ns"))
         elif item.comp_type in DIGITAL_FLIPFLOP_TYPES:
-            rows.append((self.tr("Q output"),    _node_display(item.node1, f"{item.name}__p1")))
-            rows.append((self.tr("D / J data"),  _node_display(item.node2, f"{item.name}__p2")))
-            rows.append(("CLK",         _node_display(
-                item.node3 if hasattr(item,'node3') else '', f"{item.name}__p3")))
+            input_labels = {
+                'DFF': 'Data (D)', 'JKFF': 'Input J',
+                'TFF': 'Input T', 'SRFF': 'Set (S)',
+            }
+            clock_labels = {
+                'DFF': 'CLK', 'JKFF': 'Input K',
+                'TFF': 'CLK', 'SRFF': 'Reset (R)',
+            }
+            rows.append((self.tr("Output Q"),
+                         _node_display(item.node1, f"{item.name}__p1")))
+            rows.append((self.tr(input_labels[item.comp_type]),
+                         _node_display(item.node2, f"{item.name}__p2")))
+            rows.append((self.tr(clock_labels[item.comp_type]), _node_display(
+                item.node3 if hasattr(item, 'node3') else '',
+                f"{item.name}__p3")))
+        elif item.comp_type == 'IC555':
+            labels = ('1 GND', '2 TRIG', '3 OUT', '4 RESET',
+                      '5 CTRL', '6 THRESH', '7 DISCH', '8 VCC')
+            values = list(getattr(item, 'timer_nodes', []) or [])
+            values.extend([''] * (8 - len(values)))
+            for pin, label in enumerate(labels, 1):
+                rows.append((label, _node_display(
+                    values[pin - 1], f"{item.name}__p{pin}")))
+        elif item.comp_type == 'COUNTER':
+            for pin in range(1, len(item.all_pin_positions_scene()) + 1):
+                label = 'CLK' if pin == 2 else f"Q{0 if pin == 1 else pin - 2}"
+                manual = {1: item.node1, 2: item.node2}.get(pin, '')
+                rows.append((label, _node_display(
+                    manual, f"{item.name}__p{pin}")))
         elif item.comp_type == 'LOGIC_STATE':
             rows.append((self.tr("Output"),  _node_display(item.node1, f"{item.name}__p1")))
             rows.append((self.tr("State"),  "1 (HIGH)" if item.value else "0 (LOW)"))
@@ -1361,6 +1521,17 @@ class MainWindow(MainWindowUI, QMainWindow):
                     range(1, 7)):
                 rows.append((node_labels[label], _node_display(
                     node, f"{item.name}__p{pin}")))
+        elif item.comp_type in FIVE_PIN_NODE_LABELS:
+            lbls = FIVE_PIN_NODE_LABELS[item.comp_type]
+            for label, node, pin in zip(
+                    lbls,
+                    (item.node1, item.node2,
+                     getattr(item, 'node3', ''),
+                     getattr(item, 'node4', ''),
+                     getattr(item, 'node5', '')),
+                    range(1, 6)):
+                rows.append((label, _node_display(
+                    node, f"{item.name}__p{pin}")))
         elif item.comp_type in FOUR_PIN_NODE_LABELS:
             lbls = FOUR_PIN_NODE_LABELS[item.comp_type]
             rows.append((lbls[0], _node_display(item.node1, f"{item.name}__p1")))
@@ -1369,6 +1540,32 @@ class MainWindow(MainWindowUI, QMainWindow):
                 item.node3 if hasattr(item, 'node3') else '', f"{item.name}__p3")))
             rows.append((lbls[3], _node_display(
                 item.node4 if hasattr(item, 'node4') else '', f"{item.name}__p4")))
+        elif item.comp_type in ('NET_LABEL_IN', 'NET_LABEL_OUT'):
+            kind = 'Input' if item.comp_type == 'NET_LABEL_IN' else 'Output'
+            rows.append((self.tr('Net name'), getattr(item, 'sheet_label', '')))
+            rows.append((self.tr('Direction'), self.tr(kind)))
+        elif item.comp_type == 'PORT':
+            rows.append((self.tr('Port'), getattr(item, 'port_name', 'IN')))
+            rows.append((self.tr('Direction'), getattr(item, 'port_dir', 'in')))
+            rows.append((self.tr('Pin'), _node_display(
+                item.node1, f"{item.name}__p1")))
+        elif item.comp_type == 'SUBCKT':
+            rows.append((self.tr('Subcircuit'), getattr(item, 'subckt_name', '')))
+            for pin, definition in enumerate(getattr(item, 'ic_pins', []) or [], 1):
+                label = definition.get('name', f'Pin {pin}') \
+                    if isinstance(definition, dict) else f'Pin {pin}'
+                rows.append((label, _node_display(
+                    '', f"{item.name}__p{pin}")))
+        elif item.comp_type == 'GND':
+            rows.append((self.tr('Reference'), '0'))
+        elif item.comp_type == 'NODE':
+            rows.append((self.tr('Net'), _node_display(
+                item.node1, f"{item.name}__p1")))
+        elif item.comp_type == 'CLK':
+            rows.append((self.tr('Output'), _node_display(
+                item.node1, f"{item.name}__p1")))
+            rows.append((self.tr('Running'), self.tr('Yes') if getattr(
+                item, 'clk_running', False) else self.tr('No')))
         else:
             lbl1, lbl2, lbl3 = COMPONENT_NODE_LABELS.get(
                 item.comp_type, DEFAULT_NODE_LABELS)
@@ -1394,11 +1591,107 @@ class MainWindow(MainWindowUI, QMainWindow):
                 else:
                     rows.append(("Z", f"{item.z_mag:.4g} ∠{item.z_phase:.2f}° Ω"))
 
+        # Propiedades configurables que también aparecen en el diálogo de
+        # doble clic. Mantenerlas aquí evita que el panel quede desfasado.
+        if item.comp_type in DIGITAL_BRIDGE_TYPES:
+            rows.extend((
+                (self.tr('Resolution (bits)'), str(item.dig_bits_adc)),
+                (self.tr('Vref'), f"{item.dig_vref} V"),
+                (self.tr('MNA analog node'), item.dig_analog_node or '—'),
+                (self.tr('Net CLK (optional)'), item.dig_clk or '—'),
+            ))
+        elif item.comp_type == 'COUNTER':
+            rows.extend((
+                (self.tr('Bits'), str(item.dig_bits)),
+                (self.tr('Net CLK'), item.dig_clk),
+            ))
+
+        if item.comp_type in DIGITAL_FLIPFLOP_TYPES:
+            rows.extend((
+                (self.tr('Net CLK'), item.dig_clk),
+                (self.tr('Propagation delay'), f"{item.dig_tpd_ns} ns"),
+            ))
+        elif item.comp_type == 'LED':
+            rows.append((self.tr('LED color'), item.led_color))
+        elif item.comp_type == 'VAC':
+            rows.extend((
+                (self.tr('Amplitude mode'), item.ac_mode),
+                (self.tr('Frequency (Hz)'), str(item.frequency)),
+                (self.tr('Phase'), f"{item.phase_deg}°"),
+            ))
+        elif item.comp_type == 'POT':
+            rows.append((self.tr('Wiper (0–1)'), str(item.pot_wiper)))
+        elif item.comp_type == 'XFMR':
+            rows.extend((
+                (self.tr('Ratio n = N1/N2'), str(item.xfmr_ratio)),
+                (self.tr('Maximum primary current (A)'),
+                 f"{item.xfmr_imax} A"),
+            ))
+        elif item.comp_type == 'RELAY':
+            rows.extend((
+                (self.tr('Activation voltage (V)'),
+                 str(item.relay_activation_voltage)),
+                (self.tr('Active'), self.tr('Yes') if item.relay_active
+                 else self.tr('No')),
+            ))
+        elif item.comp_type == 'FGEN':
+            rows.extend((
+                (self.tr('Waveform'), item.fgen_waveform),
+                (self.tr('Frequency (Hz)'), str(item.frequency)),
+                (self.tr('Offset (V)'), str(item.fgen_offset)),
+                (self.tr('Duty cycle (%)'), str(item.fgen_duty * 100)),
+                (self.tr('Phase'), f"{item.phase_deg}°"),
+            ))
+        elif item.comp_type == 'OSC':
+            rows.extend((
+                (self.tr('Time/div'), f"{item.osc_time_div} s"),
+                (self.tr('Channel A V/div'), f"{item.osc_v_div_a} V"),
+                (self.tr('Channel B V/div'), f"{item.osc_v_div_b} V"),
+                (self.tr('Trigger source'), item.osc_trig_source),
+                (self.tr('Trigger edge'), item.osc_trig_edge),
+                (self.tr('Trigger level'), f"{item.osc_trig_level} V"),
+            ))
+        elif item.comp_type == 'MULTIMETER':
+            reading = getattr(item, 'meter_reading', None)
+            rows.extend((
+                (self.tr('Measurement'), item.meter_quantity),
+                (self.tr('Coupling'), item.meter_coupling),
+                (self.tr('Reading'), '—' if reading is None else str(reading)),
+            ))
+        elif item.comp_type in ('SPST', 'SPDT', 'DPDT'):
+            key = getattr(item, 'switch_key', '')
+            if key:
+                rows.append((self.tr('Toggle key'), key))
+
         for label, val in rows:
             r = self.prop_table.rowCount()
             self.prop_table.insertRow(r)
             self.prop_table.setItem(r, 0, QTableWidgetItem(label))
             self.prop_table.setItem(r, 1, QTableWidgetItem(str(val)))
+
+    def _set_external_gpio_test(self, value: int):
+        """Prueba el primer GPIO de un componente externo sin conocer su tipo."""
+        controller = getattr(self, '_external_component_controller', None)
+        setter = getattr(controller, 'set_gpio', None)
+        if callable(setter):
+            setter(value)
+            return
+        item = getattr(self, '_selected_component', None)
+        if item is None or not item.is_external_component():
+            return
+        pin = next((pin for pin in item._external_board_pins()
+                    if isinstance(pin.get('gpio'), int)), None)
+        if pin is None:
+            return
+        runtime = next(iter(getattr(self, '_external_runtimes', {}).values()), None)
+        if runtime is not None:
+            runtime.pin_mode(pin['gpio'], 'OUTPUT')
+            runtime.set_gpio(pin['gpio'], value)
+        else:
+            self.simulation._on_external_runtime_event({
+                'type': 'gpio', 'gpio': pin['gpio'], 'value': value,
+                'source': 'firmware',
+            })
 
     def _on_footprint_changed(self, footprint_name: str):
         item = getattr(self, '_selected_component', None)
@@ -1438,6 +1731,119 @@ class MainWindow(MainWindowUI, QMainWindow):
             self.prop_table.insertRow(row)
             self.prop_table.setItem(row, 0, QTableWidgetItem(label))
             self.prop_table.setItem(row, 1, QTableWidgetItem(str(value)))
+        self._install_pcb_fields(footprint)
+
+    def _install_pcb_fields(self, obj):
+        from PyQt6.QtWidgets import QComboBox, QDoubleSpinBox, QPlainTextEdit, QPushButton
+
+        pcb = self._active_pcb_editor()
+        labels = {'x_mm': 'Position X', 'y_mm': 'Position Y', 'angle': 'Rotation',
+                  'value': 'Value', 'side': 'Side', 'width_mm': 'Width',
+                  'height_mm': 'Height', 'drill_mm': 'Drill', 'shape': 'Shape',
+                  'diameter_mm': 'Diameter', 'size_mm': 'Size', 'layer': 'Layer',
+                  'text': 'Text', 'points': 'Vertices (mm)', 'footprint_name': 'Footprint'}
+        for row in range(self.prop_table.rowCount()):
+            for column in (0, 1):
+                cell = self.prop_table.item(row, column)
+                cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        for name in pcb.property_names(obj):
+            label = self.tr(labels[name])
+            if isinstance(obj, PcbPad) and name in ('x_mm', 'y_mm'):
+                label += self.tr(' (local mm)')
+            row = next((r for r in range(self.prop_table.rowCount())
+                        if self.prop_table.item(r, 0).text() == label), self.prop_table.rowCount())
+            if row == self.prop_table.rowCount():
+                self.prop_table.insertRow(row)
+                cell = QTableWidgetItem(label)
+                cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.prop_table.setItem(row, 0, cell)
+            field = pcb.property_field(obj, name)
+            self.prop_table.setCellWidget(row, 1, field)
+
+            def commit(name=name, field=field):
+                try:
+                    value = (field.value() if isinstance(field, QDoubleSpinBox)
+                             else field.currentText() if isinstance(field, QComboBox)
+                             else field.text())
+                    if value != getattr(obj, name):
+                        pcb.apply_properties(obj, {name: value})
+                except (ValueError, TypeError) as exc:
+                    self.statusBar().showMessage(str(exc))
+                    field.setToolTip(str(exc))
+                    field.setStyleSheet('border: 1px solid #ed6963;')
+
+            if isinstance(field, QComboBox):
+                field.currentTextChanged.connect(lambda text, fn=commit: fn())
+            elif isinstance(field, QPlainTextEdit):
+                # Multi-vertex edits remain atomic in the shared properties dialog.
+                button = QPushButton(self.tr('Edit vertices…'))
+                button.clicked.connect(lambda: pcb.edit_properties())
+                self.prop_table.setCellWidget(row, 1, button)
+            else:
+                field.editingFinished.connect(commit)
+
+    def _on_pcb_object_selected(self, selected):
+        if isinstance(selected, PcbFootprint):
+            self._on_pcb_footprint_selected(selected)
+            return
+        self._on_component_selected(None)
+        if not isinstance(selected, (PcbPad, PcbTrack, PcbVia, PcbText)):
+            return
+        pcb = self._active_pcb_editor()
+        format_length = pcb._format_length if pcb is not None else str
+        if isinstance(selected, PcbPad):
+            footprint = next(fp for fp in pcb.board.footprints
+                             if any(pad is selected for pad in fp.pads))
+            x, y = footprint.pad_position(selected)
+            rows = [
+                (self.tr('Object'), f'{footprint.reference}.{selected.number}'),
+                (self.tr('Net'), selected.net),
+                (self.tr('Position X'), format_length(x)),
+                (self.tr('Position Y'), format_length(y)),
+                (self.tr('Shape'), selected.shape),
+                (self.tr('Drill'), format_length(selected.drill_mm)),
+                (self.tr('Layers'), ', '.join(footprint.pad_layers(selected))),
+            ]
+        elif isinstance(selected, PcbTrack):
+            length = sum(
+                ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+                for (x1, y1), (x2, y2) in zip(
+                    selected.points, selected.points[1:]))
+            rows = [
+                (self.tr('Object'), self.tr('Track')),
+                (self.tr('Net'), selected.net),
+                (self.tr('Layer'), selected.layer),
+                (self.tr('Width'), format_length(selected.width_mm)),
+                (self.tr('Length'), format_length(length)),
+                (self.tr('Vertices'), str(len(selected.points))),
+            ]
+        elif isinstance(selected, PcbVia):
+            rows = [
+                (self.tr('Object'), self.tr('Via')),
+                (self.tr('Net'), selected.net),
+                (self.tr('Position X'), format_length(selected.x_mm)),
+                (self.tr('Position Y'), format_length(selected.y_mm)),
+                (self.tr('Drill'), format_length(selected.drill_mm)),
+                (self.tr('Diameter'), format_length(selected.diameter_mm)),
+                (self.tr('Layers'), ', '.join(selected.layers)),
+            ]
+        else:
+            rows = [
+                (self.tr('Object'), self.tr('Silkscreen text')),
+                (self.tr('Text'), selected.text),
+                (self.tr('Layer'), selected.layer),
+                (self.tr('Position X'), format_length(selected.x_mm)),
+                (self.tr('Position Y'), format_length(selected.y_mm)),
+                (self.tr('Size'), format_length(selected.size_mm)),
+                (self.tr('Rotation'), f'{selected.angle:g}°'),
+            ]
+        for label, value in rows:
+            row = self.prop_table.rowCount()
+            self.prop_table.insertRow(row)
+            self.prop_table.setItem(row, 0, QTableWidgetItem(label))
+            self.prop_table.setItem(row, 1, QTableWidgetItem(str(value)))
+
+        self._install_pcb_fields(selected)
 
     # ── Circuito de demo ─────────────────────────
     def _load_demo_circuit(self):
@@ -1541,7 +1947,6 @@ class MainWindow(MainWindowUI, QMainWindow):
 
     def _reset_zoom(self):
         if self.scene is None:
-            self.view.resetTransform()
             self.view.fitInView(self.view.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
             return
         if self.scene.paper_visible:
@@ -1556,6 +1961,7 @@ class MainWindow(MainWindowUI, QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Kirho")
+    app.setWindowIcon(QIcon(str(Path(__file__).resolve().parent / "assets" / "kirho.png")))
     app.setStyle("Fusion")
     load_translator(app, THEME_MANAGER.load_language())
     window = MainWindow()
